@@ -1,10 +1,10 @@
-package com.daboja.demo;
+package com.daboja;
 
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.SpringBootTest;
 
 @SpringBootTest
-class DemoApplicationTests {
+class DabojaApplicationTests {
 
 	@Test
 	void contextLoads() {
