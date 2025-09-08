@@ -44,7 +44,7 @@ services:
 
   standardizer:
     build:
-      context: ./backend/standardizer-server
+      context: ./backend/private-server/standardizer-server
       dockerfile: Dockerfile
     image: s13p21a402/standardizer-server:latest
     container_name: standardizer-server
@@ -57,7 +57,7 @@ services:
 
   summary:
     build:
-      context: ./backend/summary-server
+      context: ./backend/private-server/summary-server
       dockerfile: Dockerfile
     image: s13p21a402/summary-server:latest
     container_name: summary-server
@@ -70,7 +70,7 @@ services:
 
   news-summary:
     build:
-      context: ./backend/news-summary-server
+      context: ./backend/private-server/news-summary-server
       dockerfile: Dockerfile
     image: s13p21a402/news-summary-server:latest
     container_name: news-summary-server
