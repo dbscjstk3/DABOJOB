@@ -1,0 +1,24 @@
+# Redis
+redis==5.0.1
+
+# MySQL
+pymysql==1.1.0
+
+# AWS S3
+boto3==1.34.0
+
+# Environment variables
+python-dotenv==1.0.0
+
+# HTTP requests
+requests==2.31.0
+
+# Logging
+structlog==23.2.0
+
+# API clients (주석 해제해서 사용)
+# openai==1.3.0
+# anthropic==0.7.0
+
+# Scheduling (주석 해제해서 사용)
+# apscheduler==3.10.4
