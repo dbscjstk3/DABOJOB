@@ -1,7 +1,7 @@
 services:
   app:
     build:
-      context: ./spring-server
+      context: ./services/spring-server
       dockerfile: Dockerfile
     image: s13p21a402/spring-server:latest
     container_name: spring-server
