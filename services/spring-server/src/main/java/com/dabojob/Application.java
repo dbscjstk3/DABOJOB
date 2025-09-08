@@ -1,4 +1,4 @@
-package com.dabojab;
+package com.dabojob;
 
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
