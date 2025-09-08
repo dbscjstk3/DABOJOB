@@ -3,27 +3,27 @@ stages:
   - build-image
 
 variables:
-  GRADLE_USER_HOME: "$CI_PROJECT_DIR/services/spring-server/.gradle"
+  GRADLE_USER_HOME: "$CI_PROJECT_DIR/backend/spring-server/.gradle"
 
 cache:
   key: gradle-cache
   paths:
-    - services/spring-server/.gradle/wrapper
-    - services/spring-server/.gradle/caches
+    - backend/spring-server/.gradle/wrapper
+    - backend/spring-server/.gradle/caches
 
 image: gradle:8.10.2-jdk17-alpine
 
 unit-test:
   stage: test
   before_script:
-    - cd services/spring-server
+    - cd backend/spring-server
     - gradle -v
   script:
     - ./gradlew --no-daemon clean test
   artifacts:
     when: always
     reports:
-      junit: services/spring-server/build/test-results/test/TEST-*.xml
+      junit: backend/spring-server/build/test-results/test/TEST-*.xml
 
 .build_image_template:
   stage: build-image
@@ -38,7 +38,7 @@ unit-test:
     - docker version
     - echo "$CI_REGISTRY_PASSWORD" | docker login -u "$CI_REGISTRY_USER" "$CI_REGISTRY" --password-stdin
   script:
-    - docker build -t "$CI_REGISTRY_IMAGE:${CI_COMMIT_SHORT_SHA}" -f services/spring-server/Dockerfile services/spring-server
+    - docker build -t "$CI_REGISTRY_IMAGE:${CI_COMMIT_SHORT_SHA}" -f backend/spring-server/Dockerfile backend/spring-server
     - docker push "$CI_REGISTRY_IMAGE:${CI_COMMIT_SHORT_SHA}"
   rules:
     - if: $CI_COMMIT_BRANCH
