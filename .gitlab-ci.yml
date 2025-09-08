@@ -1,6 +1,14 @@
+workflow:
+  rules:
+    # 기본은 파이프라인 비활성화. 수동/프로젝트 변수로 CI_ENABLE=true 설정 시에만 동작
+    - if: '$CI_ENABLE == "true"'
+      when: always
+    - when: never
+
 stages:
   - test
   - build-image
+  - deploy
 
 variables:
   GRADLE_USER_HOME: "$CI_PROJECT_DIR/backend/spring-server/.gradle"
@@ -24,6 +32,8 @@ unit-test:
     when: always
     reports:
       junit: backend/spring-server/build/test-results/test/TEST-*.xml
+  rules:
+    - if: $CI_COMMIT_BRANCH
 
 .build_image_template:
   stage: build-image
@@ -40,10 +50,17 @@ unit-test:
   script:
     - docker build -t "$CI_REGISTRY_IMAGE:${CI_COMMIT_SHORT_SHA}" -f backend/spring-server/Dockerfile backend/spring-server
     - docker push "$CI_REGISTRY_IMAGE:${CI_COMMIT_SHORT_SHA}"
+    - |
+      if [ "$CI_COMMIT_BRANCH" = "master" ]; then
+        docker tag "$CI_REGISTRY_IMAGE:${CI_COMMIT_SHORT_SHA}" "$CI_REGISTRY_IMAGE:latest";
+        docker push "$CI_REGISTRY_IMAGE:latest";
+      fi
   rules:
-    - if: $CI_COMMIT_BRANCH
+    - if: '$CI_COMMIT_BRANCH == "BE_dev"'
+    - if: '$CI_COMMIT_BRANCH == "master"'
 
 build-image:
   extends: .build_image_template
+
 
 
