@@ -1,6 +1,6 @@
 # S13P21A402
 
-모노레포 루트입니다. `services/spring-server` 하위에 스프링 부트 애플리케이션이 있습니다.
+모노레포 루트입니다. `backend/spring-server` 하위에 스프링 부트 애플리케이션이 있습니다.
 
 ## 실행 (Docker)
 
@@ -20,5 +20,5 @@ docker compose up -d --build
 
 ## GitLab CI
 - 루트 `.gitlab-ci.yml` 사용
-- 테스트: Gradle test (작업 디렉터리: `services/spring-server`)
-- 이미지: `services/spring-server/Dockerfile`로 빌드/푸시
+- 테스트: Gradle test (작업 디렉터리: `backend/spring-server`)
+- 이미지: `backend/spring-server/Dockerfile`로 빌드/푸시

@@ -1,7 +1,7 @@
 services:
   app:
     build:
-      context: ./services/spring-server
+      context: ./backend/spring-server
       dockerfile: Dockerfile
     image: s13p21a402/spring-server:latest
     container_name: spring-server
@@ -35,10 +35,49 @@ services:
       - MYSQL_ROOT_PASSWORD=password
       - TZ=Asia/Seoul
     ports:
-      - "3307:3307"
+      - "3306:3306"
     volumes:
       - db-data:/var/lib/mysql
     command: ["--default-authentication-plugin=mysql_native_password", "--character-set-server=utf8mb4", "--collation-server=utf8mb4_general_ci"]
+    networks:
+      - app-net
+
+  standardizer:
+    build:
+      context: ./backend/standardizer-server
+      dockerfile: Dockerfile
+    image: s13p21a402/standardizer-server:latest
+    container_name: standardizer-server
+    environment:
+      - TZ=Asia/Seoul
+    ports:
+      - "8000:8000"
+    networks:
+      - app-net
+
+  summary:
+    build:
+      context: ./backend/summary-server
+      dockerfile: Dockerfile
+    image: s13p21a402/summary-server:latest
+    container_name: summary-server
+    environment:
+      - TZ=Asia/Seoul
+    ports:
+      - "8100:8100"
+    networks:
+      - app-net
+
+  news-summary:
+    build:
+      context: ./backend/news-summary-server
+      dockerfile: Dockerfile
+    image: s13p21a402/news-summary-server:latest
+    container_name: news-summary-server
+    environment:
+      - TZ=Asia/Seoul
+    ports:
+      - "8200:8200"
     networks:
       - app-net
 
