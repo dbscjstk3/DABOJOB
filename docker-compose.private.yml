@@ -76,12 +76,6 @@ services:
     ]
     env_file:
       - .env.private
-    environment:
-      - MYSQL_DATABASE=${MYSQL_DATABASE}
-      - MYSQL_USER=${MYSQL_USER}
-      - MYSQL_PASSWORD=${MYSQL_PASSWORD}
-      - MYSQL_ROOT_PASSWORD=${MYSQL_ROOT_PASSWORD}
-      - TZ=Asia/Seoul
     volumes:
       - private-db-data:/var/lib/mysql
       # 필요 시 설정/초기화 스크립트 활성화
@@ -107,11 +101,10 @@ services:
     environment:
       - TZ=Asia/Seoul
       - OLLAMA_HOST=ollama:11434
-      - MODEL_NAME=${STANDARDIZER_MODEL:-qwen2.5:1.8b-instruct-q4_0}
       - REDIS_HOST=redis
       - REDIS_PORT=6379
     ports:
-      - "${STANDARDIZER_PORT:-8000}:8000"
+      - "8000:8000"
     depends_on:
       mysql:
         condition: service_healthy
@@ -143,11 +136,10 @@ services:
     environment:
       - TZ=Asia/Seoul
       - OLLAMA_HOST=ollama:11434
-      - MODEL_NAME=${SUMMARY_MODEL:-qwen2.5:1.8b-instruct-q4_0}
       - REDIS_HOST=redis
       - REDIS_PORT=6379
     ports:
-      - "${SUMMARY_PORT:-8100}:8100"
+      - "8100:8100"
     depends_on:
       mysql:
         condition: service_healthy
@@ -172,11 +164,10 @@ services:
     environment:
       - TZ=Asia/Seoul
       - OLLAMA_HOST=ollama:11434
-      - MODEL_NAME=${NEWS_MODEL:-qwen2.5:0.5b-instruct-fp16}
       - REDIS_HOST=redis
       - REDIS_PORT=6379
     ports:
-      - "${NEWS_SUMMARY_PORT:-8200}:8200"
+      - "8200:8200"
     depends_on:
       mysql:
         condition: service_healthy
