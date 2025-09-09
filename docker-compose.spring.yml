@@ -1,4 +1,5 @@
 version: '3.8'
+
 services:
   mysql:
     image: mysql:8.0.42
@@ -16,10 +17,62 @@ services:
     volumes:
       - spring-db-data:/var/lib/mysql
     healthcheck:
-      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-uroot", "-p${MYSQL_ROOT_PASSWORD}"]
+      # env_file의 MYSQL_ROOT_PASSWORD를 컨테이너 안에서 확장하도록 $${...} 사용
+      test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 -uroot -p$${MYSQL_ROOT_PASSWORD}"]
       interval: 10s
       timeout: 5s
       retries: 15
+    restart: unless-stopped
+    networks:
+      - app-net
+
+  redis:
+    image: redis/redis-stack-server:7.4.0-v6
+    container_name: spring-redis
+    env_file:
+      - .env.spring
+    # requirepass는 커맨드로만 설정 -> 컨테이너 내부에서 $${REDIS_PASSWORD} 확장
+    command: ["redis-server", "--requirepass", "$${REDIS_PASSWORD}"]
+    # 내부 전용이면 ports 생략 (필요 시만 열기)
+    # ports:
+    #   - "6379:6379"
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD-SHELL", "redis-cli -a $${REDIS_PASSWORD} ping | grep PONG"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+    networks:
+      - app-net
+
+  mongo:
+    image: mongo:7.0.14
+    container_name: spring-mongo
+    env_file:
+      - .env.spring
+    environment:
+      # 최초 초기화에 사용됨
+      MONGO_INITDB_DATABASE: $${MONGO_DATABASE}
+      MONGO_INITDB_ROOT_USERNAME: root
+      MONGO_INITDB_ROOT_PASSWORD: $${MONGO_ROOT_PASSWORD}
+    # 내부 전용이면 ports 생략
+    # ports:
+    #   - "27017:27017"
+    volumes:
+      - mongo-data:/data/db
+      # 필요하면 앱용 계정/권한을 만드는 init 스크립트도 마운트 가능
+      # - ./mongo-init.js:/docker-entrypoint-initdb.d/mongo-init.js:ro
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "mongosh --username root --password $${MONGO_ROOT_PASSWORD} --authenticationDatabase admin --eval 'db.runCommand({ ping: 1 })' >/dev/null"
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 10
     restart: unless-stopped
     networks:
       - app-net
@@ -35,10 +88,18 @@ services:
     environment:
       TZ: Asia/Seoul
       JAVA_OPTS: ${JAVA_OPTS}
+      # 고정값은 compose에서 직접 설정해도 OK
+      SPRING_REDIS_HOST: spring-redis
+      SPRING_REDIS_PORT: 6379
+      # 비밀번호/DB index, Mongo URI 등은 .env.spring에서 주입 (여기서 ${...} 쓰지 말기)
     ports:
       - "80:8080"
     depends_on:
       mysql:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      mongo:
         condition: service_healthy
     restart: unless-stopped
     networks:
@@ -46,6 +107,8 @@ services:
 
 volumes:
   spring-db-data:
+  redis-data:
+  mongo-data:
 
 networks:
   app-net:
