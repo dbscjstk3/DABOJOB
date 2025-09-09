@@ -7,7 +7,7 @@ from pydantic import BaseModel
 import ollama
 
 # 공통 모듈 import
-sys.path.append('/app')
+sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 from common.redis_client import RedisStreamClient
 
 # 로깅 설정

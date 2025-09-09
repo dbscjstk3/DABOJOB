@@ -38,10 +38,11 @@ services:
           cpus: '3.0'
           memory: 12G
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:11434/api/tags"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
+      test: ["CMD", "ollama", "list"]
+      interval: 15s
+      timeout: 10s
+      retries: 10
+      start_period: 30s
 
   # 모델 초기화 서비스 (최초 1회)
   model-init:
