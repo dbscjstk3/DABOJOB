@@ -42,11 +42,11 @@ services:
     volumes:
       - redis-data:/data
     healthcheck:
-      test: CMD-SHELL REDISCLI_AUTH="$REDIS_PASSWORD" redis-cli -h 127.0.0.1 ping | grep -q PONG
+      test: ["CMD-SHELL", "REDISCLI_AUTH=\"$REDIS_PASSWORD\" redis-cli -h 127.0.0.1 ping >/dev/null 2>&1"]
       interval: 10s
       timeout: 5s
       retries: 15
-      start_period: 10s
+      start_period: 30s
     restart: unless-stopped
     networks:
       - app-net
