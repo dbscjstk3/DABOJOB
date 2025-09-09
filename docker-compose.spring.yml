@@ -1,0 +1,56 @@
+version: '3.8'
+services:
+  mysql:
+    image: mysql:8.0.42
+    container_name: spring-mysql
+    command: [
+      "--default-authentication-plugin=mysql_native_password",
+      "--character-set-server=utf8mb4",
+      "--collation-server=utf8mb4_general_ci",
+      "--default-time-zone=+09:00"
+    ]
+    env_file:
+      - .env.spring
+    environment:
+      - MYSQL_DATABASE=${MYSQL_DATABASE}
+      - MYSQL_USER=${MYSQL_USER}
+      - MYSQL_PASSWORD=${MYSQL_PASSWORD}
+      - MYSQL_ROOT_PASSWORD=${MYSQL_ROOT_PASSWORD}
+      - TZ=Asia/Seoul
+    volumes:
+      - spring-db-data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u${MYSQL_USER}", "-p${MYSQL_PASSWORD}"]
+      interval: 10s
+      timeout: 5s
+      retries: 15
+    restart: unless-stopped
+    networks:
+      - app-net
+
+  app:
+    build:
+      context: ./backend/spring-server
+      dockerfile: Dockerfile
+    image: s13p21a402/spring-server:latest
+    container_name: spring-server
+    env_file:
+      - .env.spring
+    environment:
+      - TZ=Asia/Seoul
+      - JAVA_OPTS=${JAVA_OPTS}
+    ports:
+      - "80:8080"
+    depends_on:
+      mysql:
+        condition: service_healthy
+    restart: unless-stopped
+    networks:
+      - app-net
+
+volumes:
+  spring-db-data:
+
+networks:
+  app-net:
+    driver: bridge
