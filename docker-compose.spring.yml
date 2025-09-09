@@ -14,7 +14,7 @@ services:
     volumes:
       - spring-db-data:/var/lib/mysql
     healthcheck:
-      # 컨테이너 내부에서 변수 확장되도록 CMD-SHELL 사용
+      # 컨테이너 내부에서 env 확장되도록 CMD-SHELL 사용
       test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 -uroot -p\"$MYSQL_ROOT_PASSWORD\""]
       interval: 10s
       timeout: 5s
@@ -25,11 +25,10 @@ services:
       - app-net
 
   redis:
-    image: redis:7-alpine          # redis-cli 포함 이미지 (헬스체크 안정)
+    image: redis:7-alpine   # redis-cli 포함 이미지
     container_name: spring-redis
     env_file:
       - .env.spring
-    # 컨테이너 내부 쉘에서 환경변수 확장되도록 sh -lc 사용
     command: >
       sh -lc 'exec redis-server
         --requirepass "$REDIS_PASSWORD"
@@ -55,17 +54,14 @@ services:
     container_name: spring-mongo
     env_file:
       - .env.spring
-    environment:
-      # 공식 엔트리포인트가 요구하는 변수명으로 전달
-      MONGO_INITDB_ROOT_USERNAME: root
-      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_ROOT_PASSWORD}
-      MONGO_INITDB_DATABASE: ${MONGO_DATABASE}
+    # MONGO_INITDB_ROOT_USERNAME / MONGO_INITDB_ROOT_PASSWORD / MONGO_INITDB_DATABASE
+    # 는 .env.spring 에서 주입됨 (environment 블록 불필요)
     volumes:
       - mongo-data:/data/db
-      # 필요 시 앱 전용 계정 생성용 init 스크립트 마운트
+      # 앱 전용 계정이 필요하면 아래 init 스크립트 마운트
       # - ./mongo-init.js:/docker-entrypoint-initdb.d/mongo-init.js:ro
     healthcheck:
-      test: ["CMD-SHELL", "mongosh --quiet --username root --password \"$MONGO_ROOT_PASSWORD\" --authenticationDatabase admin --eval 'db.runCommand({ ping: 1 }).ok' | grep 1"]
+      test: ["CMD-SHELL", "mongosh --quiet --username \"$MONGO_INITDB_ROOT_USERNAME\" --password \"$MONGO_INITDB_ROOT_PASSWORD\" --authenticationDatabase admin --eval 'db.runCommand({ ping: 1 }).ok' | grep 1"]
       interval: 10s
       timeout: 10s
       retries: 12
@@ -85,9 +81,6 @@ services:
     environment:
       TZ: Asia/Seoul
       JAVA_OPTS: ${JAVA_OPTS}
-      # (선택) 고정값을 compose에서 강제하고 싶다면 아래 주석 해제
-      # SPRING_REDIS_HOST: redis
-      # SPRING_REDIS_PORT: 6379
     ports:
       - "80:8080"   # 외부 80 → 컨테이너 8080
     depends_on:
