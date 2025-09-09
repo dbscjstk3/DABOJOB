@@ -1,0 +1,101 @@
+services:
+  mysql:
+    image: mysql:8.0.42
+    container_name: spring-mysql
+    command:
+      - "--default-authentication-plugin=mysql_native_password"
+      - "--character-set-server=utf8mb4"
+      - "--collation-server=utf8mb4_general_ci"
+      - "--default-time-zone=+09:00"
+    env_file:
+      - .env.spring
+    environment:
+      TZ: Asia/Seoul
+    volumes:
+      - spring-db-data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 -uroot -p\"$MYSQL_ROOT_PASSWORD\""]
+      interval: 10s
+      timeout: 5s
+      retries: 15
+      start_period: 10s
+    restart: unless-stopped
+    networks:
+      - app-net
+
+  redis:
+    image: redis:7-alpine
+    container_name: spring-redis
+    env_file:
+      - .env.spring
+    command:
+      - /bin/sh
+      - -lc
+      - |
+        exec redis-server \
+          --requirepass "$REDIS_PASSWORD" \
+          --appendonly yes \
+          --appendfsync everysec \
+          --save "" \
+          --maxmemory 256mb \
+          --maxmemory-policy allkeys-lru
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: CMD-SHELL redis-cli -h 127.0.0.1 -a "$REDIS_PASSWORD" ping | grep -q PONG
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+    restart: unless-stopped
+    networks:
+      - app-net
+
+  mongo:
+    image: mongo:7.0.14
+    container_name: spring-mongo
+    env_file:
+      - .env.spring
+    volumes:
+      - mongo-data:/data/db
+    healthcheck:
+      test: ["CMD-SHELL", "mongosh --quiet --username \"$MONGO_INITDB_ROOT_USERNAME\" --password \"$MONGO_INITDB_ROOT_PASSWORD\" --authenticationDatabase admin --eval 'db.runCommand({ ping: 1 }).ok' | grep 1"]
+      interval: 10s
+      timeout: 10s
+      retries: 12
+      start_period: 20s
+    restart: unless-stopped
+    networks:
+      - app-net
+
+  app:
+    build:
+      context: ./backend/spring-server
+      dockerfile: Dockerfile
+    image: s13p21a402/spring-server:latest
+    container_name: spring-server
+    env_file:
+      - .env.spring
+    environment:
+      TZ: Asia/Seoul
+    ports:
+      - "80:8080"
+    depends_on:
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      mongo:
+        condition: service_healthy
+    restart: unless-stopped
+    networks:
+      - app-net
+
+volumes:
+  spring-db-data:
+  redis-data:
+  mongo-data:
+
+networks:
+  app-net:
+    driver: bridge

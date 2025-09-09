@@ -4,6 +4,9 @@
 .env.*.local
 
 # OS generated files
+.env.spring
+.env.private
+.env.*
 .DS_Store
 .DS_Store?
 ._*
@@ -70,6 +73,21 @@ logs/
 docker-data/
 redis-data/
 db-data/
+
+# Gradle files
+.gradle/
+build/
+gradle/wrapper/
+gradlew
+gradlew.bat
+
+# Java/Spring Boot
+*.jar
+*.war
+*.nar
+*.class
+target/
+out/
 
 # Temporary files
 *.tmp
