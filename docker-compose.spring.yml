@@ -43,13 +43,8 @@ services:
     volumes:
       - redis-data:/data
     healthcheck:
-      test:
-        - /bin/sh
-        - -lc
-        - |
-          # 무비번 ping은 실패해야 하고(=NOAUTH), 비번 ping은 PONG 이어야 통과
-          ! redis-cli -h 127.0.0.1 ping >/dev/null 2>&1 \
-          && [ "$(redis-cli -h 127.0.0.1 -a "$REDIS_PASSWORD" ping 2>/dev/null)" = "PONG" ]
+      # ✅ CMD-SHELL 로 수정
+      test: CMD-SHELL ! redis-cli -h 127.0.0.1 ping >/dev/null 2>&1 && [ "$(redis-cli -h 127.0.0.1 -a "$REDIS_PASSWORD" ping 2>/dev/null)" = "PONG" ]
       interval: 10s
       timeout: 5s
       retries: 10
