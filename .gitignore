@@ -1,4 +1,7 @@
 .env
+.env.spring
+.env.private
+.env.*
 .DS_Store
 Thumbs.db
 .idea/

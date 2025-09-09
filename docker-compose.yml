@@ -6,7 +6,7 @@ services:
     image: s13p21a402/spring-server:latest
     container_name: spring-server
     env_file:
-      - .env
+      - .env.spring
     environment:
       # 기본값은 application.yml의 ${...:default} 로 대체됨
       - SPRING_DATASOURCE_URL=${SPRING_DATASOURCE_URL}
@@ -48,10 +48,12 @@ services:
       dockerfile: Dockerfile
     image: s13p21a402/standardizer-server:latest
     container_name: standardizer-server
+    env_file:
+      - .env.private
     environment:
       - TZ=Asia/Seoul
     ports:
-      - "8000:8000"
+      - "${STANDARDIZER_PORT:-8000}:8000"
     networks:
       - app-net
 
@@ -61,10 +63,12 @@ services:
       dockerfile: Dockerfile
     image: s13p21a402/summary-server:latest
     container_name: summary-server
+    env_file:
+      - .env.private
     environment:
       - TZ=Asia/Seoul
     ports:
-      - "8100:8100"
+      - "${SUMMARY_PORT:-8100}:8100"
     networks:
       - app-net
 
@@ -74,10 +78,12 @@ services:
       dockerfile: Dockerfile
     image: s13p21a402/news-summary-server:latest
     container_name: news-summary-server
+    env_file:
+      - .env.private
     environment:
       - TZ=Asia/Seoul
     ports:
-      - "8200:8200"
+      - "${NEWS_SUMMARY_PORT:-8200}:8200"
     networks:
       - app-net
 
