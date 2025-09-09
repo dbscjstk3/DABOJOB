@@ -29,18 +29,27 @@ services:
     container_name: spring-redis
     env_file:
       - .env.spring
-    command: >
-      sh -lc 'exec redis-server
-        --requirepass "$REDIS_PASSWORD"
-        --appendonly yes
-        --appendfsync everysec
-        --save ""
-        --maxmemory 256mb
-        --maxmemory-policy allkeys-lru'
+    command:
+      - /bin/sh
+      - -lc
+      - |
+        exec redis-server \
+          --requirepass "$REDIS_PASSWORD" \
+          --appendonly yes \
+          --appendfsync everysec \
+          --save "" \
+          --maxmemory 256mb \
+          --maxmemory-policy allkeys-lru
     volumes:
       - redis-data:/data
     healthcheck:
-      test: ["CMD-SHELL", "redis-cli -h 127.0.0.1 -a \"$REDIS_PASSWORD\" ping | grep PONG"]
+      test:
+        - /bin/sh
+        - -lc
+        - |
+          # 무비번 ping은 실패해야 하고(=NOAUTH), 비번 ping은 PONG 이어야 통과
+          ! redis-cli -h 127.0.0.1 ping >/dev/null 2>&1 \
+          && [ "$(redis-cli -h 127.0.0.1 -a "$REDIS_PASSWORD" ping 2>/dev/null)" = "PONG" ]
       interval: 10s
       timeout: 5s
       retries: 10
@@ -55,10 +64,10 @@ services:
     env_file:
       - .env.spring
     # MONGO_INITDB_ROOT_USERNAME / MONGO_INITDB_ROOT_PASSWORD / MONGO_INITDB_DATABASE
-    # 는 .env.spring 에서 주입됨 (environment 블록 불필요)
+    # 는 .env.spring 에서 주입 (environment 블록 불필요)
     volumes:
       - mongo-data:/data/db
-      # 앱 전용 계정이 필요하면 아래 init 스크립트 마운트
+      # 앱 전용 계정 필요 시 init 스크립트 마운트
       # - ./mongo-init.js:/docker-entrypoint-initdb.d/mongo-init.js:ro
     healthcheck:
       test: ["CMD-SHELL", "mongosh --quiet --username \"$MONGO_INITDB_ROOT_USERNAME\" --password \"$MONGO_INITDB_ROOT_PASSWORD\" --authenticationDatabase admin --eval 'db.runCommand({ ping: 1 }).ok' | grep 1"]
@@ -80,7 +89,7 @@ services:
       - .env.spring
     environment:
       TZ: Asia/Seoul
-      JAVA_OPTS: ${JAVA_OPTS}
+      # JAVA_OPTS는 env_file 로 주입되므로 여기서 굳이 ${JAVA_OPTS} 치환하지 않음(경고 방지)
     ports:
       - "80:8080"   # 외부 80 → 컨테이너 8080
     depends_on:
