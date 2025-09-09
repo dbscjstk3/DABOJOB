@@ -14,7 +14,6 @@ services:
     volumes:
       - spring-db-data:/var/lib/mysql
     healthcheck:
-      # 컨테이너 내부에서 env 확장되도록 CMD-SHELL 사용
       test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 -uroot -p\"$MYSQL_ROOT_PASSWORD\""]
       interval: 10s
       timeout: 5s
@@ -25,7 +24,7 @@ services:
       - app-net
 
   redis:
-    image: redis:7-alpine   # redis-cli 포함 이미지
+    image: redis:7-alpine
     container_name: spring-redis
     env_file:
       - .env.spring
@@ -43,8 +42,7 @@ services:
     volumes:
       - redis-data:/data
     healthcheck:
-      # ✅ CMD-SHELL 로 수정
-      test: CMD-SHELL ! redis-cli -h 127.0.0.1 ping >/dev/null 2>&1 && [ "$(redis-cli -h 127.0.0.1 -a "$REDIS_PASSWORD" ping 2>/dev/null)" = "PONG" ]
+      test: CMD-SHELL redis-cli -h 127.0.0.1 -a "$REDIS_PASSWORD" ping | grep -q PONG
       interval: 10s
       timeout: 5s
       retries: 10
@@ -58,12 +56,8 @@ services:
     container_name: spring-mongo
     env_file:
       - .env.spring
-    # MONGO_INITDB_ROOT_USERNAME / MONGO_INITDB_ROOT_PASSWORD / MONGO_INITDB_DATABASE
-    # 는 .env.spring 에서 주입 (environment 블록 불필요)
     volumes:
       - mongo-data:/data/db
-      # 앱 전용 계정 필요 시 init 스크립트 마운트
-      # - ./mongo-init.js:/docker-entrypoint-initdb.d/mongo-init.js:ro
     healthcheck:
       test: ["CMD-SHELL", "mongosh --quiet --username \"$MONGO_INITDB_ROOT_USERNAME\" --password \"$MONGO_INITDB_ROOT_PASSWORD\" --authenticationDatabase admin --eval 'db.runCommand({ ping: 1 }).ok' | grep 1"]
       interval: 10s
@@ -84,9 +78,8 @@ services:
       - .env.spring
     environment:
       TZ: Asia/Seoul
-      # JAVA_OPTS는 env_file 로 주입되므로 여기서 굳이 ${JAVA_OPTS} 치환하지 않음(경고 방지)
     ports:
-      - "80:8080"   # 외부 80 → 컨테이너 8080
+      - "80:8080"
     depends_on:
       mysql:
         condition: service_healthy
