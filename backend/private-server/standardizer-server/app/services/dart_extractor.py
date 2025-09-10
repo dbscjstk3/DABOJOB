@@ -3,7 +3,7 @@ import os
 import re
 from datetime import datetime
 from typing import Optional, Tuple
-from OpenDartReader import OpenDartReader
+import OpenDartReader
 from bs4 import BeautifulSoup
 import pandas as pd
 
@@ -59,12 +59,13 @@ class DartDocumentExtractor:
             logger.error(f"Error searching reports: {e}")
             return None, None, None
     
-    def extract_document_text(self, rcp_no: str) -> str:
+    def extract_document_text(self, rcp_no: str, extract_business_only: bool = True) -> str:
         """
         접수번호로 공시문서 원문을 텍스트로 추출
         
         Args:
             rcp_no (str): 접수번호
+            extract_business_only (bool): True면 'II. 사업의 내용' 섹션만 추출
         
         Returns:
             str: 추출된 텍스트
@@ -79,13 +80,15 @@ class DartDocumentExtractor:
                 logger.warning("Failed to download document")
                 return ""
             
-            logger.info("Parsing XML and extracting text...")
-            
             # BeautifulSoup으로 XML 파싱
             soup = BeautifulSoup(xml_text, 'xml')
             
-            # 텍스트 추출
-            extracted_text = self._parse_xml_to_text(soup)
+            if extract_business_only:
+                logger.info("Extracting 'II. 사업의 내용' section only...")
+                extracted_text = self._extract_business_section(soup)
+            else:
+                logger.info("Parsing XML and extracting full text...")
+                extracted_text = self._parse_xml_to_text(soup)
             
             logger.info(f"Text extraction completed: {len(extracted_text):,} characters")
             return extracted_text
@@ -158,6 +161,67 @@ class DartDocumentExtractor:
                     text_parts.append(text.strip())
         
         return '\n'.join(text_parts) if text_parts else ""
+    
+    def _extract_business_section(self, soup: BeautifulSoup) -> str:
+        """
+        'II. 사업의 내용' 섹션만 추출 (III. 재무에 관한 사항 전까지)
+        """
+        import re
+        
+        try:
+            # 전체 텍스트 가져오기
+            full_text = soup.get_text()
+            
+            # II. 사업의 내용 시작 지점 찾기
+            start_patterns = [
+                r'II[\s\.]+사업의\s*내용',
+                r'2[\s\.]+사업의\s*내용',
+                r'제\s*2\s*부[\s\.]+사업의\s*내용'
+            ]
+            
+            # III. 재무에 관한 사항 시작 지점 찾기 (종료 지점)
+            end_patterns = [
+                r'III[\s\.]+재무에\s*관한\s*사항',
+                r'3[\s\.]+재무에\s*관한\s*사항',
+                r'제\s*3\s*부[\s\.]+재무에\s*관한\s*사항'
+            ]
+            
+            start_idx = -1
+            end_idx = len(full_text)
+            
+            # 시작 지점 찾기
+            for pattern in start_patterns:
+                match = re.search(pattern, full_text, re.IGNORECASE)
+                if match:
+                    start_idx = match.start()
+                    logger.info(f"Found start of business section at position {start_idx}")
+                    break
+            
+            if start_idx == -1:
+                logger.warning("Could not find 'II. 사업의 내용' section")
+                return ""
+            
+            # 종료 지점 찾기 (시작 지점 이후에서 검색)
+            search_text = full_text[start_idx:]
+            for pattern in end_patterns:
+                match = re.search(pattern, search_text, re.IGNORECASE)
+                if match:
+                    end_idx = start_idx + match.start()
+                    logger.info(f"Found end of business section at position {end_idx}")
+                    break
+            
+            # 섹션 추출
+            business_section = full_text[start_idx:end_idx]
+            
+            # 텍스트 정리
+            business_section = re.sub(r'\s+', ' ', business_section)  # 과도한 공백 제거
+            business_section = business_section.strip()
+            
+            return business_section
+            
+        except Exception as e:
+            logger.error(f"Error extracting business section: {e}")
+            return ""
     
     def _extract_table_text(self, table) -> str:
         """
