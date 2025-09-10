@@ -1,11 +1,96 @@
+# Environment files
 .env
+.env.local
+.env.*.local
+
+# OS generated files
 .env.spring
 .env.private
 .env.*
 .DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
 Thumbs.db
+
+# IDE files
 .idea/
 .vscode/
-.gradle/
+*.swp
+*.swo
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
+.venv/
+
+# Python virtual environments
+backend/private-server/venv/
+backend/private-server/.env
+
+# Python cache and compiled files
+*.pyc
+*.pyo
+*.pyd
 build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Jupyter Notebook
+.ipynb_checkpoints
+
+# Data directories (테스트 데이터)
+/app/data/
+backend/private-server/app/
+
+# Logs
+*.log
+logs/
+
+# Docker volumes
+docker-data/
+redis-data/
+db-data/
+
+# Gradle files
+.gradle/
+gradle/wrapper/
+gradlew
+gradlew.bat
+
+# Java/Spring Boot
+*.jar
+*.war
+*.nar
+*.class
+target/
+out/
+
+# Temporary files
+*.tmp
+*.temp
+.cache/
+
 !gradle/wrapper/gradle-wrapper.jar

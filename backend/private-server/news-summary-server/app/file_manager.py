@@ -1,0 +1,159 @@
+"""
+EC2 파일 시스템 관리
+"""
+import os
+import json
+import logging
+from pathlib import Path
+from typing import Dict, List, Optional
+from .config import DATA_ROOT
+
+logger = logging.getLogger(__name__)
+
+class FileManager:
+    """파일 시스템 관리 클래스"""
+    
+    def __init__(self, mapping_id: int):
+        self.mapping_id = mapping_id
+        self.base_path = Path(DATA_ROOT) / str(mapping_id)
+        
+        # 디렉토리 구조
+        self.raw_dir = self.base_path / "raw"
+        self.standardized_dir = self.base_path / "standardized" 
+        self.summaries_dir = self.base_path / "summaries"
+        
+        # 디렉토리 생성
+        self._create_directories()
+    
+    def _create_directories(self):
+        """필요한 디렉토리 생성"""
+        for directory in [self.raw_dir, self.standardized_dir, self.summaries_dir]:
+            directory.mkdir(parents=True, exist_ok=True)
+            logger.debug(f"Created directory: {directory}")
+    
+    def save_raw_data(self, filename: str, data: str or Dict):
+        """원본 데이터 저장"""
+        file_path = self.raw_dir / filename
+        
+        if isinstance(data, dict):
+            with open(file_path, 'w', encoding='utf-8') as f:
+                json.dump(data, f, ensure_ascii=False, indent=2)
+        else:
+            with open(file_path, 'w', encoding='utf-8') as f:
+                f.write(data)
+                
+        logger.info(f"Saved raw data: {file_path}")
+        return str(file_path)
+    
+    def save_standardized_chapter(self, chapter: int, chapter_name: str, content: str) -> str:
+        """표준화된 챕터 저장"""
+        filename = f"chapter_{chapter}_{chapter_name}.txt"
+        file_path = self.standardized_dir / filename
+        
+        with open(file_path, 'w', encoding='utf-8') as f:
+            f.write(content)
+            
+        logger.info(f"Saved standardized chapter {chapter}: {file_path}")
+        return str(file_path)
+    
+    def save_summary(self, chapter: int, summary_text: str) -> str:
+        """요약 저장"""
+        filename = f"chapter_{chapter}_summary.txt"
+        file_path = self.summaries_dir / filename
+        
+        with open(file_path, 'w', encoding='utf-8') as f:
+            f.write(summary_text)
+            
+        logger.info(f"Saved summary for chapter {chapter}: {file_path}")
+        return str(file_path)
+    
+    def read_standardized_chapter(self, chapter: int) -> Optional[str]:
+        """표준화된 챕터 읽기"""
+        # 파일명 패턴 찾기 (chapter_name이 다를 수 있음)
+        pattern = f"chapter_{chapter}_*.txt"
+        matching_files = list(self.standardized_dir.glob(pattern))
+        
+        if not matching_files:
+            logger.error(f"No standardized file found for chapter {chapter}")
+            return None
+            
+        file_path = matching_files[0]  # 첫 번째 매칭 파일 사용
+        
+        try:
+            with open(file_path, 'r', encoding='utf-8') as f:
+                content = f.read()
+                logger.debug(f"Read standardized chapter {chapter}: {file_path}")
+                return content
+        except Exception as e:
+            logger.error(f"Error reading {file_path}: {e}")
+            return None
+    
+    def read_summary(self, chapter: int) -> Optional[str]:
+        """요약 읽기"""
+        filename = f"chapter_{chapter}_summary.txt"
+        file_path = self.summaries_dir / filename
+        
+        if not file_path.exists():
+            logger.error(f"Summary file not found: {file_path}")
+            return None
+            
+        try:
+            with open(file_path, 'r', encoding='utf-8') as f:
+                content = f.read()
+                logger.debug(f"Read summary for chapter {chapter}")
+                return content
+        except Exception as e:
+            logger.error(f"Error reading {file_path}: {e}")
+            return None
+    
+    def read_all_summaries(self) -> Dict[int, str]:
+        """모든 요약 읽기"""
+        summaries = {}
+        
+        for chapter in range(1, 6):  # 1-5 챕터
+            summary = self.read_summary(chapter)
+            if summary:
+                summaries[chapter] = summary
+                
+        logger.info(f"Read {len(summaries)} summaries for mapping_id={self.mapping_id}")
+        return summaries
+    
+    def get_standardized_file_path(self, chapter: int) -> Optional[str]:
+        """표준화된 파일 경로 반환"""
+        pattern = f"chapter_{chapter}_*.txt"
+        matching_files = list(self.standardized_dir.glob(pattern))
+        
+        if matching_files:
+            return str(matching_files[0])
+        return None
+    
+    def list_files(self) -> Dict[str, List[str]]:
+        """모든 파일 목록 반환"""
+        files = {
+            'raw': [f.name for f in self.raw_dir.glob('*') if f.is_file()],
+            'standardized': [f.name for f in self.standardized_dir.glob('*') if f.is_file()],
+            'summaries': [f.name for f in self.summaries_dir.glob('*') if f.is_file()]
+        }
+        return files
+    
+    def cleanup(self):
+        """파일 정리 (테스트용)"""
+        import shutil
+        if self.base_path.exists():
+            shutil.rmtree(self.base_path)
+            logger.info(f"Cleaned up files for mapping_id={self.mapping_id}")
+    
+    @classmethod
+    def ensure_data_root(cls):
+        """데이터 루트 디렉토리 생성"""
+        Path(DATA_ROOT).mkdir(parents=True, exist_ok=True)
+        logger.info(f"Ensured data root directory: {DATA_ROOT}")
+
+# 챕터명 매핑
+CHAPTER_NAMES = {
+    1: "business",      # 사업의 개요
+    2: "products",      # 주요 제품 및 서비스
+    3: "revenue",       # 매출 및 수주 상황
+    4: "contracts",     # 주요계약 및 연구개발
+    5: "others"         # 기타 참고사항
+}
