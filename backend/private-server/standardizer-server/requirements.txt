@@ -6,4 +6,3 @@ OpenDartReader==0.1.8
 beautifulsoup4==4.12.3
 pandas==2.2.2
 lxml==4.9.3
-python-dotenv==1.0.0
