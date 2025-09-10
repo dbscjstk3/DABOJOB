@@ -6,3 +6,4 @@ OpenDartReader==0.2.3
 beautifulsoup4==4.12.3
 pandas==2.2.2
 lxml==4.9.3
+redis==5.0.1
