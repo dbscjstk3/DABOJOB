@@ -37,3 +37,6 @@ dist-ssr
 # Vite
 .vite/
 *.local
+
+# TanStack Router
+.tanstack/
