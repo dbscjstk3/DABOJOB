@@ -13,13 +13,14 @@ RUN apt-get update \
     && apt-get install -y --no-install-recommends build-essential \
     && rm -rf /var/lib/apt/lists/*
 
+# Copy requirements.txt first
 COPY requirements.txt ./
 RUN pip install --upgrade pip \
     && pip install -r requirements.txt
 
-# Copy application code (including redis_client, config, file_manager in app/)
-COPY . .
+# Copy only app directory contents to /app (avoiding nested app/app structure)
+COPY app/* ./
 
 EXPOSE 8200
 
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8200"]
+CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8200"]
