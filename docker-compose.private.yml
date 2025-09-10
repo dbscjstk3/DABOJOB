@@ -60,8 +60,8 @@ services:
       echo 'Waiting for Ollama server...'
       sleep 5
       echo 'Pulling models...'
-      ollama pull qwen2.5:1.8b-instruct-q4_0 --host ollama:11434
-      ollama pull qwen2.5:0.5b-instruct-fp16 --host ollama:11434
+      OLLAMA_HOST=http://ollama:11434 ollama pull qwen2.5:1.8b-instruct-q4_0
+      OLLAMA_HOST=http://ollama:11434 ollama pull qwen2.5:0.5b-instruct-fp16
       echo 'Model initialization complete!'
       "
 
