@@ -76,7 +76,6 @@ db-data/
 
 # Gradle files
 .gradle/
-build/
 gradle/wrapper/
 gradlew
 gradlew.bat
@@ -93,3 +92,5 @@ out/
 *.tmp
 *.temp
 .cache/
+
+!gradle/wrapper/gradle-wrapper.jar
