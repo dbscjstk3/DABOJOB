@@ -134,9 +134,7 @@ def _summarize_chunk(ollama_client, model_name: str, text: str, target_length: i
 5. 객관적 사실만 나열
 
 텍스트:
-{text}
-
-핵심 요약:"""
+{text}"""
     
     try:
         response = ollama_client.chat(
@@ -172,9 +170,7 @@ def _integrate_summaries(ollama_client, model_name: str, summaries: List[str], m
 6. 자연스러운 하나의 문단으로 작성
 
 개별 요약들:
-{combined_text}
-
-통합 요약:"""
+{combined_text}"""
     
     try:
         response = ollama_client.chat(
