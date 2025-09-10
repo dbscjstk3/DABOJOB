@@ -1,8 +1,14 @@
 import os
 import logging
+import sys
+from typing import Optional
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 import ollama
+
+# utils 모듈 import
+sys.path.append(os.path.dirname(__file__))
+from utils import qwen_summarize_long
 
 # 로깅 설정
 logging.basicConfig(level=logging.INFO)
@@ -23,6 +29,7 @@ class SummarizeRequest(BaseModel):
     content: str
     file_path: str = ""
     max_length: int = 500
+    enable_chunking: Optional[bool] = True
 
 class SummarizeResponse(BaseModel):
     mapping_id: int
@@ -62,32 +69,15 @@ def health_check() -> dict:
 async def summarize_content(request: SummarizeRequest) -> SummarizeResponse:
     """텍스트 요약 처리"""
     try:
-        logger.info(f"Processing summary: mapping_id={request.mapping_id}, chapter={request.chapter}")
+        logger.info(f"Processing summary: mapping_id={request.mapping_id}, chapter={request.chapter}, content_length={len(request.content)}, max_length={request.max_length}")
         
-        # 요약 프롬프트
-        prompt = f"""다음 텍스트를 핵심 내용 중심으로 요약해주세요:
-
-원본 텍스트:
-{request.content}
-
-요약 요구사항:
-1. 핵심 정보만 포함
-2. {request.max_length}자 이내로 작성
-3. 명확하고 간결한 문장 사용
-
-요약문:"""
-        
-        # Ollama API 호출
-        response = ollama_client.chat(
-            model=MODEL_NAME,
-            messages=[{"role": "user", "content": prompt}],
-            options={
-                "temperature": 0.3,
-                "top_p": 0.9
-            }
+        # 개선된 Qwen 모델을 사용한 긴 텍스트 요약
+        summary = qwen_summarize_long(
+            ollama_client=ollama_client,
+            model_name=MODEL_NAME,
+            text=request.content,
+            max_length=request.max_length
         )
-        
-        summary = response['message']['content'].strip()
         
         logger.info(f"Summary completed: mapping_id={request.mapping_id}")
         
