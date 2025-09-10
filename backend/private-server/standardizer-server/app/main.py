@@ -6,9 +6,8 @@ from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 import ollama
 
-# 공통 모듈 import
-sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
-from common.redis_client import RedisStreamClient
+# Redis 모듈 import (같은 디렉토리에서)
+from redis_client import RedisStreamClient
 
 # 로깅 설정
 logging.basicConfig(level=logging.INFO)

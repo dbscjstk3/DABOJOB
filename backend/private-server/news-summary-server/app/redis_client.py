@@ -6,7 +6,7 @@ import json
 import logging
 from datetime import datetime
 from typing import Dict, List, Optional, Tuple
-from .config import (
+from config import (
     REDIS_HOST, REDIS_PORT, REDIS_DB,
     STREAM_SUMMARY, STREAM_NEWS, STREAM_COMPLETE,
     GROUP_SUMMARY, GROUP_NEWS

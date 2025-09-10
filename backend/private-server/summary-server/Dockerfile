@@ -23,7 +23,7 @@ COPY requirements.txt ./
 RUN pip install --upgrade pip \
     && pip install -r requirements.txt
 
-# 애플리케이션 코드 복사
+# 애플리케이션 코드 복사 (including redis_client, config, file_manager in app/)
 COPY . .
 
 # Hugging Face 캐시 디렉토리 생성

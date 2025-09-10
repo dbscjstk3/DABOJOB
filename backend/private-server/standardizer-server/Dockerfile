@@ -17,6 +17,7 @@ COPY requirements.txt ./
 RUN pip install --upgrade pip \
     && pip install -r requirements.txt
 
+# Copy application code (including redis_client, config, file_manager in app/)
 COPY . .
 
 EXPOSE 8000

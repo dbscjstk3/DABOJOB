@@ -4,7 +4,8 @@ FROM python:3.11-slim
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
     PIP_NO_CACHE_DIR=1 \
-    TZ=Asia/Seoul
+    TZ=Asia/Seoul \
+    PYTHONPATH=/app:/app/common
 
 WORKDIR /app
 
@@ -16,6 +17,7 @@ COPY requirements.txt ./
 RUN pip install --upgrade pip \
     && pip install -r requirements.txt
 
+# Copy application code (including redis_client, config, file_manager in app/)
 COPY . .
 
 EXPOSE 8200
