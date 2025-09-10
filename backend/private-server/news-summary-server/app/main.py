@@ -1,8 +1,11 @@
 import os
 import logging
+from typing import Optional
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 import ollama
+
+from .utils import qwen_summarize
 
 # 로깅 설정
 logging.basicConfig(level=logging.INFO)
@@ -22,6 +25,7 @@ class NewsSummarizeRequest(BaseModel):
     chapter: int
     summary: str
     file_path: str = ""
+    target_sentences: Optional[int] = 2
 
 class NewsSummarizeResponse(BaseModel):
     mapping_id: int
@@ -63,31 +67,13 @@ async def news_summarize_content(request: NewsSummarizeRequest) -> NewsSummarize
     try:
         logger.info(f"Processing news summary: mapping_id={request.mapping_id}, chapter={request.chapter}")
         
-        # 뉴스 스타일 요약 프롬프트
-        prompt = f"""다음 요약문을 뉴스 헤드라인 스타일로 재작성해주세요:
-
-원본 요약:
-{request.summary}
-
-뉴스 스타일 요구사항:
-1. 간결하고 임팩트 있는 표현
-2. 핵심 수치와 사실 중심
-3. 객관적이고 중립적인 톤
-4. 2문장으로 압축
-
-뉴스 헤드라인:"""
-        
-        # Ollama API 호출
-        response = ollama_client.chat(
-            model=MODEL_NAME,
-            messages=[{"role": "user", "content": prompt}],
-            options={
-                "temperature": 0.5,
-                "top_p": 0.9
-            }
+        # 개선된 Qwen 모델을 사용한 요약
+        news_summary = qwen_summarize(
+            ollama_client=ollama_client,
+            model_name=MODEL_NAME,
+            text=request.summary,
+            target_sentences=request.target_sentences or 2
         )
-        
-        news_summary = response['message']['content'].strip()
         
         logger.info(f"News summary completed: mapping_id={request.mapping_id}")
         
