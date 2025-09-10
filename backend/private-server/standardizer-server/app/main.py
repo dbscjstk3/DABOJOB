@@ -87,8 +87,8 @@ async def extract_dart_document(request: DartExtractRequest) -> DartExtractRespo
         if not rcp_no:
             raise HTTPException(status_code=404, detail=f"No reports found for {request.company_name}")
         
-        # 텍스트 추출
-        # 'II. 사업의 내용' 섹션만 추출\n        extracted_text = dart_extractor.extract_document_text(rcp_no, extract_business_only=True)
+        # 텍스트 추출 ('II. 사업의 내용' 섹션만)
+        extracted_text = dart_extractor.extract_document_text(rcp_no, extract_business_only=True)
         
         if not extracted_text:
             raise HTTPException(status_code=500, detail="Failed to extract document text")
@@ -129,7 +129,8 @@ async def extract_and_standardize_dart(request: DartStandardizeRequest) -> DartS
         if not rcp_no:
             raise HTTPException(status_code=404, detail=f"No reports found for {request.company_name}")
         
-        # 'II. 사업의 내용' 섹션만 추출\n        extracted_text = dart_extractor.extract_document_text(rcp_no, extract_business_only=True)
+        # 'II. 사업의 내용' 섹션만 추출
+        extracted_text = dart_extractor.extract_document_text(rcp_no, extract_business_only=True)
         
         if not extracted_text:
             raise HTTPException(status_code=500, detail="Failed to extract document text")
