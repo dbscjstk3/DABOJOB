@@ -1,10 +1,9 @@
-# Environment files
-.env.private
+# OS generated files
 .env.spring
+.env.private
 .env.local
 .env.*.local
-
-# OS generated files
+.env.*
 .DS_Store
 .DS_Store?
 ._*
@@ -16,6 +15,7 @@ Thumbs.db
 # IDE files
 .idea/
 .vscode/
+
 *.swp
 *.swo
 
@@ -76,3 +76,7 @@ db-data/
 *.tmp
 *.temp
 .cache/
+
+.gradle/
+build/
+!gradle/wrapper/gradle-wrapper.jar

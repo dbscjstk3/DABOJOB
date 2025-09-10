@@ -7,6 +7,9 @@ COPY build.gradle settings.gradle .
 COPY gradle gradle
 COPY gradlew gradlew
 
+# ⬇︎ 실행권한 + 윈도우 줄끝 제거(있다면)
+RUN chmod +x gradlew && sed -i 's/\r$//' gradlew
+
 # 의존성 프리페치 (소스 없이도 종속성 캐시)
 RUN ./gradlew --no-daemon dependencies || true
 
