@@ -1,0 +1,164 @@
+version: '3.8'
+
+services:
+  mysql:
+    image: mysql:8.0.42
+    container_name: private-mysql
+    command: [
+      "--default-authentication-plugin=mysql_native_password",
+      "--character-set-server=utf8mb4",
+      "--collation-server=utf8mb4_general_ci",
+      "--default-time-zone=+09:00"
+    ]
+    env_file:
+      - .env.private
+    environment:
+      - MYSQL_DATABASE=${MYSQL_DATABASE}
+      - MYSQL_USER=${MYSQL_USER}
+      - MYSQL_PASSWORD=${MYSQL_PASSWORD}
+      - MYSQL_ROOT_PASSWORD=${MYSQL_ROOT_PASSWORD}
+      - TZ=Asia/Seoul
+    volumes:
+      - private-db-data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u${MYSQL_USER}", "-p${MYSQL_PASSWORD}"]
+      interval: 10s
+      timeout: 5s
+      retries: 15
+    restart: unless-stopped
+    networks:
+      - app-net
+
+  ollama:
+    image: ollama/ollama:latest
+    container_name: private-ollama
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama-data:/root/.ollama
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:11434/api/tags"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    restart: unless-stopped
+    networks:
+      - app-net
+    # GPU 사용 시 추가 (선택사항)
+    # deploy:
+    #   resources:
+    #     reservations:
+    #       devices:
+    #         - driver: nvidia
+    #           count: 1
+    #           capabilities: [gpu]
+
+  redis:
+    image: redis:7-alpine
+    container_name: private-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+    restart: unless-stopped
+    networks:
+      - app-net
+
+  standardizer:
+    build:
+      context: ./backend/private-server/standardizer-server
+      dockerfile: Dockerfile
+    image: s13p21a402/standardizer-server:latest
+    container_name: standardizer-server
+    env_file:
+      - .env.private
+    environment:
+      - TZ=Asia/Seoul
+      - OLLAMA_BASE_URL=http://ollama:11434
+    ports:
+      - "${STANDARDIZER_PORT:-8000}:8000"
+    depends_on:
+      mysql:
+        condition: service_healthy
+      ollama:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    networks:
+      - app-net
+    restart: unless-stopped
+
+  summary:
+    build:
+      context: ./backend/private-server/summary-server
+      dockerfile: Dockerfile
+    image: s13p21a402/summary-server:latest
+    container_name: summary-server
+    env_file:
+      - .env.private
+    environment:
+      - TZ=Asia/Seoul
+      - OLLAMA_BASE_URL=http://ollama:11434
+    ports:
+      - "${SUMMARY_PORT:-8100}:8100"
+    depends_on:
+      mysql:
+        condition: service_healthy
+      ollama:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8100/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    networks:
+      - app-net
+    restart: unless-stopped
+
+  news-summary:
+    build:
+      context: ./backend/private-server/news-summary-server
+      dockerfile: Dockerfile
+    image: s13p21a402/news-summary-server:latest
+    container_name: news-summary-server
+    env_file:
+      - .env.private
+    environment:
+      - TZ=Asia/Seoul
+      - OLLAMA_BASE_URL=http://ollama:11434
+    ports:
+      - "${NEWS_SUMMARY_PORT:-8200}:8200"
+    depends_on:
+      mysql:
+        condition: service_healthy
+      ollama:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8200/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    networks:
+      - app-net
+    restart: unless-stopped
+
+volumes:
+  private-db-data:
+  ollama-data:
+  redis-data:
+
+networks:
+  app-net:
+    driver: bridge

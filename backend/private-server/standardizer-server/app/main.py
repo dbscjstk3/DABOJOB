@@ -3,7 +3,7 @@ import logging
 from fastapi import FastAPI, HTTPException
 
 from .models.standardizer_models import StandardizeRequest, StandardizeResponse
-from .models.dart_models import DartExtractRequest, DartExtractResponse, DartStandardizeRequest, DartStandardizeResponse
+from .models.dart_models import DartExtractRequest, DartExtractResponse, DartStandardizeRequest, DartStandardizeResponse, DartSubsectionResponse
 from .services.standardizer import StandardizerService
 from .services.dart_extractor import DartDocumentExtractor
 
@@ -157,6 +157,55 @@ async def extract_and_standardize_dart(request: DartStandardizeRequest) -> DartS
         raise
     except Exception as e:
         logger.error(f"DART extraction + standardization failed: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/dart-subsections", response_model=DartSubsectionResponse)
+async def extract_dart_subsections(request: DartExtractRequest) -> DartSubsectionResponse:
+    """DART 문서를 소제목별로 구조화하여 추출"""
+    if not dart_extractor:
+        raise HTTPException(status_code=503, detail="DART extraction service not available")
+    
+    try:
+        logger.info(f"Processing DART subsection extraction: mapping_id={request.mapping_id}, company={request.company_name}")
+        
+        # 최신 보고서 조회
+        rcp_no, report_nm, rcept_dt = dart_extractor.get_latest_report(
+            request.company_name, 
+            request.report_type
+        )
+        
+        if not rcp_no:
+            raise HTTPException(status_code=404, detail=f"No reports found for {request.company_name}")
+        
+        # XML 다운로드 및 파싱
+        xml_text = dart_extractor.dart.document(rcp_no)
+        if not xml_text:
+            raise HTTPException(status_code=500, detail="Failed to download document")
+        
+        from bs4 import BeautifulSoup
+        soup = BeautifulSoup(xml_text, 'xml')
+        
+        # 소제목별 구조화 추출
+        subsections = dart_extractor.extract_business_subsections(soup)
+        
+        if not subsections:
+            raise HTTPException(status_code=500, detail="Failed to extract subsections")
+        
+        logger.info(f"DART subsection extraction completed: mapping_id={request.mapping_id}")
+        
+        return DartSubsectionResponse(
+            mapping_id=request.mapping_id,
+            company_name=request.company_name,
+            report_name=report_nm,
+            report_date=rcept_dt,
+            receipt_no=rcp_no,
+            subsections=subsections
+        )
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"DART subsection extraction failed: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 if __name__ == "__main__":

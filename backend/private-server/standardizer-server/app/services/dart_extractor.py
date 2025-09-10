@@ -180,10 +180,11 @@ class DartDocumentExtractor:
             ]
             
             # III. 재무에 관한 사항 시작 지점 찾기 (종료 지점)
+            # 실제 섹션 제목만 인식하도록 엄격한 패턴 사용
             end_patterns = [
-                r'III[\s\.]+재무에\s*관한\s*사항',
-                r'3[\s\.]+재무에\s*관한\s*사항',
-                r'제\s*3\s*부[\s\.]+재무에\s*관한\s*사항'
+                r'\n\s*III[\s\.]+재무에\s*관한\s*사항(?=\s*\n)',       # 줄바꿈으로 둘러싸인 경우
+                r'\n\s*3[\s\.]+재무에\s*관한\s*사항(?=\s*\n)',         # 줄바꿈으로 둘러싸인 경우
+                r'\n\s*제\s*3\s*부[\s\.]+재무에\s*관한\s*사항(?=\s*\n)' # 줄바꿈으로 둘러싸인 경우
             ]
             
             start_idx = -1
@@ -222,6 +223,179 @@ class DartDocumentExtractor:
         except Exception as e:
             logger.error(f"Error extracting business section: {e}")
             return ""
+    
+    def extract_business_subsections(self, soup: BeautifulSoup) -> dict:
+        """
+        'II. 사업의 내용' 섹션을 소제목별로 구조화하여 추출
+        
+        Returns:
+            dict: 소제목을 키로 하고 내용을 값으로 하는 딕셔너리
+        """
+        import re
+        
+        try:
+            # 전체 텍스트 가져오기
+            full_text = soup.get_text()
+            
+            # II. 사업의 내용 시작 지점 찾기
+            start_patterns = [
+                r'II[\s\.]+사업의\s*내용',
+                r'2[\s\.]+사업의\s*내용',
+                r'제\s*2\s*부[\s\.]+사업의\s*내용'
+            ]
+            
+            # III. 재무에 관한 사항 시작 지점 찾기 (종료 지점)
+            # 실제 섹션 제목만 인식하도록 엄격한 패턴 사용
+            end_patterns = [
+                r'\n\s*III[\s\.]+재무에\s*관한\s*사항(?=\s*\n)',       # 줄바꿈으로 둘러싸인 경우
+                r'\n\s*3[\s\.]+재무에\s*관한\s*사항(?=\s*\n)',         # 줄바꿈으로 둘러싸인 경우
+                r'\n\s*제\s*3\s*부[\s\.]+재무에\s*관한\s*사항(?=\s*\n)' # 줄바꿈으로 둘러싸인 경우
+            ]
+            
+            start_idx = -1
+            end_idx = len(full_text)
+            
+            # 시작 지점 찾기 - "II. 사업의 내용" 이후 "1. 사업의 개요" 찾기
+            for pattern in start_patterns:
+                match = re.search(pattern, full_text, re.IGNORECASE)
+                if match:
+                    section_end = match.end()
+                    # "II. 사업의 내용" 이후에서 "1. 사업의 개요" 찾기
+                    remaining_text = full_text[section_end:]
+                    content_match = re.search(r'1\.\s*사업의\s*개요', remaining_text, re.IGNORECASE)
+                    
+                    if content_match:
+                        start_idx = section_end + content_match.start()
+                        logger.info(f"Found '1. 사업의 개요' at position {start_idx}")
+                    else:
+                        # "1. 사업의 개요"를 못 찾으면 원래 위치 사용
+                        start_idx = match.start()
+                        logger.warning("Could not find '1. 사업의 개요', using section title position")
+                    break
+            
+            if start_idx == -1:
+                logger.warning("Could not find 'II. 사업의 내용' section")
+                return {}
+            
+            # 종료 지점 찾기 - "III. 재무에 관한 사항" 시작점 찾기
+            search_text = full_text[start_idx:]
+            for pattern in end_patterns:
+                match = re.search(pattern, search_text, re.IGNORECASE)
+                if match:
+                    # "III. 재무에 관한 사항" 시작점에서 끝내기
+                    end_idx = start_idx + match.start()
+                    logger.info(f"Found 'III. 재무에 관한 사항' at position {end_idx}")
+                    break
+            
+            # 사업 섹션 텍스트 추출
+            business_text = full_text[start_idx:end_idx]
+            logger.info(f"Business section extracted: {len(business_text):,} characters")
+            
+            # 대제목 패턴: "1.", "2.", "3." 형태로 시작하는 제목들
+            major_section_pattern = r'^[\s]*([0-9]+\.\s+[가-힣].+)$'
+            
+            subsections = {}
+            lines = business_text.split('\n')
+            current_title = None
+            current_content = []
+            
+            logger.info(f"Processing {len(lines):,} lines for subsection extraction")
+            
+            last_section_number = 0
+            
+            for i, line in enumerate(lines):
+                try:
+                    line = line.strip()
+                    if not line:
+                        continue
+                    
+                    # 대제목 패턴 확인 (1. 사업의 개요, 2. 주요 제품 및 서비스 등)
+                    match = re.match(major_section_pattern, line)
+                    if match:
+                        title_candidate = match.group(1).strip()
+                        
+                        # 섹션 번호 추출
+                        section_number_match = re.match(r'^(\d+)\.', title_candidate)
+                        if section_number_match:
+                            section_number = int(section_number_match.group(1))
+                            
+                            # 순차적 증가 확인: 이전 번호보다 1 증가하거나 첫 번째 섹션(1번)
+                            if section_number == 1 or section_number == last_section_number + 1:
+                                # 이전 소제목의 내용 저장
+                                if current_title and current_content:
+                                    subsections[current_title] = '\n'.join(current_content).strip()
+                                
+                                # 새 소제목 설정
+                                current_title = title_candidate
+                                current_content = []
+                                last_section_number = section_number
+                                logger.info(f"Found major section #{len(subsections)+1}: {title_candidate}")
+                                continue
+                            else:
+                                # 순차적이지 않은 번호는 무시 (법조항 등)
+                                logger.debug(f"Skipping non-sequential section: {title_candidate} (expected: {last_section_number + 1}, got: {section_number})")
+                        else:
+                            # 번호를 추출할 수 없는 경우도 무시
+                            logger.debug(f"Skipping section without clear number: {title_candidate}")
+                    
+                    # 소제목이 아니면 내용으로 추가
+                    if current_title:
+                        current_content.append(line)
+                    else:
+                        # 첫 번째 소제목 이전의 내용은 "개요"로 분류
+                        if "개요" not in subsections:
+                            subsections["개요"] = ""
+                        subsections["개요"] += line + "\n"
+                        
+                except Exception as e:
+                    logger.error(f"Error processing line {i+1}: {e}")
+                    logger.error(f"Problematic line: {line[:100]}")
+                    continue
+            
+            # 마지막 소제목 내용 저장
+            if current_title and current_content:
+                subsections[current_title] = '\n'.join(current_content).strip()
+            
+            # 텍스트 정리
+            for key in subsections:
+                content = subsections[key]
+                content = re.sub(r'\s+', ' ', content)  # 과도한 공백 제거
+                subsections[key] = content.strip()
+            
+            # 추가로 놓친 섹션이 있는지 확인
+            remaining_lines = business_text.split('\n')[len([l for l in business_text.split('\n') if l.strip()]):] 
+            
+            # 처리하지 못한 대제목이 있는지 검사
+            unprocessed_sections = []
+            for line in business_text.split('\n'):
+                line = line.strip()
+                if re.match(major_section_pattern, line):
+                    section_title = re.match(major_section_pattern, line).group(1).strip()
+                    if section_title not in subsections:
+                        unprocessed_sections.append(section_title)
+            
+            if unprocessed_sections:
+                logger.warning(f"Found {len(unprocessed_sections)} unprocessed sections:")
+                for section in unprocessed_sections:
+                    logger.warning(f"  - {section}")
+            
+            # 각 섹션별 글자 수 로그 출력
+            section_info = []
+            total_chars = 0
+            for key, content in subsections.items():
+                char_count = len(content)
+                total_chars += char_count
+                section_info.append(f"{key}: {char_count:,}자")
+            
+            logger.info(f"Extracted {len(subsections)} subsections (총 {total_chars:,}자):")
+            for info in section_info:
+                logger.info(f"  - {info}")
+            
+            return subsections
+            
+        except Exception as e:
+            logger.error(f"Error extracting business subsections: {e}")
+            return {}
     
     def _extract_table_text(self, table) -> str:
         """
