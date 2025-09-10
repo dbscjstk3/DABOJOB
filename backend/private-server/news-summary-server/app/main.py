@@ -73,7 +73,7 @@ async def news_summarize_content(request: NewsSummarizeRequest) -> NewsSummarize
 1. 간결하고 임팩트 있는 표현
 2. 핵심 수치와 사실 중심
 3. 객관적이고 중립적인 톤
-4. 1-2문장으로 압축
+4. 2문장으로 압축
 
 뉴스 헤드라인:"""
         
