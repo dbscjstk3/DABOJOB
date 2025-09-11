@@ -1,3 +1,6 @@
+"""
+Redis 클라이언트 - Summary Server용
+"""
 import json
 import logging
 import os
@@ -18,9 +21,9 @@ class RedisClient:
         """
         self.redis_url = redis_url or os.getenv('REDIS_URL', 'redis://redis:6379')
         self.redis = None
-        self.jobs_stream = "standardization_jobs"
-        self.consumer_group = "standardizer_workers"
-        self.consumer_name = "worker_1"
+        self.summarization_stream = "summarization_jobs"
+        self.consumer_group = "summary_workers"
+        self.consumer_name = "summary_worker_1"
     
     async def initialize(self):
         """Redis 연결 초기화"""
@@ -35,7 +38,7 @@ class RedisClient:
             try:
                 await asyncio.to_thread(
                     self.redis.xgroup_create,
-                    self.jobs_stream,
+                    self.summarization_stream,
                     self.consumer_group,
                     id='0',
                     mkstream=True
@@ -51,78 +54,9 @@ class RedisClient:
             logger.error(f"Failed to initialize Redis: {e}")
             raise
     
-    async def submit_job(self, job_data: Dict) -> str:
+    async def get_pending_summarization_jobs(self, count: int = 10):
         """
-        작업을 Redis Stream에 제출
-        
-        Args:
-            job_data (dict): 작업 데이터
-            
-        Returns:
-            str: 스트림 ID
-        """
-        try:
-            # 작업 데이터를 JSON으로 직렬화
-            serialized_data = {}
-            for key, value in job_data.items():
-                if isinstance(value, (dict, list)):
-                    serialized_data[key] = json.dumps(value, ensure_ascii=False)
-                else:
-                    serialized_data[key] = str(value)
-            
-            # Redis Stream에 추가
-            stream_id = await asyncio.to_thread(
-                self.redis.xadd,
-                self.jobs_stream,
-                serialized_data
-            )
-            
-            logger.info(f"Submitted job to stream: {stream_id}")
-            return stream_id
-            
-        except Exception as e:
-            logger.error(f"Failed to submit job: {e}")
-            raise
-    
-    async def submit_summarization_job(self, job_data: Dict) -> str:
-        """
-        Summary Server용 Redis Stream에 요약 작업 제출
-        
-        Args:
-            job_data (dict): 요약 작업 데이터
-            
-        Returns:
-            str: 스트림 ID
-        """
-        try:
-            # Summary Server용 스트림명
-            summary_stream = "summarization_jobs"
-            
-            # 작업 데이터를 JSON으로 직렬화
-            serialized_data = {}
-            for key, value in job_data.items():
-                if isinstance(value, (dict, list)):
-                    serialized_data[key] = json.dumps(value, ensure_ascii=False)
-                else:
-                    serialized_data[key] = str(value)
-            
-            # Summary Server용 Redis Stream에 추가
-            stream_id = await asyncio.to_thread(
-                self.redis.xadd,
-                summary_stream,
-                serialized_data
-            )
-            
-            logger.info(f"Submitted summarization job to stream: {stream_id}")
-            return stream_id
-            
-        except Exception as e:
-            logger.error(f"Failed to submit summarization job: {e}")
-            raise
-    
-    async def get_pending_jobs(self, count: int = 10):
-        """
-        처리 대기중인 작업들 가져오기
+        처리 대기중인 요약 작업들 가져오기
         
         Args:
             count (int): 가져올 작업 수
@@ -136,9 +70,9 @@ class RedisClient:
                 self.redis.xreadgroup,
                 self.consumer_group,
                 self.consumer_name,
-                {self.jobs_stream: '>'},
+                {self.summarization_stream: '>'},
                 count=count,
-                block=1000  # 1초 대기
+                block=30000  # 30초 대기
             )
             
             jobs = []
@@ -162,7 +96,7 @@ class RedisClient:
             return jobs
             
         except Exception as e:
-            logger.error(f"Failed to get pending jobs: {e}")
+            logger.error(f"Failed to get pending summarization jobs: {e}")
             return []
     
     async def ack_job(self, stream_id: str):
@@ -175,29 +109,30 @@ class RedisClient:
         try:
             await asyncio.to_thread(
                 self.redis.xack,
-                self.jobs_stream,
+                self.summarization_stream,
                 self.consumer_group,
                 stream_id
             )
-            logger.info(f"Acknowledged job: {stream_id}")
+            logger.info(f"Acknowledged summarization job: {stream_id}")
             
         except Exception as e:
             logger.error(f"Failed to acknowledge job: {e}")
     
     async def update_job_status(self, job_id: str, status: str, progress: Optional[Dict] = None):
         """
-        작업 상태 업데이트
+        작업 상태 업데이트 (Standardizer Server와 공유)
         
         Args:
             job_id (str): 작업 ID
-            status (str): 상태 (pending, in_progress, completed, failed)
+            status (str): 상태 (summarization_in_progress, summarization_completed, summarization_failed)
             progress (dict): 진행률 정보
         """
         try:
             status_key = f"job_status:{job_id}"
             status_data = {
                 'status': status,
-                'updated_at': datetime.now().isoformat()
+                'updated_at': datetime.now().isoformat(),
+                'service': 'summary_server'
             }
             
             if progress:
@@ -216,35 +151,6 @@ class RedisClient:
             
         except Exception as e:
             logger.error(f"Failed to update job status: {e}")
-    
-    async def get_job_status(self, job_id: str) -> Optional[Dict]:
-        """
-        작업 상태 조회
-        
-        Args:
-            job_id (str): 작업 ID
-            
-        Returns:
-            dict: 상태 정보 또는 None
-        """
-        try:
-            status_key = f"job_status:{job_id}"
-            status_data = await asyncio.to_thread(self.redis.hgetall, status_key)
-            
-            if not status_data:
-                return None
-            
-            # 숫자 필드 변환
-            if 'current_step' in status_data:
-                status_data['current_step'] = int(status_data['current_step'])
-            if 'total_steps' in status_data:
-                status_data['total_steps'] = int(status_data['total_steps'])
-            
-            return status_data
-            
-        except Exception as e:
-            logger.error(f"Failed to get job status: {e}")
-            return None
     
     async def close(self):
         """Redis 연결 종료"""

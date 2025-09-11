@@ -171,21 +171,24 @@ class BackgroundWorker:
             # 6. 작업 완료 메타데이터 업데이트
             self.file_manager.update_job_stage(job_id, "categorization", "completed")
             
-            # 7. 작업 완료
+            # 7. Summary Server로 요약 요청 전송
+            await self._send_summarization_request(job_id, company_name)
+            
+            # 8. 작업 완료
             await self.redis_client.update_job_status(
                 job_id, 
                 "completed", 
                 {
-                    "stage": "completed",
+                    "stage": "standardization_completed",
                     "current_step": 8,
-                    "total_steps": 8,
-                    "message": "All processing completed successfully",
+                    "total_steps": 10,  # 요약 단계 추가
+                    "message": "Standardization completed, summarization request sent",
                     "completed_at": datetime.now().isoformat()
                 }
             )
             
             await self.redis_client.ack_job(stream_id)
-            logger.info(f"Job completed successfully: {job_id}")
+            logger.info(f"Standardization job completed, summarization request sent: {job_id}")
             
         except Exception as e:
             logger.error(f"Job failed: {job_id}, error: {e}")
@@ -201,3 +204,54 @@ class BackgroundWorker:
             )
             
             await self.redis_client.ack_job(stream_id)
+    
+    async def _send_summarization_request(self, job_id: str, company_name: str):
+        """
+        Summary Server로 요약 요청 메시지 전송
+        
+        Args:
+            job_id (str): 작업 ID
+            company_name (str): 회사명
+        """
+        try:
+            # 카테고리별 파일 경로 생성
+            job_path = self.file_manager.get_job_path(job_id)
+            standardized_path = job_path / "standardized"
+            
+            categorized_files = {
+                "business_overview": str(standardized_path / "business_overview.txt"),
+                "products_services": str(standardized_path / "products_services.txt"),
+                "revenue_orders": str(standardized_path / "revenue_orders.txt"),
+                "contracts_rnd": str(standardized_path / "contracts_rnd.txt"),
+                "other_references": str(standardized_path / "other_references.txt")
+            }
+            
+            # 요약 요청 메시지 준비
+            summarization_request = {
+                "job_id": job_id,
+                "stage": "summarization_request",
+                "company_name": company_name,
+                "categorized_files": categorized_files,
+                "requested_at": datetime.now().isoformat(),
+                "source_service": "standardizer"
+            }
+            
+            # Summary Server용 Redis Stream에 메시지 전송
+            summary_stream_id = await self.redis_client.submit_summarization_job(summarization_request)
+            
+            logger.info(f"Summarization request sent: job_id={job_id}, stream_id={summary_stream_id}")
+            
+            # 메타데이터 업데이트
+            metadata_update = {
+                "summarization_request": {
+                    "sent_at": datetime.now().isoformat(),
+                    "stream_id": summary_stream_id,
+                    "status": "sent"
+                }
+            }
+            self.file_manager.save_metadata(job_id, metadata_update)
+            
+        except Exception as e:
+            logger.error(f"Failed to send summarization request for job {job_id}: {e}")
+            # 실패해도 전체 작업은 성공으로 처리 (요약은 선택사항)
+            pass
