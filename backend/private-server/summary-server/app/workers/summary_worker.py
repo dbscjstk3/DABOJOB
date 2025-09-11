@@ -83,97 +83,61 @@ class SummaryWorker:
         logger.info("Summary worker stopped")
     
     async def process_summarization_job(self, stream_id: str, job_data: dict):
-        """요약 작업 처리"""
+        """카테고리별 요약 작업 처리"""
         job_id = job_data.get('job_id')
+        category = job_data.get('category')
+        file_path = job_data.get('file_path')
         
         try:
-            logger.info(f"Processing summarization job: {job_id}")
+            logger.info(f"Processing category summarization: job_id={job_id}, category={category}")
             
-            # 1. 작업 시작 상태 업데이트
+            # 1. 카테고리 요약 시작 상태 업데이트
             await self.redis_client.update_job_status(
                 job_id,
-                "summarization_in_progress",
+                "category_summarization_in_progress",
                 {
-                    "stage": "summarization",
-                    "current_step": 9,
-                    "total_steps": 10,
-                    "message": "Starting summarization of categorized files"
+                    "stage": "category_summarization",
+                    "category": category,
+                    "message": f"Summarizing {category}"
                 }
             )
             
-            # 2. 카테고리별 파일 경로 가져오기
-            categorized_files = job_data.get('categorized_files', {})
+            # 2. 단일 카테고리 요약 수행
             company_name = job_data.get('company_name', 'Unknown')
+            config = self.category_configs.get(category, {"max_length": 500})
             
-            # 3. 병렬로 카테고리별 요약 수행
-            await self._process_categories_parallel(job_id, categorized_files)
+            await self._summarize_single_category(job_id, category, file_path, config)
             
-            # 4. 메타데이터 저장
-            metadata = {
-                "job_id": job_id,
-                "company_name": company_name,
-                "summarization_completed_at": datetime.now().isoformat(),
-                "categories_processed": list(categorized_files.keys())
-            }
-            self.file_manager.save_metadata(job_id, metadata)
-            
-            # 5. 최종 완료 상태 업데이트
+            # 3. 카테고리 완료 상태 업데이트
             await self.redis_client.update_job_status(
                 job_id,
-                "summarization_completed",
+                "category_summarization_completed",
                 {
-                    "stage": "summarization_completed",
-                    "current_step": 10,
-                    "total_steps": 10,
-                    "message": "All categories summarized successfully",
+                    "stage": "category_summarization_completed",
+                    "category": category,
+                    "message": f"Category {category} summarized successfully",
                     "completed_at": datetime.now().isoformat()
                 }
             )
             
             await self.redis_client.ack_job(stream_id)
-            logger.info(f"Summarization job completed successfully: {job_id}")
+            logger.info(f"Category summarization completed: job_id={job_id}, category={category}")
             
         except Exception as e:
-            logger.error(f"Summarization job failed: {job_id}, error: {e}")
+            logger.error(f"Category summarization failed: job_id={job_id}, category={category}, error: {e}")
             
             await self.redis_client.update_job_status(
                 job_id,
-                "summarization_failed",
+                "category_summarization_failed",
                 {
-                    "stage": "summarization_failed",
+                    "stage": "category_summarization_failed",
+                    "category": category,
                     "error": str(e),
                     "failed_at": datetime.now().isoformat()
                 }
             )
             
             await self.redis_client.ack_job(stream_id)
-    
-    async def _process_categories_parallel(self, job_id: str, categorized_files: Dict[str, str]):
-        """카테고리별 파일을 병렬로 요약 처리"""
-        try:
-            # 병렬 처리를 위한 태스크 리스트
-            tasks = []
-            
-            for category, file_path in categorized_files.items():
-                if category in self.category_configs:
-                    task = self._summarize_single_category(
-                        job_id, category, file_path, 
-                        self.category_configs[category]
-                    )
-                    tasks.append(task)
-            
-            # 모든 카테고리 병렬 처리
-            logger.info(f"Starting parallel summarization of {len(tasks)} categories")
-            results = await asyncio.gather(*tasks, return_exceptions=True)
-            
-            # 결과 확인
-            for i, result in enumerate(results):
-                if isinstance(result, Exception):
-                    logger.error(f"Category summarization failed: {result}")
-            
-        except Exception as e:
-            logger.error(f"Parallel summarization failed: {e}")
-            raise
     
     async def _summarize_single_category(self, job_id: str, category: str, file_path: str, config: Dict):
         """단일 카테고리 파일 요약 처리"""

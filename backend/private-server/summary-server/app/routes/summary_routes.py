@@ -6,6 +6,7 @@ from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 from typing import Optional
 import ollama
+import os
 
 from ..services.file_manager import FileManager
 from ..utils import qwen_summarize_long

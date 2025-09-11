@@ -218,7 +218,7 @@ class BackgroundWorker:
             job_path = self.file_manager.get_job_path(job_id)
             standardized_path = job_path / "standardized"
             
-            categorized_files = {
+            categories = {
                 "business_overview": str(standardized_path / "business_overview.txt"),
                 "products_services": str(standardized_path / "products_services.txt"),
                 "revenue_orders": str(standardized_path / "revenue_orders.txt"),
@@ -226,26 +226,33 @@ class BackgroundWorker:
                 "other_references": str(standardized_path / "other_references.txt")
             }
             
-            # 요약 요청 메시지 준비
-            summarization_request = {
-                "job_id": job_id,
-                "stage": "summarization_request",
-                "company_name": company_name,
-                "categorized_files": categorized_files,
-                "requested_at": datetime.now().isoformat(),
-                "source_service": "standardizer"
-            }
+            # 각 카테고리별로 개별 요약 요청 메시지 전송
+            summary_stream_ids = []
+            for category, file_path in categories.items():
+                category_request = {
+                    "job_id": job_id,
+                    "stage": "category_summarization_request", 
+                    "company_name": company_name,
+                    "category": category,
+                    "file_path": file_path,
+                    "requested_at": datetime.now().isoformat(),
+                    "source_service": "standardizer"
+                }
+                
+                # Summary Server용 Redis Stream에 카테고리별 메시지 전송
+                stream_id = await self.redis_client.submit_summarization_job(category_request)
+                summary_stream_ids.append(stream_id)
+                logger.info(f"Category summarization request sent: job_id={job_id}, category={category}, stream_id={stream_id}")
             
-            # Summary Server용 Redis Stream에 메시지 전송
-            summary_stream_id = await self.redis_client.submit_summarization_job(summarization_request)
-            
-            logger.info(f"Summarization request sent: job_id={job_id}, stream_id={summary_stream_id}")
+            logger.info(f"All category summarization requests sent: job_id={job_id}, total_categories={len(summary_stream_ids)}")
             
             # 메타데이터 업데이트
             metadata_update = {
-                "summarization_request": {
+                "summarization_requests": {
                     "sent_at": datetime.now().isoformat(),
-                    "stream_id": summary_stream_id,
+                    "stream_ids": summary_stream_ids,
+                    "categories": list(categories.keys()),
+                    "total_categories": len(categories),
                     "status": "sent"
                 }
             }
