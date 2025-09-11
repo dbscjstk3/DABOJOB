@@ -154,6 +154,82 @@ class FileManager:
             
             logger.info(f"Saved standardized file: {file_path} ({len(content):,} characters)")
     
+    def save_categorized_files(self, job_id: str, categorized_chapters: Dict[str, List[str]]) -> None:
+        """
+        카테고리별로 분류된 챕터들을 파일에 저장 (append 방식)
+        
+        Args:
+            job_id (str): 작업 ID
+            categorized_chapters (dict): {카테고리명: [챕터 내용 리스트]}
+        """
+        job_path = self.create_job_directory(job_id)
+        standardized_path = job_path / "standardized"
+        
+        # 5개 카테고리 파일명 매핑
+        category_files = {
+            'business_overview': 'business_overview.txt',
+            'products_services': 'products_services.txt',
+            'revenue_orders': 'revenue_orders.txt',
+            'contracts_rnd': 'contracts_rnd.txt',
+            'other_references': 'other_references.txt'
+        }
+        
+        for category, contents in categorized_chapters.items():
+            if category not in category_files:
+                logger.warning(f"Unknown category: {category}, skipping")
+                continue
+            
+            file_path = standardized_path / category_files[category]
+            
+            # 파일에 append (이미 존재하면 이어서 쓰기)
+            mode = 'a' if file_path.exists() else 'w'
+            with open(file_path, mode, encoding='utf-8') as f:
+                for content in contents:
+                    f.write(content)
+                    # 각 챕터 사이에 구분선 추가
+                    f.write('\n' + '='*80 + '\n')
+            
+            total_chars = sum(len(c) for c in contents)
+            logger.info(f"Saved to {category} file: {file_path} ({len(contents)} chapters, {total_chars:,} total characters)")
+    
+    def append_to_category_file(self, job_id: str, category: str, title: str, content: str) -> None:
+        """
+        특정 카테고리 파일에 챕터 내용 추가
+        
+        Args:
+            job_id (str): 작업 ID
+            category (str): 카테고리명 (business_overview, products_services, ...)
+            title (str): 챕터 제목
+            content (str): 챕터 내용
+        """
+        job_path = self.create_job_directory(job_id)
+        standardized_path = job_path / "standardized"
+        
+        # 카테고리별 파일명
+        category_files = {
+            'business_overview': 'business_overview.txt',
+            'products_services': 'products_services.txt',
+            'revenue_orders': 'revenue_orders.txt',
+            'contracts_rnd': 'contracts_rnd.txt',
+            'other_references': 'other_references.txt'
+        }
+        
+        if category not in category_files:
+            logger.warning(f"Unknown category: {category}, defaulting to other_references")
+            category = 'other_references'
+        
+        file_path = standardized_path / category_files[category]
+        
+        # 파일에 append
+        mode = 'a' if file_path.exists() else 'w'
+        with open(file_path, mode, encoding='utf-8') as f:
+            # 챕터 제목과 내용 작성
+            f.write(f"\n\n=== {title} ===\n\n")
+            f.write(content)
+            f.write('\n' + '='*80 + '\n')
+        
+        logger.info(f"Appended chapter '{title}' to {category} file: {file_path} ({len(content):,} characters)")
+    
     def save_summary_files(self, job_id: str, summaries: Dict[str, str]) -> None:
         """
         요약 파일들을 저장
@@ -251,3 +327,39 @@ class FileManager:
         }
         
         self.save_metadata(job_id, metadata)
+    
+    def get_categorized_files(self, job_id: str) -> Dict[str, str]:
+        """
+        카테고리별 파일 내용 조회
+        
+        Args:
+            job_id (str): 작업 ID
+            
+        Returns:
+            dict: {카테고리명: 파일 내용}
+        """
+        job_path = self.get_job_path(job_id)
+        standardized_path = job_path / "standardized"
+        
+        category_files = {
+            'business_overview': 'business_overview.txt',
+            'products_services': 'products_services.txt',
+            'revenue_orders': 'revenue_orders.txt',
+            'contracts_rnd': 'contracts_rnd.txt',
+            'other_references': 'other_references.txt'
+        }
+        
+        result = {}
+        for category, filename in category_files.items():
+            file_path = standardized_path / filename
+            if file_path.exists():
+                try:
+                    with open(file_path, 'r', encoding='utf-8') as f:
+                        result[category] = f.read()
+                except Exception as e:
+                    logger.error(f"Failed to read {file_path}: {e}")
+                    result[category] = None
+            else:
+                result[category] = None
+        
+        return result

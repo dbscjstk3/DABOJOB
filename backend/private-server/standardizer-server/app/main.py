@@ -137,15 +137,17 @@ async def process_single_job(stream_id: str, job_data: dict):
             }
         )
         
-        # 5. 각 챕터별 표준화
-        standardized_chapters = {}
+        # 5. 각 챕터별 분류 및 표준화
         total_chapters = len(subsections)
         
         for i, (title, content) in enumerate(subsections.items(), 1):
-            logger.info(f"Standardizing chapter {i}/{total_chapters}: {title}")
+            logger.info(f"Classifying and standardizing chapter {i}/{total_chapters}: {title}")
             
-            standardized_content = await standardizer_service.standardize_text(content)
-            standardized_chapters[title] = standardized_content
+            # 분류와 표준화를 동시에 수행
+            category, standardized_content = await standardizer_service.classify_and_standardize(title, content)
+            
+            # 카테고리별 파일에 append
+            file_manager.append_to_category_file(job_id, category, title, standardized_content)
             
             await redis_client.update_job_status(
                 job_id, 
@@ -155,12 +157,13 @@ async def process_single_job(stream_id: str, job_data: dict):
                     "current_step": i + 1,
                     "total_steps": 8,
                     "current_chapter": title,
-                    "message": f"Completed {i}/{total_chapters} chapters"
+                    "category": category,
+                    "message": f"Completed {i}/{total_chapters} chapters - {title} -> {category}"
                 }
             )
         
-        # 6. 표준화된 파일 저장
-        file_manager.save_standardized_files(job_id, standardized_chapters)
+        # 6. 작업 완료 메타데이터 업데이트
+        file_manager.update_job_stage(job_id, "categorization", "completed")
         
         # 7. 작업 완료
         await redis_client.update_job_status(
@@ -371,13 +374,12 @@ async def extract_dart_subsections(request: DartExtractRequest) -> DartSubsectio
         file_manager.update_job_stage(job_id, "raw_extraction", "completed")
         file_manager.update_job_stage(job_id, "standardization", "in_progress")
         
-        # 표준화된 파일들 저장 (standardized/)
-        standardized_chapters = {}
+        # 분류 및 표준화된 파일들 저장 (standardized/)
         for title, content in subsections.items():
-            standardized_content = await standardizer_service.standardize_text(content)
-            standardized_chapters[title] = standardized_content
-        
-        file_manager.save_standardized_files(job_id, standardized_chapters)
+            # 분류와 표준화를 동시에 수행
+            category, standardized_content = await standardizer_service.classify_and_standardize(title, content)
+            # 카테고리별 파일에 append
+            file_manager.append_to_category_file(job_id, category, title, standardized_content)
         
         # 표준화 단계 완료
         file_manager.update_job_stage(job_id, "standardization", "completed")
@@ -569,6 +571,49 @@ def get_standardized_data(job_id: str):
         raise
     except Exception as e:
         logger.error(f"Failed to get standardized data: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/jobs/{job_id}/categorized")
+def get_categorized_data(job_id: str):
+    """카테고리별로 분류된 데이터 조회"""
+    try:
+        if not file_manager.job_exists(job_id):
+            raise HTTPException(status_code=404, detail=f"Job {job_id} not found")
+        
+        # 카테고리별 파일 내용 조회
+        categorized_files = file_manager.get_categorized_files(job_id)
+        
+        # 각 카테고리별 챕터 수와 크기 계산
+        category_stats = {}
+        for category, content in categorized_files.items():
+            if content:
+                # 챕터 구분자로 챕터 수 계산
+                chapter_count = content.count('===') // 2  # 시작과 끝 === 쌍
+                category_stats[category] = {
+                    "chapters": chapter_count,
+                    "size": len(content),
+                    "exists": True
+                }
+            else:
+                category_stats[category] = {
+                    "chapters": 0,
+                    "size": 0,
+                    "exists": False
+                }
+        
+        metadata = file_manager.load_metadata(job_id)
+        
+        return {
+            "job_id": job_id,
+            "metadata": metadata,
+            "categorized_files": categorized_files,
+            "category_stats": category_stats
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Failed to get categorized data: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 if __name__ == "__main__":
