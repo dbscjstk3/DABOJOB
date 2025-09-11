@@ -56,6 +56,8 @@ services:
     #   timeout: 10s
     #   retries: 3
     #   start_period: 30s
+    volumes:
+      - shared-data:/app/data
     networks:
       - app-net
     restart: unless-stopped
@@ -75,6 +77,8 @@ services:
     depends_on:
       mysql:
         condition: service_healthy
+    volumes:
+      - shared-data:/app/data
     networks:
       - app-net
     restart: unless-stopped
@@ -100,6 +104,7 @@ services:
 
 volumes:
   private-db-data:
+  shared-data:
 
 networks:
   app-net:

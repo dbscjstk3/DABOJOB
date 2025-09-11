@@ -94,6 +94,8 @@ services:
       timeout: 10s
       retries: 3
       start_period: 30s
+    volumes:
+      - shared-data:/app/data
     networks:
       - app-net
     restart: unless-stopped
@@ -122,6 +124,8 @@ services:
       timeout: 10s
       retries: 3
       start_period: 30s
+    volumes:
+      - shared-data:/app/data
     networks:
       - app-net
     restart: unless-stopped
@@ -158,6 +162,7 @@ volumes:
   private-db-data:
   ollama-data:
   redis-data:
+  shared-data:
 
 networks:
   app-net:

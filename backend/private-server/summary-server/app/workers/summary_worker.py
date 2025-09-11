@@ -8,13 +8,9 @@ from datetime import datetime
 from concurrent.futures import ThreadPoolExecutor
 from typing import Dict
 
-import sys
-import os
-sys.path.append(os.path.dirname(os.path.dirname(__file__)))
-
-from services.redis_client import RedisClient
-from services.file_manager import FileManager
-from utils import qwen_summarize_long
+from ..services.redis_client import RedisClient
+from ..services.file_manager import FileManager
+from ..utils import qwen_summarize_long
 import ollama
 
 logger = logging.getLogger(__name__)
