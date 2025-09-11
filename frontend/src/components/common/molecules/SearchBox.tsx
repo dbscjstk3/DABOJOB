@@ -133,42 +133,44 @@ export function SearchBox({
   );
 
   return (
-    <div
-      ref={wrapperRef}
-      className={[
-        // 한 박스로 보이도록 래퍼가 border/round/shadow를 관리
-        'w-full max-w-3xl bg-white border border-slate-300 shadow-sm',
-        open ? 'rounded-2xl' : 'rounded-full',
-        'overflow-hidden',
-        className ?? '',
-      ].join(' ')}
-    >
+    <div ref={wrapperRef} className={['relative w-full', className ?? ''].join(' ')}>
       {/* 상단 입력 줄 */}
-      <SearchBar
-        value={query}
-        onChange={(v) => {
-          setQuery(v);
-          // 입력 시 즉시 열지 않고, API 응답이 오면 열리도록(깜빡임 방지)
-          // setOpen(true); // 필요 시 포커스 즉시 열리게 하려면 사용
-        }}
-        onSubmit={handleSubmit}
-        isLoading={loading}
-        placeholder={placeholder}
-        ariaControlsId="search-suggestions"
-        formRef={formRef}
-      />
-
-      {/* 결과 리스트 (같은 래퍼 내부에 렌더 → 한 박스처럼 아래로 확장) */}
-      {open && (
-        <SearchResult
-          id="search-suggestions"
-          items={items}
-          activeIndex={activeIndex}
-          onHover={setActiveIndex}
-          onSelect={handleSelect}
-          loading={loading}
-          className="w-full"
+      <div
+        className={[
+          'w-full bg-white border border-slate-300 shadow-sm',
+          open ? 'rounded-t-2xl' : 'rounded-full',
+        ].join(' ')}
+      >
+        <SearchBar
+          value={query}
+          onChange={(v) => {
+            setQuery(v);
+            // 입력 시 즉시 열지 않고, API 응답이 오면 열리도록(깜빡임 방지)
+            // setOpen(true); // 필요 시 포커스 즉시 열리게 하려면 사용
+          }}
+          onSubmit={handleSubmit}
+          isLoading={loading}
+          placeholder={placeholder}
+          ariaControlsId="search-suggestions"
+          formRef={formRef}
         />
+      </div>
+
+      {/* 결과 리스트 (절대 위치로 아래에 표시) */}
+      {open && (
+        <div className="absolute top-full left-0 right-0 z-50 mt-1">
+          <div className="bg-white border border-slate-300 rounded-b-2xl shadow-lg">
+            <SearchResult
+              id="search-suggestions"
+              items={items}
+              activeIndex={activeIndex}
+              onHover={setActiveIndex}
+              onSelect={handleSelect}
+              loading={loading}
+              className="w-full"
+            />
+          </div>
+        </div>
       )}
     </div>
   );

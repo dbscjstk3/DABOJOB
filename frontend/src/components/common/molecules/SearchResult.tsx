@@ -43,7 +43,7 @@ export function SearchResult({
       <ul
         id={id}
         role="listbox"
-        className="max-h-64 overflow-auto py-2"
+        className="max-h-64 overflow-auto py-5"
         aria-busy={loading || undefined}
       >
         {/* 로딩 상태 */}
@@ -65,7 +65,7 @@ export function SearchResult({
                 aria-selected={isActive}
                 className={cn(
                   'group relative flex items-center',
-                  'px-4 py-1.5 text-sm cursor-pointer select-none',
+                  'px-4 py-2.5 text-sm cursor-pointer select-none',
                   'hover:bg-slate-100',
                   isActive && 'bg-slate-100',
                 )}

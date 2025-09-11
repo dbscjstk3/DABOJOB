@@ -62,7 +62,7 @@ export function SearchBar({
       onSubmit={handleFormSubmit}
       role="search"
       aria-label="사이트 검색"
-      className={['relative flex w-full items-center', 'px-4 py-2', className ?? ''].join(' ')}
+      className={['relative flex w-full items-center', 'px-4 py-3', className ?? ''].join(' ')}
     >
       {/* 시각적으로 숨긴 라벨 */}
       <label htmlFor="global-search" className="sr-only">
@@ -83,7 +83,7 @@ export function SearchBar({
         autoFocus={autoFocus}
         aria-label="기업명 입력"
         aria-controls={ariaControlsId} // SearchResult의 id와 연결
-        className="w-full bg-transparent text-sm text-slate-900 placeholder:text-slate-400 outline-none border-none pr-10"
+        className="w-full bg-transparent text-base text-slate-900 placeholder:text-slate-400 outline-none border-none pr-10"
       />
 
       {/* 우측 돋보기 아이콘 = 제출 */}
