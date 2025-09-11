@@ -8,11 +8,8 @@ import asyncio
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-import sys
-sys.path.append(os.path.dirname(__file__))
-
-from routes import summary_routes
-from workers.summary_worker import SummaryWorker
+from .routes import summary_routes
+from .workers.summary_worker import SummaryWorker
 
 # 로깅 설정
 logging.basicConfig(level=logging.INFO)

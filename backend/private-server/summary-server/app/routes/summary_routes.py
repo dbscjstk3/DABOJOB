@@ -7,12 +7,8 @@ from pydantic import BaseModel
 from typing import Optional
 import ollama
 
-import sys
-import os
-sys.path.append(os.path.dirname(os.path.dirname(__file__)))
-
-from services.file_manager import FileManager
-from utils import qwen_summarize_long
+from ..services.file_manager import FileManager
+from ..utils import qwen_summarize_long
 
 logger = logging.getLogger(__name__)
 
