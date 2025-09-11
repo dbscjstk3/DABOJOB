@@ -7,6 +7,11 @@ export default {
         daboja: {
           default: '#099AEE',
           tag: '#E3E3E3',
+          gray: {
+            light: '#F1F5F9', // slate-100과 동일
+            default: '#F1F5F9', // 기본 회색
+            dark: '#E2E8F0', // slate-200과 동일
+          },
         },
       },
       fontFamily: {
