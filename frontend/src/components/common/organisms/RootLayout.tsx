@@ -1,6 +1,7 @@
 import { Outlet } from '@tanstack/react-router';
 import { Header } from './Header';
 import type { SearchItem } from '../molecules/SearchResult';
+import { Footer } from './Footer';
 
 export function RootLayout() {
   // 임시 mock fetchSuggestions 함수(추후 실제 api호출로 변경할 예정)
@@ -48,9 +49,7 @@ export function RootLayout() {
       <main className="w-full flex-1">
         <Outlet />
       </main>
-      <footer className="border-t">
-        <div className="mx-auto max-w-5xl p-4 text-sm text-slate-500">© 2025</div>
-      </footer>
+      <Footer></Footer>
     </div>
   );
 }
