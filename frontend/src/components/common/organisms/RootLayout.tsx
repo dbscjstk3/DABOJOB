@@ -4,7 +4,7 @@ export function RootLayout() {
   return (
     <div className="min-h-screen flex flex-col">
       <header className="border-b"></header>
-      <main className="mx-auto max-w-5xl p-6 flex-1">
+      <main className="w-full flex-1">
         <Outlet />
       </main>
       <footer className="border-t">

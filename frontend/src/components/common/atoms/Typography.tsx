@@ -31,6 +31,7 @@ const typographyVariants = cva('font-pretendard', {
       dabojob: 'text-[#099AEE]',
       gray: 'text-[#757575]',
       red: 'text-[#FB2C36]',
+      white: 'text-white',
     },
     align: {
       left: 'text-left',
