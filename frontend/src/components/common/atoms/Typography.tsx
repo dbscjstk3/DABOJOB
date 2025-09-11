@@ -11,7 +11,7 @@ const typographyVariants = cva('font-pretendard', {
       calendarNavigation: 'text-[28px] leading-tight tracking-normal',
       //달력 숫자
       dayNumber: 'text-[18px] leading-tight tracking-normal',
-      //기본 - 요일, 드롭다운
+      //기본 - 대부분 기본 크기
       default: 'text-[16px] leading-tight tracking-normal',
       //달력상세 보고서 제목, 직무명, 뉴스제목 등
       title: 'text-[24px] leading-tight tracking-normal',
@@ -28,8 +28,8 @@ const typographyVariants = cva('font-pretendard', {
     },
     color: {
       black: 'text-black',
-      dabojob: 'text-[#757575]',
-      gray: 'text-gray-400',
+      dabojob: 'text-[#099AEE]',
+      gray: 'text-[#757575]',
       red: 'text-[#FB2C36]',
     },
     align: {
