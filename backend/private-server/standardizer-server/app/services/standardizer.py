@@ -134,21 +134,17 @@ class StandardizerService:
         if normalized_title in self.DART_SECTION_MAPPING:
             return self.DART_SECTION_MAPPING[normalized_title]
         
-        # 부분 매칭 시도 (키워드 기반)
-        title_lower = title.lower()
-        for key, category in self.DART_SECTION_MAPPING.items():
-            key_lower = key.lower()
-            # 핀워드 기반 매칭
-            if ("사업" in title and "개요" in title) or ("사업개요" in title):
-                return "business_overview"
-            elif ("제품" in title or "서비스" in title) and ("주요" in title):
-                return "products_services"
-            elif ("매출" in title or "수주" in title or "원재료" in title or "생산" in title):
-                return "revenue_orders"
-            elif ("계약" in title or "연구" in title or "개발" in title):
-                return "contracts_rnd"
-            elif ("기타" in title or "위험" in title or "파생" in title):
-                return "other_references"
+        # 키워드 기반 매칭
+        if ("사업" in title and "개요" in title) or ("사업개요" in title):
+            return "business_overview"
+        elif ("제품" in title or "서비스" in title) and ("주요" in title):
+            return "products_services"
+        elif ("매출" in title or "수주" in title or "원재료" in title or "생산" in title):
+            return "revenue_orders"
+        elif ("계약" in title or "연구" in title or "개발" in title):
+            return "contracts_rnd"
+        elif ("기타" in title or "위험" in title or "파생" in title):
+            return "other_references"
         
         return None
     

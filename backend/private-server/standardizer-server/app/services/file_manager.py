@@ -44,8 +44,11 @@ class FileManager:
         ]
         
         for directory in directories:
-            directory.mkdir(parents=True, exist_ok=True)
-            logger.info(f"Created directory: {directory}")
+            if not directory.exists():
+                directory.mkdir(parents=True, exist_ok=True)
+                logger.info(f"Created directory: {directory}")
+            else:
+                logger.debug(f"Directory already exists: {directory}")
         
         return job_path
     
