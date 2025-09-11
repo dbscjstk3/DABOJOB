@@ -5,18 +5,16 @@ import { cn } from '../../../lib/utils';
 const typographyVariants = cva('font-pretendard', {
   variants: {
     variant: {
-      h1: 'text-[57px] leading-[64px] tracking-[-0.25px]',
-      h2: 'text-[45px] leading-[52px] tracking-normal',
-      h3: 'text-[36px] leading-[44px] tracking-normal',
-      h4: 'text-[32px] leading-[40px] tracking-normal',
-      h5: 'text-[28px] leading-[36px] tracking-normal',
-      h6: 'text-[24px] leading-[32px] tracking-normal',
-      body: 'text-sm leading-5 tracking-[0.25px]',
-      'body-lg': 'text-base leading-6 tracking-[0.5px]',
-      'body-sm': 'text-xs leading-4 tracking-[0.4px]',
-      label: 'text-sm leading-5 tracking-[0.1px]',
-      'label-sm': 'text-[11px] leading-4 tracking-[0.5px]',
-      caption: 'text-xs leading-4 tracking-[0.5px]',
+      //채용공고 전용
+      recruits: 'text-[14px] leading-tight tracking-normal',
+      //달력 네비게이션 전용
+      calendarNavigation: 'text-[28px] leading-tight tracking-normal',
+      //달력 숫자
+      dayNumber: 'text-[18px] leading-tight tracking-normal',
+      //기본 - 요일, 드롭다운
+      default: 'text-[16px] leading-tight tracking-normal',
+      //달력상세 보고서 제목, 직무명, 뉴스제목 등
+      title: 'text-[24px] leading-tight tracking-normal',
     },
     weight: {
       thin: 'font-thin',
@@ -27,15 +25,12 @@ const typographyVariants = cva('font-pretendard', {
       semibold: 'font-semibold',
       bold: 'font-bold',
       extrabold: 'font-extrabold',
-      black: 'font-black',
     },
     color: {
       black: 'text-black',
-      gray: 'text-gray-600',
-      red: 'text-red-500',
-      green: 'text-green-500',
-      blue: 'text-blue-500',
-      yellow: 'text-yellow-500',
+      dabojob: 'text-[#757575]',
+      gray: 'text-gray-400',
+      red: 'text-[#FB2C36]',
     },
     align: {
       left: 'text-left',
@@ -53,7 +48,7 @@ const typographyVariants = cva('font-pretendard', {
     },
   },
   defaultVariants: {
-    variant: 'body',
+    variant: 'default',
     weight: 'regular',
     color: 'black',
     align: 'left',
