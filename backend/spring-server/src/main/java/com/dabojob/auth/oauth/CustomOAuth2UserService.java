@@ -3,7 +3,7 @@ package com.dabojob.auth.oauth;
 import com.dabojob.global.enums.UserRole;
 import com.dabojob.global.exception.DuplicatedEmailException;
 import com.dabojob.user.repository.UserRepository;
-import com.dabojob.user.repository.entity.User;
+import com.dabojob.user.entity.User;
 import java.util.Map;
 import java.util.Optional;
 import lombok.RequiredArgsConstructor;

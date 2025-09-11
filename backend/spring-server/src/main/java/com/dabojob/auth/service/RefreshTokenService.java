@@ -2,10 +2,10 @@ package com.dabojob.auth.service;
 
 import com.dabojob.auth.jwt.JwtService;
 import com.dabojob.auth.repository.RefreshTokenRepository;
-import com.dabojob.auth.repository.entity.RefreshToken;
+import com.dabojob.auth.entity.RefreshToken;
 import com.dabojob.global.exception.UnauthorizedException;
 import com.dabojob.user.repository.UserRepository;
-import com.dabojob.user.repository.entity.User;
+import com.dabojob.user.entity.User;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;

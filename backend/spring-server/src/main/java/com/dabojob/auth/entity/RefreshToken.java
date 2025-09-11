@@ -1,6 +1,6 @@
-package com.dabojob.auth.repository.entity;
+package com.dabojob.auth.entity;
 
-import com.dabojob.global.repository.entity.BaseTimeEntity;
+import com.dabojob.global.entity.BaseTimeEntity;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
