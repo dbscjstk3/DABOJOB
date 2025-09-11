@@ -1,95 +1,86 @@
+"""
+Summary Server - 메인 애플리케이션
+텍스트 요약 및 카테고리별 병렬 처리 서비스
+"""
 import os
 import logging
-import sys
-from typing import Optional
-from fastapi import FastAPI, HTTPException
-from pydantic import BaseModel
-import ollama
+import asyncio
+from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 
-# utils 모듈 import
+import sys
 sys.path.append(os.path.dirname(__file__))
-from utils import qwen_summarize_long
+
+from routes import summary_routes
+from workers.summary_worker import SummaryWorker
 
 # 로깅 설정
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-app = FastAPI(title="summary-server")
+# FastAPI 앱 생성
+app = FastAPI(
+    title="Summary Server",
+    description="텍스트 요약 및 카테고리별 병렬 처리 서비스",
+    version="1.0.0"
+)
 
-# 환경변수에서 올바른 이름으로 가져오기
-OLLAMA_HOST = os.getenv('OLLAMA_HOST', 'ollama:11434')
-MODEL_NAME = os.getenv('SUMMARY_MODEL', 'qwen2.5:0.5b-instruct-fp16')
+# CORS 설정
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
-# Ollama 클라이언트
-ollama_client = None
-
-class SummarizeRequest(BaseModel):
-    mapping_id: int
-    chapter: int
-    content: str
-    file_path: str = ""
-    max_length: int = 500
-    enable_chunking: Optional[bool] = True
-
-class SummarizeResponse(BaseModel):
-    mapping_id: int
-    chapter: int
-    summary: str
-    status: str = "completed"
+# 백그라운드 워커
+summary_worker = SummaryWorker()
 
 @app.on_event("startup")
 async def startup_event():
     """서버 시작 시 초기화"""
-    global ollama_client
-    
     try:
-        host = OLLAMA_HOST if OLLAMA_HOST.startswith('http') else f'http://{OLLAMA_HOST}'
-        ollama_client = ollama.Client(host=host)
-        
-        # 연결 테스트
-        models = ollama_client.list()
-        logger.info(f"Connected to Ollama at {host}")
-        logger.info(f"Available models: {[m['name'] for m in models['models']]}")
-        logger.info(f"Using model: {MODEL_NAME}")
+        # 백그라운드 워커 시작
+        await summary_worker.initialize()
+        asyncio.create_task(summary_worker.start())
+        logger.info("Summary worker started")
         
     except Exception as e:
-        logger.error(f"Failed to initialize Ollama client: {e}")
+        logger.error(f"Failed to initialize services: {e}")
         raise
+
+@app.on_event("shutdown")
+async def shutdown_event():
+    """서버 종료 시 정리"""
+    try:
+        await summary_worker.stop()
+        logger.info("Summary worker stopped")
+    except Exception as e:
+        logger.error(f"Error during shutdown: {e}")
+
+@app.get("/")
+async def root():
+    """루트 엔드포인트"""
+    return {
+        "service": "Summary Server",
+        "status": "running",
+        "version": "1.0.0"
+    }
 
 @app.get("/health")
 def health_check() -> dict:
+    """헬스 체크"""
     return {
-        "status": "ok", 
+        "status": "ok",
         "service": "summary",
-        "model": MODEL_NAME,
-        "ollama_host": OLLAMA_HOST
+        "model": os.getenv('SUMMARY_MODEL', 'qwen2.5:0.5b-instruct-fp16'),
+        "ollama_host": os.getenv('OLLAMA_HOST', 'ollama:11434'),
+        "worker_running": summary_worker.running
     }
 
-@app.post("/summarize", response_model=SummarizeResponse)
-async def summarize_content(request: SummarizeRequest) -> SummarizeResponse:
-    """텍스트 요약 처리"""
-    try:
-        logger.info(f"Processing summary: mapping_id={request.mapping_id}, chapter={request.chapter}, content_length={len(request.content)}, max_length={request.max_length}")
-        
-        # 개선된 Qwen 모델을 사용한 긴 텍스트 요약
-        summary = qwen_summarize_long(
-            ollama_client=ollama_client,
-            model_name=MODEL_NAME,
-            text=request.content,
-            max_length=request.max_length
-        )
-        
-        logger.info(f"Summary completed: mapping_id={request.mapping_id}")
-        
-        return SummarizeResponse(
-            mapping_id=request.mapping_id,
-            chapter=request.chapter,
-            summary=summary
-        )
-        
-    except Exception as e:
-        logger.error(f"Summary failed: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+# 라우터 등록
+app.include_router(summary_routes.router)
 
 if __name__ == "__main__":
     import uvicorn
