@@ -2,7 +2,7 @@ spring:
   application:
     name: demo
   datasource:
-    url: ${SPRING_DATASOURCE_URL:jdbc:mysql://localhost:3306/app?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=Asia/Seoul}
+    url: ${SPRING_DATASOURCE_URL:jdbc:mysql://mysql:3306/app?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=Asia/Seoul}
     username: ${SPRING_DATASOURCE_USERNAME:root}
     password: ${SPRING_DATASOURCE_PASSWORD:password}
     driver-class-name: ${SPRING_DATASOURCE_DRIVER:com.mysql.cj.jdbc.Driver}
@@ -48,7 +48,7 @@ spring:
 server:
   port: ${SERVER_PORT:8080}
   servlet:
-    context-path: ${SERVER_SERVLET_CONTEXT_PATH:/api}  # ← 명시적으로 /api 고정(또는 ENV로 제어)
+    context-path: ${SERVER_SERVLET_CONTEXT_PATH}  # ← 명시적으로 /api 고정(또는 ENV로 제어)
 
 management:
   endpoints:
