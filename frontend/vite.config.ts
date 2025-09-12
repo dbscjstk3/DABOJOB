@@ -10,4 +10,15 @@ export default defineConfig({
       '@': path.resolve(__dirname, './src'),
     },
   },
+  server: {
+    proxy: {
+      // 프론트에서 /api/* 요청을 백엔드로 프록시
+      '/api': {
+        target: 'http://j13a402.p.ssafy.io',
+        changeOrigin: true,
+        secure: false,
+        ws: false,
+      },
+    },
+  },
 });

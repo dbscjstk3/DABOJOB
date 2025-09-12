@@ -1,9 +1,12 @@
-import { Outlet } from '@tanstack/react-router';
+import { Outlet, useLocation } from '@tanstack/react-router';
 import { Header } from './Header';
 import type { SearchItem } from '../molecules/SearchResult';
 import { Footer } from './Footer';
 
 export function RootLayout() {
+  const location = useLocation();
+  const isLoginPage = location.pathname === '/login';
+
   // 임시 mock fetchSuggestions 함수(추후 실제 api호출로 변경할 예정)
   const fetchSuggestions = async (query: string, signal?: AbortSignal): Promise<SearchItem[]> => {
     // 300ms 지연으로 실제 API 호출 시뮬레이션
@@ -39,17 +42,19 @@ export function RootLayout() {
 
   return (
     <div className="min-h-screen flex flex-col">
-      <Header
-        fetchSuggestions={fetchSuggestions}
-        onSelectSuggestion={handleSelectSuggestion}
-        onSubmitSearch={handleSubmitSearch}
-        // user={null} // 로그인 전
-        // user={{ name: '홍길동' }} // 로그인 후 테스트용
-      />
+      {!isLoginPage && (
+        <Header
+          fetchSuggestions={fetchSuggestions}
+          onSelectSuggestion={handleSelectSuggestion}
+          onSubmitSearch={handleSubmitSearch}
+          // user={null} // 로그인 전
+          // user={{ name: '홍길동' }} // 로그인 후 테스트용
+        />
+      )}
       <main className="w-full flex-1">
         <Outlet />
       </main>
-      <Footer></Footer>
+      {!isLoginPage && <Footer></Footer>}
     </div>
   );
 }
