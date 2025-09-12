@@ -39,7 +39,7 @@ export function Header({
       "
     >
       <div className="w-full px-16 py-6">
-        <div className="flex h-14 items-center">
+        <div className="flex h-8 items-center">
           <Logo />
 
           {/* 검색 영역: SearchBox 항상 표시 */}

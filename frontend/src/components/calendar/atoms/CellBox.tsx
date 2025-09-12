@@ -2,7 +2,7 @@ import React from 'react';
 import { cva, type VariantProps } from 'class-variance-authority';
 import { cn } from '../../../lib/utils';
 
-const cellBoxVariants = cva('flex flex-col border-t border-[#099AEE] p-2 h-72', {
+const cellBoxVariants = cva('flex flex-col border-t border-daboja-default p-2 h-72', {
   variants: {
     tone: {
       default: 'bg-white',
