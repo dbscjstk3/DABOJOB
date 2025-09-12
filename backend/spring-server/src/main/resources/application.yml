@@ -47,6 +47,19 @@ spring:
 
 server:
   port: ${SERVER_PORT:8080}
+  servlet:
+    context-path: ${SERVER_SERVLET_CONTEXT_PATH:/api}  # ← 명시적으로 /api 고정(또는 ENV로 제어)
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info        # ← 헬스/인포 노출
+  endpoint:
+    health:
+      probes:
+        enabled: true
+      show-details: never           # 상세정보 숨김(운영기 기본)
 
 jwt:
   secret-key: ${JWT_SECRET_KEY:}
