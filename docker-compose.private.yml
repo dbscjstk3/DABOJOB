@@ -98,6 +98,8 @@ services:
     depends_on:
       mysql:
         condition: service_healthy
+    volumes:
+      - shared-data:/app/data
     networks:
       - app-net
     restart: unless-stopped

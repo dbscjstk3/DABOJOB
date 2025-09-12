@@ -1,9 +1,13 @@
 import os
 import logging
+import asyncio
+import time
 from typing import Optional
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 import ollama
+from concurrent.futures import ThreadPoolExecutor
+import threading
 
 from .utils import qwen_summarize
 
@@ -19,6 +23,9 @@ MODEL_NAME = os.getenv('NEWS_MODEL', 'qwen2.5:0.5b-instruct-fp16')
 
 # Ollama 클라이언트
 ollama_client = None
+executor = None
+request_semaphore = None
+shutdown_event = threading.Event()
 
 class NewsSummarizeRequest(BaseModel):
     mapping_id: int
@@ -36,17 +43,23 @@ class NewsSummarizeResponse(BaseModel):
 @app.on_event("startup")
 async def startup_event():
     """서버 시작 시 초기화"""
-    global ollama_client
+    global ollama_client, executor, request_semaphore
     
     try:
         host = OLLAMA_HOST if OLLAMA_HOST.startswith('http') else f'http://{OLLAMA_HOST}'
         ollama_client = ollama.Client(host=host)
+        
+        # 동시 처리 제한을 위한 설정
+        max_workers = int(os.getenv('MAX_WORKERS', '2'))  # 동시 처리 수 제한
+        executor = ThreadPoolExecutor(max_workers=max_workers)
+        request_semaphore = asyncio.Semaphore(max_workers)  # 동시 요청 제한
         
         # 연결 테스트
         models = ollama_client.list()
         logger.info(f"Connected to Ollama at {host}")
         logger.info(f"Available models: {[m['name'] for m in models['models']]}")
         logger.info(f"Using model: {MODEL_NAME}")
+        logger.info(f"Max concurrent workers: {max_workers}")
         
     except Exception as e:
         logger.error(f"Failed to initialize Ollama client: {e}")
@@ -54,39 +67,77 @@ async def startup_event():
 
 @app.get("/health")
 def health_check() -> dict:
+    """헬스체크 with 리소스 상태"""
+    active_tasks = 0
+    if request_semaphore:
+        active_tasks = max_workers - request_semaphore._value if hasattr(request_semaphore, '_value') else 0
+    
     return {
-        "status": "ok", 
+        "status": "ok" if not shutdown_event.is_set() else "shutting_down", 
         "service": "news-summary",
         "model": MODEL_NAME,
-        "ollama_host": OLLAMA_HOST
+        "ollama_host": OLLAMA_HOST,
+        "active_tasks": active_tasks,
+        "max_workers": int(os.getenv('MAX_WORKERS', '2'))
     }
+
+max_workers = int(os.getenv('MAX_WORKERS', '2'))
 
 @app.post("/news-summarize", response_model=NewsSummarizeResponse)
 async def news_summarize_content(request: NewsSummarizeRequest) -> NewsSummarizeResponse:
-    """뉴스 스타일 요약 처리"""
-    try:
-        logger.info(f"Processing news summary: mapping_id={request.mapping_id}, chapter={request.chapter}")
-        
-        # 개선된 Qwen 모델을 사용한 요약
-        news_summary = qwen_summarize(
-            ollama_client=ollama_client,
-            model_name=MODEL_NAME,
-            text=request.summary,
-            target_sentences=request.target_sentences or 2
-        )
-        
-        logger.info(f"News summary completed: mapping_id={request.mapping_id}")
-        
-        return NewsSummarizeResponse(
-            mapping_id=request.mapping_id,
-            chapter=request.chapter,
-            news_summary=news_summary
-        )
-        
-    except Exception as e:
-        logger.error(f"News summary failed: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+    """뉴스 스타일 요약 처리 (동시성 제한 포함)"""
+    
+    # 서버 종료 중이면 요청 거부
+    if shutdown_event.is_set():
+        raise HTTPException(status_code=503, detail="Server is shutting down")
+    
+    # 세마포어로 동시 요청 수 제한
+    async with request_semaphore:
+        try:
+            logger.info(f"Processing news summary: mapping_id={request.mapping_id}, chapter={request.chapter}")
+            
+            # CPU 부하를 줄이기 위해 비동기 처리
+            loop = asyncio.get_event_loop()
+            news_summary = await loop.run_in_executor(
+                executor,
+                qwen_summarize,
+                ollama_client,
+                MODEL_NAME,
+                request.summary,
+                request.target_sentences or 2
+            )
+            
+            # 짧은 대기로 CPU 부하 분산
+            await asyncio.sleep(0.1)
+            
+            logger.info(f"News summary completed: mapping_id={request.mapping_id}")
+            
+            return NewsSummarizeResponse(
+                mapping_id=request.mapping_id,
+                chapter=request.chapter,
+                news_summary=news_summary
+            )
+            
+        except asyncio.CancelledError:
+            logger.warning(f"Request cancelled: mapping_id={request.mapping_id}")
+            raise HTTPException(status_code=503, detail="Request cancelled")
+        except Exception as e:
+            logger.error(f"News summary failed for mapping_id={request.mapping_id}: {e}")
+            # 실패 시 간단한 fallback 처리
+            if "timeout" in str(e).lower():
+                raise HTTPException(status_code=504, detail="Processing timeout")
+            raise HTTPException(status_code=500, detail=str(e))
+
+@app.on_event("shutdown")
+async def shutdown_event_handler():
+    """서버 종료 시 정리"""
+    global executor
+    shutdown_event.set()
+    
+    if executor:
+        executor.shutdown(wait=True, timeout=5)
+        logger.info("Executor shutdown completed")
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8200)
+    uvicorn.run(app, host="0.0.0.0", port=8200, workers=1)

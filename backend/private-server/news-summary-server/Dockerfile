@@ -20,4 +20,4 @@ COPY . .
 
 EXPOSE 8200
 
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8200"]
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8200", "--workers", "1", "--limit-concurrency", "10"]
