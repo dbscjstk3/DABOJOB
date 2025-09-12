@@ -3,7 +3,7 @@ import { LogOut } from 'lucide-react';
 import { SearchBox } from '../molecules/SearchBox';
 import { Button } from '../atoms/Button';
 
-import DABOJOB_logo from '@/assets/logo/DABOJOB_logo.svg';
+import DABOJOB_logo from '@/assets/logo/DABOJOB_logo_loop3.gif';
 
 type User = { name: string };
 
@@ -38,29 +38,42 @@ export function Header({
         supports-[backdrop-filter]:bg-white/60
       "
     >
-      <div className="w-full px-16 py-6">
-        <div className="flex h-8 items-center">
-          <Logo />
+      <div className="w-full px-4 py-3 md:px-8 md:py-4 lg:px-16 lg:py-6">
+        <div className="flex flex-col gap-3 md:flex-row md:gap-0 md:h-8 md:items-center">
+          {/* 모바일: 첫 번째 줄 / 태블릿+: 전체 레이아웃 */}
+          <div className="flex items-center justify-between md:justify-start md:gap-6 lg:gap-8 md:w-full">
+            <Logo />
 
-          {/* 검색 영역: SearchBox 항상 표시 */}
-          <div className="ml-8 w-[800px]">
+            {/* 태블릿+ 검색창 */}
+            <div className="hidden md:block md:w-[400px] lg:w-[600px] xl:w-[800px]">
+              <SearchBox
+                fetchSuggestions={fetchSuggestions}
+                onSelect={onSelectSuggestion}
+                onSubmit={onSubmitSearch}
+                className="w-full"
+              />
+            </div>
+
+            {/* 로그인/로그아웃 버튼 */}
+            <div className="md:ml-auto">
+              <UserArea
+                user={user}
+                onLogin={() => {
+                  onLogin?.();
+                  navigate({ to: '/login' });
+                }}
+                onLogout={onLogout}
+              />
+            </div>
+          </div>
+
+          {/* 모바일: 두 번째 줄 (검색창) */}
+          <div className="block md:hidden w-full">
             <SearchBox
               fetchSuggestions={fetchSuggestions}
               onSelect={onSelectSuggestion}
               onSubmit={onSubmitSearch}
               className="w-full"
-            />
-          </div>
-
-          {/* 로그인: 오른쪽 끝 자동 배치 */}
-          <div className="ml-auto">
-            <UserArea
-              user={user}
-              onLogin={() => {
-                onLogin?.();
-                navigate({ to: '/login' });
-              }}
-              onLogout={onLogout}
             />
           </div>
         </div>
@@ -72,7 +85,12 @@ export function Header({
 function Logo() {
   return (
     <Link to="/" aria-label="홈으로 이동" className="flex items-center gap-2 shrink-0">
-      <img src={DABOJOB_logo} alt="DABOJOB : ) 다보자" className="h-6 w-auto" draggable={false} />
+      <img
+        src={DABOJOB_logo}
+        alt="DABOJOB : ) 다보자"
+        className="h-6 md:h-7 lg:h-7 w-auto"
+        draggable={false}
+      />
     </Link>
   );
 }
