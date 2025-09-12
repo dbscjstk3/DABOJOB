@@ -35,14 +35,14 @@ export default function LoginPage({ redirectTo }: LoginPageProps) {
     if (redirectTo) {
       sessionStorage.setItem('post_login_redirect', redirectTo);
     }
-    window.location.href = '/api/api/auth/login/ssafy';
+    window.location.href = 'http://j13a402.p.ssafy.io/api/auth/login/ssafy';
   };
 
   const handleGoogleLogin = () => {
     if (redirectTo) {
       sessionStorage.setItem('post_login_redirect', redirectTo);
     }
-    window.location.href = '/api/api/auth/login/google';
+    window.location.href = 'http://j13a402.p.ssafy.io/api/auth/login/google';
   };
 
   return (
