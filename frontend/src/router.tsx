@@ -40,20 +40,36 @@ const loginRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/login',
   component: function LoginRoute() {
-    const navigate = useNavigate();
     const { redirect: backTo } = useSearch({ from: '/login' }) as { redirect?: string };
     return (
-      <LoginPage
-        onSubmit={() => {
-          useAuthStore.getState().login();
-          navigate({ to: backTo ?? '/' });
-        }}
-      />
+      <div className="min-h-screen">
+        <LoginPage redirectTo={backTo ?? '/'} />
+      </div>
     );
   },
 });
 
-const routeTree = rootRoute.addChildren([calendarListRoute, calendarDetailRoute, loginRoute]);
+const authCallbackRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/auth/callback',
+  component: function AuthCallback() {
+    const navigate = useNavigate();
+    // 백엔드 OAuth 성공 시 쿠키에 토큰이 설정되어 있음. 클라이언트 상태만 동기화.
+    useAuthStore.getState().login();
+    const stored = sessionStorage.getItem('post_login_redirect');
+    const target = stored || '/';
+    if (stored) sessionStorage.removeItem('post_login_redirect');
+    navigate({ to: target });
+    return <div className="p-8">로그인 처리중...</div>;
+  },
+});
+
+const routeTree = rootRoute.addChildren([
+  calendarListRoute,
+  calendarDetailRoute,
+  loginRoute,
+  authCallbackRoute,
+]);
 
 export const router = createRouter({ routeTree });
 
