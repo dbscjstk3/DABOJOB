@@ -168,3 +168,103 @@ class FileManager:
         except Exception as e:
             logger.error(f"Failed to get summary results for {job_id}: {e}")
             return {}
+    
+    def get_categorized_files(self, job_id: str) -> Dict[str, str]:
+        """
+        카테고리별 파일 내용 조회
+        
+        Args:
+            job_id (str): 작업 ID
+            
+        Returns:
+            dict: {카테고리명: 파일 내용}
+        """
+        job_path = self.get_job_path(job_id)
+        standardized_path = job_path / "standardized"
+        
+        category_files = {
+            'business_overview': 'business_overview.txt',
+            'products_services': 'products_services.txt',
+            'revenue_orders': 'revenue_orders.txt',
+            'contracts_rnd': 'contracts_rnd.txt',
+            'other_references': 'other_references.txt'
+        }
+        
+        result = {}
+        for category, filename in category_files.items():
+            file_path = standardized_path / filename
+            if file_path.exists():
+                try:
+                    with open(file_path, 'r', encoding='utf-8') as f:
+                        result[category] = f.read()
+                except Exception as e:
+                    logger.error(f"Failed to read {file_path}: {e}")
+                    result[category] = None
+            else:
+                result[category] = None
+        
+        return result
+    
+    def save_summary_files(self, job_id: str, summaries: Dict[str, str]) -> None:
+        """
+        요약 파일들을 저장
+        
+        Args:
+            job_id (str): 작업 ID
+            summaries (dict): 카테고리명과 요약 내용의 딕셔너리
+        """
+        try:
+            job_path = self.create_job_directory(job_id)
+            summaries_path = job_path / "summaries"
+            
+            for category, summary in summaries.items():
+                filename = f"{category}_summary.txt"
+                file_path = summaries_path / filename
+                
+                with open(file_path, 'w', encoding='utf-8') as f:
+                    f.write(summary)
+                
+                logger.info(f"Saved summary: {file_path} ({len(summary):,} characters)")
+                
+        except Exception as e:
+            logger.error(f"Failed to save summary files: {e}")
+            raise
+    
+    def update_job_stage(self, job_id: str, stage: str, status: str = "completed") -> None:
+        """
+        작업 단계 상태 업데이트
+        
+        Args:
+            job_id (str): 작업 ID
+            stage (str): 단계명 (raw_extraction, standardization, summarization, re_summarization)
+            status (str): 상태 (in_progress, completed, failed)
+        """
+        try:
+            job_path = self.get_job_path(job_id)
+            metadata_file = job_path / "summary_metadata.json"
+            
+            metadata = {}
+            if metadata_file.exists():
+                try:
+                    with open(metadata_file, 'r', encoding='utf-8') as f:
+                        metadata = json.load(f)
+                except Exception as e:
+                    logger.warning(f"Failed to load existing metadata: {e}")
+            
+            if "stages" not in metadata:
+                metadata["stages"] = {}
+            
+            metadata["stages"][stage] = {
+                "status": status,
+                "timestamp": datetime.now().isoformat()
+            }
+            
+            job_path.mkdir(parents=True, exist_ok=True)
+            with open(metadata_file, 'w', encoding='utf-8') as f:
+                json.dump(metadata, f, ensure_ascii=False, indent=2, default=str)
+            
+            logger.info(f"Updated job stage for {job_id}: {stage}={status}")
+            
+        except Exception as e:
+            logger.error(f"Failed to update job stage: {e}")
+            raise

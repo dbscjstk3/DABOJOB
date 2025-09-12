@@ -61,6 +61,10 @@ async def shutdown_event():
     try:
         await background_worker.stop()
         logger.info("Background worker stopped")
+        
+        # StandardizerService 정리
+        await standardizer_service.shutdown()
+        logger.info("Standardizer service shutdown completed")
     except Exception as e:
         logger.error(f"Error during shutdown: {e}")
 

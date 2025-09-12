@@ -150,17 +150,13 @@ class SummaryWorker:
                 logger.warning(f"No content found for {category}: {file_path}")
                 return
             
-            # ThreadPoolExecutor를 사용하여 CPU 집약적 작업을 별도 스레드에서 실행
-            loop = asyncio.get_event_loop()
-            with ThreadPoolExecutor(max_workers=1) as executor:
-                summary = await loop.run_in_executor(
-                    executor,
-                    qwen_summarize_long,
-                    self.ollama_client,
-                    self.model_name,
-                    content,
-                    config['max_length']
-                )
+            # qwen_summarize_long이 이제 async 함수이므로 직접 호출
+            summary = await qwen_summarize_long(
+                self.ollama_client,
+                self.model_name,
+                content,
+                config['max_length']
+            )
             
             # 요약 결과 저장
             self.file_manager.save_summary(job_id, category, summary)

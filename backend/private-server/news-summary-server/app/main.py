@@ -10,6 +10,7 @@ from concurrent.futures import ThreadPoolExecutor
 import threading
 
 from .utils import qwen_summarize
+from .services.redis_consumer import RedisConsumer
 
 # 로깅 설정
 logging.basicConfig(level=logging.INFO)
@@ -26,6 +27,8 @@ ollama_client = None
 executor = None
 request_semaphore = None
 shutdown_event = threading.Event()
+redis_consumer = None
+consumer_thread = None
 
 class NewsSummarizeRequest(BaseModel):
     mapping_id: int
@@ -40,10 +43,21 @@ class NewsSummarizeResponse(BaseModel):
     news_summary: str
     status: str = "completed"
 
+async def news_search_callback(job_id: str, category: str, hashtags: list):
+    """해시태그 기반 뉴스 검색 콜백"""
+    logger.info(f"News search for job {job_id}, category {category}: {hashtags}")
+    # TODO: 실제 뉴스 API 호출 로직 구현
+    # 예: news_api.search(hashtags)
+    # 결과를 파일이나 DB에 저장
+    
+    # 임시 처리
+    for hashtag in hashtags:
+        logger.info(f"Searching news with hashtag: {hashtag}")
+
 @app.on_event("startup")
 async def startup_event():
     """서버 시작 시 초기화"""
-    global ollama_client, executor, request_semaphore
+    global ollama_client, executor, request_semaphore, redis_consumer, consumer_thread
     
     try:
         host = OLLAMA_HOST if OLLAMA_HOST.startswith('http') else f'http://{OLLAMA_HOST}'
@@ -53,6 +67,17 @@ async def startup_event():
         max_workers = int(os.getenv('MAX_WORKERS', '2'))  # 동시 처리 수 제한
         executor = ThreadPoolExecutor(max_workers=max_workers)
         request_semaphore = asyncio.Semaphore(max_workers)  # 동시 요청 제한
+        
+        # Redis Consumer 시작
+        if os.getenv('ENABLE_REDIS_CONSUMER', 'true').lower() == 'true':
+            try:
+                redis_consumer = RedisConsumer()
+                redis_consumer.set_news_search_callback(news_search_callback)
+                consumer_thread = redis_consumer.start_background_consumer()
+                logger.info("Redis consumer started successfully")
+            except Exception as e:
+                logger.error(f"Failed to start Redis consumer: {e}")
+                # Redis 실패해도 서버는 계속 동작
         
         # 연결 테스트
         models = ollama_client.list()
@@ -72,13 +97,25 @@ def health_check() -> dict:
     if request_semaphore:
         active_tasks = max_workers - request_semaphore._value if hasattr(request_semaphore, '_value') else 0
     
+    redis_status = "not_enabled"
+    pending_messages = 0
+    if redis_consumer:
+        try:
+            pending_info = redis_consumer.get_pending_messages()
+            pending_messages = pending_info.get('total', 0)
+            redis_status = "connected"
+        except:
+            redis_status = "error"
+    
     return {
         "status": "ok" if not shutdown_event.is_set() else "shutting_down", 
         "service": "news-summary",
         "model": MODEL_NAME,
         "ollama_host": OLLAMA_HOST,
         "active_tasks": active_tasks,
-        "max_workers": int(os.getenv('MAX_WORKERS', '2'))
+        "max_workers": int(os.getenv('MAX_WORKERS', '2')),
+        "redis_consumer": redis_status,
+        "pending_messages": pending_messages
     }
 
 max_workers = int(os.getenv('MAX_WORKERS', '2'))
@@ -128,11 +165,37 @@ async def news_summarize_content(request: NewsSummarizeRequest) -> NewsSummarize
                 raise HTTPException(status_code=504, detail="Processing timeout")
             raise HTTPException(status_code=500, detail=str(e))
 
+@app.get("/hashtag-results/{job_id}")
+async def get_hashtag_results(job_id: str):
+    """처리된 해시태그 결과 조회"""
+    if not redis_consumer:
+        raise HTTPException(status_code=503, detail="Redis consumer not available")
+    
+    try:
+        results = redis_consumer.get_processed_results(job_id)
+        if not results:
+            raise HTTPException(status_code=404, detail=f"No results found for job {job_id}")
+        
+        return {
+            "job_id": job_id,
+            "categories": list(results.keys()),
+            "results": results,
+            "status": "completed"
+        }
+    except Exception as e:
+        logger.error(f"Failed to get hashtag results: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
 @app.on_event("shutdown")
 async def shutdown_event_handler():
     """서버 종료 시 정리"""
-    global executor
+    global executor, redis_consumer
     shutdown_event.set()
+    
+    # Redis Consumer 정리
+    if redis_consumer:
+        redis_consumer.cleanup()
+        logger.info("Redis consumer shutdown completed")
     
     if executor:
         executor.shutdown(wait=True, timeout=5)

@@ -57,18 +57,20 @@ def qwen_summarize(ollama_client, model_name: str, text: str, target_sentences: 
     # 텍스트 전처리
     cleaned_text = clean_text(text)
     
-    prompt = f"""다음 뉴스 기사를 정확히 {target_sentences}개의 완전한 문장으로 요약하세요.
+    prompt = f"""다음 뉴스 기사를 정확히 {target_sentences}개의 완전한 한국어 문장으로 요약하세요.
 
-조건:
-1. 반드시 100자 이내
-2. 핵심 내용만 포함  
-3. 완전한 한국어 문장
-4. 사진이나 이미지 관련 내용은 제외
+필수 조건:
+1. 반드시 100자 이내로 작성
+2. 핵심 내용만 포함
+3. 완전한 한국어 문장으로만 응답
+4. 중국어, 영어 등 다른 언어 사용 금지
+5. 사진이나 이미지 관련 내용은 제외
+6. "..." 같은 생략 표시 없이 완성된 문장
 
 기사 내용:
 {cleaned_text}
 
-100자 요약:"""
+한국어 100자 요약:"""
     
     try:
         response = ollama_client.chat(
@@ -77,7 +79,7 @@ def qwen_summarize(ollama_client, model_name: str, text: str, target_sentences: 
             options={
                 "temperature": 0.1,
                 "top_p": 0.9,
-                "max_tokens": 150
+                "num_predict": 150  # Ollama에서는 max_tokens 대신 num_predict 사용
             }
         )
         

@@ -1,7 +1,10 @@
 import logging
 import os
 import re
+import asyncio
+import time
 from typing import Optional, Dict, Tuple
+from concurrent.futures import ThreadPoolExecutor
 import ollama
 import json
 
@@ -19,6 +22,9 @@ class StandardizerService:
         self.ollama_host = ollama_host or os.getenv('OLLAMA_HOST', 'ollama:11434')
         self.model_name = model_name or os.getenv('STANDARDIZER_MODEL', 'qwen2.5:0.5b-instruct-fp16')
         self.client = None
+        self.executor = None
+        self.request_semaphore = None
+        self.max_workers = int(os.getenv('MAX_WORKERS', '2'))
         
     async def initialize(self):
         """Ollama 클라이언트 초기화"""
@@ -26,11 +32,16 @@ class StandardizerService:
             host = self.ollama_host if self.ollama_host.startswith('http') else f'http://{self.ollama_host}'
             self.client = ollama.Client(host=host)
             
+            # 동시 처리 제한을 위한 설정
+            self.executor = ThreadPoolExecutor(max_workers=self.max_workers)
+            self.request_semaphore = asyncio.Semaphore(self.max_workers)
+            
             # 연결 테스트
             models = self.client.list()
             logger.info(f"Connected to Ollama at {host}")
             logger.info(f"Available models: {[m['name'] for m in models['models']]}")
             logger.info(f"Using model: {self.model_name}")
+            logger.info(f"Max concurrent workers: {self.max_workers}")
             
         except Exception as e:
             logger.error(f"Failed to initialize Ollama client: {e}")
@@ -38,7 +49,7 @@ class StandardizerService:
     
     async def standardize_text(self, content: str) -> str:
         """
-        텍스트 표준화 처리
+        텍스트 표준화 처리 (Python 코드로 처리, LLM 호출 제거)
         
         Args:
             content (str): 표준화할 텍스트
@@ -46,38 +57,26 @@ class StandardizerService:
         Returns:
             str: 표준화된 텍스트
         """
-        if not self.client:
-            raise RuntimeError("Standardizer service not initialized")
-        
         try:
-            # 표준화 프롬프트
-            prompt = f"""다음 텍스트를 표준화해주세요:
-
-원본 텍스트:
-{content}
-
-표준화 요구사항:
-1. 불필요한 공백 정리
-2. 특수문자 정규화
-3. 일관된 표기법 사용
-
-표준화된 텍스트만 출력:"""
-            
-            # Ollama API 호출
-            response = self.client.chat(
-                model=self.model_name,
-                messages=[{"role": "user", "content": prompt}],
-                options={
-                    "temperature": 0.1,
-                    "top_p": 0.9
-                }
-            )
-            
-            return response['message']['content'].strip()
-            
+            # _standardize_content 메서드 재사용
+            return await self._standardize_content(content)
+                
         except Exception as e:
             logger.error(f"Text standardization failed: {e}")
             raise
+    
+    def _call_ollama(self, prompt: str) -> str:
+        """Ollama API 동기 호출 (executor에서 실행용)"""
+        response = self.client.chat(
+            model=self.model_name,
+            messages=[{"role": "user", "content": prompt}],
+            options={
+                "temperature": 0.1,
+                "top_p": 0.9,
+                "num_predict": 2000  # Ollama에서는 max_tokens 대신 num_predict 사용
+            }
+        )
+        return response['message']['content']
     
     # DART 원본 목차 -> 카테고리 매핑
     DART_SECTION_MAPPING = {
@@ -172,7 +171,7 @@ class StandardizerService:
                 logger.info(f"Chapter '{title}' not found in mapping, using LLM classification")
                 category = await self._classify_with_llm(title, content)
             
-            # 표준화 수행
+            # 표준화 수행 (LLM 호출 없이 Python으로 처리)
             standardized_content = await self._standardize_content(content)
             
             # 챕터 제목을 포함한 최종 텍스트
@@ -187,14 +186,15 @@ class StandardizerService:
     
     async def _classify_with_llm(self, title: str, content: str) -> str:
         """
-        LLM을 사용한 분류 (매핑에 없는 경우에만 사용)
+        LLM을 사용한 분류 (매핑에 없는 경우에만 사용, 동시성 제한 포함)
         """
         if not self.client:
             raise RuntimeError("Standardizer service not initialized")
         
-        try:
-            # 분류 프롬프트
-            prompt = f"""다음 공시 문서의 챕터를 분석하여 카테고리를 분류해주세요.
+        async with self.request_semaphore:
+            try:
+                # 분류 프롬프트
+                prompt = f"""다음 공시 문서의 챕터를 분석하여 카테고리를 분류해주세요.
 
 챕터 제목: {title}
 
@@ -209,66 +209,77 @@ class StandardizerService:
 5. other_references: 위험관리, 파생거래, 기타 참고사항
 
 가장 적합한 카테고리 1개만 선택하여 단순히 답하세요:"""
-            
-            # 분류 수행
-            classification_response = self.client.chat(
-                model=self.model_name,
-                messages=[{"role": "user", "content": prompt}],
-                options={
-                    "temperature": 0.1,
-                    "top_p": 0.9
-                }
-            )
-            
-            # 단순 텍스트 파싱
-            response_text = classification_response['message']['content'].strip().lower()
-            
-            # 유효한 카테고리 추출
-            valid_categories = ['business_overview', 'products_services', 'revenue_orders', 'contracts_rnd', 'other_references']
-            for category in valid_categories:
-                if category in response_text:
-                    logger.info(f"LLM classified '{title}' as: {category}")
-                    return category
-            
-            # 기본값
-            logger.warning(f"LLM classification failed for '{title}', defaulting to other_references")
-            return 'other_references'
-            
-        except Exception as e:
-            logger.error(f"LLM classification failed: {e}")
-            return 'other_references'
+                
+                # CPU 부하를 줄이기 위해 비동기 처리
+                loop = asyncio.get_event_loop()
+                response_text = await loop.run_in_executor(
+                    self.executor,
+                    self._call_ollama,
+                    prompt
+                )
+                
+                # 짧은 대기로 CPU 부하 분산
+                await asyncio.sleep(0.05)
+                
+                # 단순 텍스트 파싱
+                response_text = response_text.strip().lower()
+                
+                # 유효한 카테고리 추출
+                valid_categories = ['business_overview', 'products_services', 'revenue_orders', 'contracts_rnd', 'other_references']
+                for category in valid_categories:
+                    if category in response_text:
+                        logger.info(f"LLM classified '{title}' as: {category}")
+                        return category
+                
+                # 기본값
+                logger.warning(f"LLM classification failed for '{title}', defaulting to other_references")
+                return 'other_references'
+                
+            except Exception as e:
+                logger.error(f"LLM classification failed: {e}")
+                return 'other_references'
     
     async def _standardize_content(self, content: str) -> str:
         """
-        텍스트 표준화 수행
+        텍스트 표준화 수행 (Python 코드로 처리, LLM 호출 제거)
         """
-        if not self.client:
-            return content
-        
         try:
-            standardized_prompt = f"""다음 텍스트를 표준화해주세요:
-
-원본 텍스트:
-{content}
-
-표준화 요구사항:
-1. 불필요한 공백 및 특수문자 정리
-2. 테이블은 구조를 유지하면서 정리
-3. 숫자와 단위는 일관된 형식으로 표기
-4. 중요 정보(금액, 비율, 날짜)는 명확히 표시
-
-표준화된 텍스트:"""
+            # 1. 불필요한 공백 및 특수문자 정리
+            standardized = re.sub(r'\s+', ' ', content)  # 연속된 공백을 하나로
+            standardized = re.sub(r'[\u200b\u200c\u200d\ufeff]', '', standardized)  # Zero-width 문자 제거
+            standardized = re.sub(r'[　]', ' ', standardized)  # 전각 공백을 반각으로
             
-            standardization_response = self.client.chat(
-                model=self.model_name,
-                messages=[{"role": "user", "content": standardized_prompt}],
-                options={
-                    "temperature": 0.1,
-                    "top_p": 0.9
-                }
-            )
+            # 2. 테이블 구조 정리 (기본 형식 유지)
+            # 테이블 구분자 표준화
+            standardized = re.sub(r'[│┃┅]', '|', standardized)  # 세로선 통일
+            standardized = re.sub(r'[─━┄]', '-', standardized)  # 가로선 통일
             
-            return standardization_response['message']['content'].strip()
+            # 3. 숫자와 단위 형식 표준화
+            # 천 단위 구분자 통일 (1,000 형식)
+            standardized = re.sub(r'(\d)\s+(\d{3})', r'\1,\2', standardized)
+            
+            # 퍼센트 표기 통일
+            standardized = re.sub(r'(\d+)\s*[％%]', r'\1%', standardized)
+            
+            # 원화 표기 통일
+            standardized = re.sub(r'(\d+)\s*원', r'\1원', standardized)
+            standardized = re.sub(r'(\d+)\s*백만\s*원', r'\1백만원', standardized)
+            standardized = re.sub(r'(\d+)\s*천\s*원', r'\1천원', standardized)
+            standardized = re.sub(r'(\d+)\s*억\s*원', r'\1억원', standardized)
+            
+            # 4. 날짜 형식 표준화 (YYYY년 MM월 DD일)
+            standardized = re.sub(r'(\d{4})\.(\d{1,2})\.(\d{1,2})', r'\1년 \2월 \3일', standardized)
+            standardized = re.sub(r'(\d{4})/(\d{1,2})/(\d{1,2})', r'\1년 \2월 \3일', standardized)
+            
+            # 5. 줄바꿈 정리
+            lines = standardized.split('\n')
+            cleaned_lines = [line.strip() for line in lines if line.strip()]
+            standardized = '\n'.join(cleaned_lines)
+            
+            # 6. 앞뒤 공백 제거
+            standardized = standardized.strip()
+            
+            return standardized
             
         except Exception as e:
             logger.error(f"Text standardization failed: {e}")
@@ -276,8 +287,20 @@ class StandardizerService:
     
     def get_status(self) -> dict:
         """서비스 상태 반환"""
+        active_tasks = 0
+        if self.request_semaphore:
+            active_tasks = self.max_workers - self.request_semaphore._value if hasattr(self.request_semaphore, '_value') else 0
+        
         return {
             "ollama_host": self.ollama_host,
             "model_name": self.model_name,
-            "initialized": self.client is not None
+            "initialized": self.client is not None,
+            "active_tasks": active_tasks,
+            "max_workers": self.max_workers
         }
+    
+    async def shutdown(self):
+        """서비스 종료 시 정리"""
+        if self.executor:
+            self.executor.shutdown(wait=True, timeout=5)
+            logger.info("StandardizerService executor shutdown completed")
