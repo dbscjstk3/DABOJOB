@@ -1,14 +1,9 @@
-// components/common/header/Header.tsx
-import * as React from 'react';
 import { Link, useNavigate } from '@tanstack/react-router';
 import { LogOut } from 'lucide-react';
 import { SearchBox } from '../molecules/SearchBox';
 import { Button } from '../atoms/Button';
 
-// ⚠️ Vite 기본 설정(일반 URL import) 기준
 import DABOJOB_logo from '@/assets/logo/DABOJOB_logo.svg';
-// 만약 svgr 플러그인을 쓰면 ↓ 처럼도 가능:
-// import { ReactComponent as LogoSvg } from "@/assets/logo/DABOJOB_logo.svg";
 
 type User = { name: string };
 

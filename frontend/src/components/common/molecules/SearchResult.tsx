@@ -1,4 +1,3 @@
-import * as React from 'react';
 import { ArrowUpLeft } from 'lucide-react';
 import { cn } from '../../../lib/utils';
 import { IconButton } from '../atoms/IconButton';
