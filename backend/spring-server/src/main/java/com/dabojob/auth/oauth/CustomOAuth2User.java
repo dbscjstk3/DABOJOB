@@ -1,6 +1,6 @@
 package com.dabojob.auth.oauth;
 
-import com.dabojob.user.repository.entity.User;
+import com.dabojob.user.entity.User;
 import java.util.Collection;
 import java.util.Map;
 import lombok.Getter;

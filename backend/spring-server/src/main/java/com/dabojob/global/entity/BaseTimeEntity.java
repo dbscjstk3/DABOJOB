@@ -1,4 +1,4 @@
-package com.dabojob.global.repository.entity;
+package com.dabojob.global.entity;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.EntityListeners;

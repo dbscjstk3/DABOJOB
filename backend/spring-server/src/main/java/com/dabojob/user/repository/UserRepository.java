@@ -1,7 +1,7 @@
 package com.dabojob.user.repository;
 
 import com.dabojob.global.enums.UserRole;
-import com.dabojob.user.repository.entity.User;
+import com.dabojob.user.entity.User;
 import java.util.List;
 import java.util.Optional;
 import org.springframework.data.jpa.repository.JpaRepository;

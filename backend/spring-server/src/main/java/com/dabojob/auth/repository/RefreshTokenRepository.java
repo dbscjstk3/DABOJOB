@@ -1,6 +1,6 @@
 package com.dabojob.auth.repository;
 
-import com.dabojob.auth.repository.entity.RefreshToken;
+import com.dabojob.auth.entity.RefreshToken;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
