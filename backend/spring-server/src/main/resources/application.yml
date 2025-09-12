@@ -47,8 +47,6 @@ spring:
 
 server:
   port: ${SERVER_PORT:8080}
-  servlet:
-    context-path: ${SERVER_SERVLET_CONTEXT_PATH}  # ← 명시적으로 /api 고정(또는 ENV로 제어)
 
 management:
   endpoints:
