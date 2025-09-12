@@ -3,7 +3,7 @@ import { LogOut } from 'lucide-react';
 import { SearchBox } from '../molecules/SearchBox';
 import { Button } from '../atoms/Button';
 
-import DABOJOB_logo from '@/assets/logo/DABOJOB_logo.svg';
+import DABOJOB_logo from '@/assets/logo/DABOJOB_logo_loop3.gif';
 
 type User = { name: string };
 
