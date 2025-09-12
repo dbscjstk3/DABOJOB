@@ -29,7 +29,7 @@ const typographyVariants = cva('font-pretendard', {
     color: {
       black: 'text-black',
       dabojob: 'text-daboja-default',
-      gray: 'text-daboja-gray-default',
+      gray: 'text-[#757575]',
       red: 'text-[#FB2C36]',
       white: 'text-white',
     },
