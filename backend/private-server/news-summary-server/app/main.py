@@ -1,13 +1,16 @@
 import os
-import sys
 import logging
-from typing import Dict, Any, List
+import asyncio
+import time
+from typing import Optional
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 import ollama
+from concurrent.futures import ThreadPoolExecutor
+import threading
 
-# Redis 모듈 import (같은 디렉토리에서)
-from redis_client import RedisStreamClient
+from .utils import qwen_summarize
+from .services.redis_consumer import RedisConsumer
 
 # 로깅 설정
 logging.basicConfig(level=logging.INFO)
@@ -15,200 +18,189 @@ logger = logging.getLogger(__name__)
 
 app = FastAPI(title="news-summary-server")
 
-# 환경변수 설정
-OLLAMA_HOST = os.getenv('OLLAMA_HOST', 'localhost:11434')
-MODEL_NAME = os.getenv('MODEL_NAME', 'qwen2.5:0.5b-instruct-fp16')
+# 환경변수에서 올바른 이름으로 가져오기
+OLLAMA_HOST = os.getenv('OLLAMA_HOST', 'ollama:11434')
+MODEL_NAME = os.getenv('NEWS_MODEL', 'qwen2.5:0.5b-instruct-fp16')
 
-# 전역 클라이언트
+# Ollama 클라이언트
 ollama_client = None
-redis_client = None
+executor = None
+request_semaphore = None
+shutdown_event = threading.Event()
+redis_consumer = None
+consumer_thread = None
 
-class NewsRequest(BaseModel):
+class NewsSummarizeRequest(BaseModel):
     mapping_id: int
-    summaries: Dict[int, str]  # {chapter: summary}
-    keywords: List[str]
+    chapter: int
+    summary: str
+    file_path: str = ""
+    target_sentences: Optional[int] = 2
 
-class NewsResponse(BaseModel):
+class NewsSummarizeResponse(BaseModel):
     mapping_id: int
+    chapter: int
     news_summary: str
-    keywords_used: List[str]
     status: str = "completed"
+
+async def news_search_callback(job_id: str, category: str, hashtags: list):
+    """해시태그 기반 뉴스 검색 콜백"""
+    logger.info(f"News search for job {job_id}, category {category}: {hashtags}")
+    # TODO: 실제 뉴스 API 호출 로직 구현
+    # 예: news_api.search(hashtags)
+    # 결과를 파일이나 DB에 저장
+    
+    # 임시 처리
+    for hashtag in hashtags:
+        logger.info(f"Searching news with hashtag: {hashtag}")
 
 @app.on_event("startup")
 async def startup_event():
     """서버 시작 시 초기화"""
-    global ollama_client, redis_client
+    global ollama_client, executor, request_semaphore, redis_consumer, consumer_thread
     
     try:
-        # Ollama 클라이언트 초기화
         host = OLLAMA_HOST if OLLAMA_HOST.startswith('http') else f'http://{OLLAMA_HOST}'
         ollama_client = ollama.Client(host=host)
+        
+        # 동시 처리 제한을 위한 설정
+        max_workers = int(os.getenv('MAX_WORKERS', '2'))  # 동시 처리 수 제한
+        executor = ThreadPoolExecutor(max_workers=max_workers)
+        request_semaphore = asyncio.Semaphore(max_workers)  # 동시 요청 제한
+        
+        # Redis Consumer 시작
+        if os.getenv('ENABLE_REDIS_CONSUMER', 'true').lower() == 'true':
+            try:
+                redis_consumer = RedisConsumer()
+                redis_consumer.set_news_search_callback(news_search_callback)
+                consumer_thread = redis_consumer.start_background_consumer()
+                logger.info("Redis consumer started successfully")
+            except Exception as e:
+                logger.error(f"Failed to start Redis consumer: {e}")
+                # Redis 실패해도 서버는 계속 동작
         
         # 연결 테스트
         models = ollama_client.list()
         logger.info(f"Connected to Ollama at {host}")
         logger.info(f"Available models: {[m['name'] for m in models['models']]}")
-        
-        # Redis 클라이언트 초기화
-        redis_client = RedisStreamClient()
-        redis_client.setup_consumer_groups()
-        
-        logger.info("News-Summary server initialized successfully")
+        logger.info(f"Using model: {MODEL_NAME}")
+        logger.info(f"Max concurrent workers: {max_workers}")
         
     except Exception as e:
-        logger.error(f"Failed to initialize server: {e}")
+        logger.error(f"Failed to initialize Ollama client: {e}")
         raise
 
 @app.get("/health")
 def health_check() -> dict:
+    """헬스체크 with 리소스 상태"""
+    active_tasks = 0
+    if request_semaphore:
+        active_tasks = max_workers - request_semaphore._value if hasattr(request_semaphore, '_value') else 0
+    
+    redis_status = "not_enabled"
+    pending_messages = 0
+    if redis_consumer:
+        try:
+            pending_info = redis_consumer.get_pending_messages()
+            pending_messages = pending_info.get('total', 0)
+            redis_status = "connected"
+        except:
+            redis_status = "error"
+    
     return {
-        "status": "ok",
+        "status": "ok" if not shutdown_event.is_set() else "shutting_down", 
         "service": "news-summary",
         "model": MODEL_NAME,
-        "ollama_host": OLLAMA_HOST
+        "ollama_host": OLLAMA_HOST,
+        "active_tasks": active_tasks,
+        "max_workers": int(os.getenv('MAX_WORKERS', '2')),
+        "redis_consumer": redis_status,
+        "pending_messages": pending_messages
     }
 
-@app.post("/generate-news", response_model=NewsResponse)
-async def generate_news_summary(request: NewsRequest) -> NewsResponse:
-    """뉴스 형식 종합 요약 생성"""
+max_workers = int(os.getenv('MAX_WORKERS', '2'))
+
+@app.post("/news-summarize", response_model=NewsSummarizeResponse)
+async def news_summarize_content(request: NewsSummarizeRequest) -> NewsSummarizeResponse:
+    """뉴스 스타일 요약 처리 (동시성 제한 포함)"""
+    
+    # 서버 종료 중이면 요청 거부
+    if shutdown_event.is_set():
+        raise HTTPException(status_code=503, detail="Server is shutting down")
+    
+    # 세마포어로 동시 요청 수 제한
+    async with request_semaphore:
+        try:
+            logger.info(f"Processing news summary: mapping_id={request.mapping_id}, chapter={request.chapter}")
+            
+            # CPU 부하를 줄이기 위해 비동기 처리
+            loop = asyncio.get_event_loop()
+            news_summary = await loop.run_in_executor(
+                executor,
+                qwen_summarize,
+                ollama_client,
+                MODEL_NAME,
+                request.summary,
+                request.target_sentences or 2
+            )
+            
+            # 짧은 대기로 CPU 부하 분산
+            await asyncio.sleep(0.1)
+            
+            logger.info(f"News summary completed: mapping_id={request.mapping_id}")
+            
+            return NewsSummarizeResponse(
+                mapping_id=request.mapping_id,
+                chapter=request.chapter,
+                news_summary=news_summary
+            )
+            
+        except asyncio.CancelledError:
+            logger.warning(f"Request cancelled: mapping_id={request.mapping_id}")
+            raise HTTPException(status_code=503, detail="Request cancelled")
+        except Exception as e:
+            logger.error(f"News summary failed for mapping_id={request.mapping_id}: {e}")
+            # 실패 시 간단한 fallback 처리
+            if "timeout" in str(e).lower():
+                raise HTTPException(status_code=504, detail="Processing timeout")
+            raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/hashtag-results/{job_id}")
+async def get_hashtag_results(job_id: str):
+    """처리된 해시태그 결과 조회"""
+    if not redis_consumer:
+        raise HTTPException(status_code=503, detail="Redis consumer not available")
+    
     try:
-        logger.info(f"Processing news generation: mapping_id={request.mapping_id}")
-        
-        # 챕터별 요약을 하나로 합치기
-        all_summaries = "\n\n".join([
-            f"【{chapter}장】 {summary}" 
-            for chapter, summary in request.summaries.items()
-        ])
-        
-        keywords_text = ", ".join(request.keywords)
-        
-        # 뉴스 형식 종합 요약 프롬프트
-        news_prompt = f"""다음 DART 공시 챕터별 요약들을 바탕으로 뉴스 기사 형식의 종합 요약을 작성해주세요:
-
-챕터별 요약:
-{all_summaries}
-
-핵심 키워드: {keywords_text}
-
-뉴스 작성 요구사항:
-1. 뉴스 기사 스타일로 작성 (제목 + 본문)
-2. 제목은 "【속보】"로 시작
-3. 핵심 키워드를 자연스럽게 본문에 포함
-4. 중요한 수치, 날짜, 금액 등 구체적 정보 포함
-5. 800자 내외로 작성
-6. 객관적이고 간결한 문체
-7. 투자자 관점에서 중요한 정보 위주
-
-뉴스 기사:"""
-        
-        # Ollama API 호출 (0.5B 모델, FP16)
-        response = ollama_client.chat(
-            model=MODEL_NAME,
-            messages=[{"role": "user", "content": news_prompt}],
-            options={
-                "temperature": 0.3,
-                "top_p": 0.9
-            }
-        )
-        
-        news_summary = response['message']['content'].strip()
-        
-        # 완료 알림 전송
-        redis_client.send_complete(mapping_id=request.mapping_id)
-        
-        # 완료 카운터 증가
-        completed_count = redis_client.increment_completion_counter(request.mapping_id)
-        logger.info(f"Completion count for mapping_id={request.mapping_id}: {completed_count}")
-        
-        logger.info(f"News generation completed: mapping_id={request.mapping_id}")
-        
-        return NewsResponse(
-            mapping_id=request.mapping_id,
-            news_summary=news_summary,
-            keywords_used=request.keywords
-        )
-        
-    except Exception as e:
-        logger.error(f"News generation failed: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
-
-@app.post("/generate-from-keywords")
-async def generate_news_from_keywords(
-    mapping_id: int,
-    keywords: List[str]
-) -> Dict[str, Any]:
-    """키워드만으로 뉴스 생성 (단순 버전)"""
-    try:
-        logger.info(f"Generating news from keywords: mapping_id={mapping_id}, keywords={keywords}")
-        
-        keywords_text = ", ".join(keywords)
-        
-        simple_prompt = f"""다음 키워드들을 바탕으로 간단한 뉴스 요약을 작성해주세요:
-
-키워드: {keywords_text}
-
-요구사항:
-1. 500자 내외
-2. 뉴스 형식 (제목 + 본문)
-3. 키워드를 자연스럽게 포함
-4. 객관적인 문체
-
-뉴스:"""
-        
-        response = ollama_client.chat(
-            model=MODEL_NAME,
-            messages=[{"role": "user", "content": simple_prompt}],
-            options={
-                "temperature": 0.4,
-                "top_p": 0.9
-            }
-        )
-        
-        news_text = response['message']['content'].strip()
+        results = redis_consumer.get_processed_results(job_id)
+        if not results:
+            raise HTTPException(status_code=404, detail=f"No results found for job {job_id}")
         
         return {
-            "mapping_id": mapping_id,
-            "news_summary": news_text,
-            "keywords": keywords,
+            "job_id": job_id,
+            "categories": list(results.keys()),
+            "results": results,
             "status": "completed"
         }
-        
     except Exception as e:
-        logger.error(f"Simple news generation failed: {e}")
+        logger.error(f"Failed to get hashtag results: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
-@app.get("/status")
-def get_status() -> Dict[str, Any]:
-    """서버 상태 조회"""
-    try:
-        # Ollama 연결 테스트
-        ollama_status = "connected"
-        try:
-            ollama_client.list()
-        except:
-            ollama_status = "disconnected"
-            
-        # Redis 상태
-        redis_status = {}
-        if redis_client:
-            redis_status = redis_client.get_stream_info()
-        
-        return {
-            "service": "news-summary",
-            "status": "running",
-            "model": MODEL_NAME,
-            "model_type": "qwen2.5-0.5b-fp16",
-            "ollama_host": OLLAMA_HOST,
-            "ollama_status": ollama_status,
-            "redis_info": redis_status
-        }
-    except Exception as e:
-        return {
-            "service": "news-summary",
-            "status": "error",
-            "error": str(e)
-        }
+@app.on_event("shutdown")
+async def shutdown_event_handler():
+    """서버 종료 시 정리"""
+    global executor, redis_consumer
+    shutdown_event.set()
+    
+    # Redis Consumer 정리
+    if redis_consumer:
+        redis_consumer.cleanup()
+        logger.info("Redis consumer shutdown completed")
+    
+    if executor:
+        executor.shutdown(wait=True, timeout=5)
+        logger.info("Executor shutdown completed")
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8200)
+    uvicorn.run(app, host="0.0.0.0", port=8200, workers=1)

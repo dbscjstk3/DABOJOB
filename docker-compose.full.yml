@@ -20,14 +20,52 @@ services:
       - TZ=Asia/Seoul
     volumes:
       - private-db-data:/var/lib/mysql
-      # 필요 시 설정/초기화 스크립트 활성화
-      # - ./mysql/conf.d:/etc/mysql/conf.d
-      # - ./mysql/init:/docker-entrypoint-initdb.d
     healthcheck:
       test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u${MYSQL_USER}", "-p${MYSQL_PASSWORD}"]
       interval: 10s
       timeout: 5s
       retries: 15
+    restart: unless-stopped
+    networks:
+      - app-net
+
+  ollama:
+    image: ollama/ollama:latest
+    container_name: private-ollama
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama-data:/root/.ollama
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:11434/api/tags"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    restart: unless-stopped
+    networks:
+      - app-net
+    # GPU 사용 시 추가 (선택사항)
+    # deploy:
+    #   resources:
+    #     reservations:
+    #       devices:
+    #         - driver: nvidia
+    #           count: 1
+    #           capabilities: [gpu]
+
+  redis:
+    image: redis:7-alpine
+    container_name: private-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
     restart: unless-stopped
     networks:
       - app-net
@@ -42,20 +80,20 @@ services:
       - .env.private
     environment:
       - TZ=Asia/Seoul
-      # DB 의존 시 애플리케이션 환경변수도 이쪽에서 주입(예: DB_URL 등)
-    # 리버스 프록시 뒤에 둘 때는 포트 매핑 비활성화 가능
+      - OLLAMA_BASE_URL=http://ollama:11434
     ports:
       - "${STANDARDIZER_PORT:-8000}:8000"
     depends_on:
       mysql:
         condition: service_healthy
-    # (권장) 헬스체크가 있다면 추가
-    # healthcheck:
-    #   test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
-    #   interval: 30s
-    #   timeout: 10s
-    #   retries: 3
-    #   start_period: 30s
+      ollama:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
     volumes:
       - shared-data:/app/data
     networks:
@@ -72,11 +110,20 @@ services:
       - .env.private
     environment:
       - TZ=Asia/Seoul
+      - OLLAMA_BASE_URL=http://ollama:11434
     ports:
       - "${SUMMARY_PORT:-8100}:8100"
     depends_on:
       mysql:
         condition: service_healthy
+      ollama:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8100/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
     volumes:
       - shared-data:/app/data
     networks:
@@ -93,19 +140,28 @@ services:
       - .env.private
     environment:
       - TZ=Asia/Seoul
+      - OLLAMA_BASE_URL=http://ollama:11434
     ports:
       - "${NEWS_SUMMARY_PORT:-8200}:8200"
     depends_on:
       mysql:
         condition: service_healthy
-    volumes:
-      - shared-data:/app/data
+      ollama:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8200/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
     networks:
       - app-net
     restart: unless-stopped
 
 volumes:
   private-db-data:
+  ollama-data:
+  redis-data:
   shared-data:
 
 networks:
