@@ -1,4 +1,3 @@
-// components/search/SearchBar.tsx
 import * as React from 'react';
 import { Search } from 'lucide-react';
 import { IconButton } from '../atoms/IconButton';

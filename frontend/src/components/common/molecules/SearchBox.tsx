@@ -1,4 +1,3 @@
-// components/search/SearchBox.tsx
 import * as React from 'react';
 import { SearchBar } from './SearchBar';
 import { SearchResult, type SearchItem } from './SearchResult';
