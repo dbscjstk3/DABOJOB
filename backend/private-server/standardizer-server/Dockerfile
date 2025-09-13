@@ -17,9 +17,9 @@ COPY requirements.txt ./
 RUN pip install --upgrade pip \
     && pip install -r requirements.txt
 
-# Copy only app directory contents to /app (avoiding nested app/app structure)
-COPY app/* ./
+# Copy the entire app directory to /app/app/
+COPY app/ ./app/
 
 EXPOSE 8000
 
-CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
