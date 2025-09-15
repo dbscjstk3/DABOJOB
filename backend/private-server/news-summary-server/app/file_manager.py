@@ -118,6 +118,32 @@ class FileManager:
         logger.info(f"Read {len(summaries)} summaries for mapping_id={self.mapping_id}")
         return summaries
     
+    def get_company_analysis_data(self) -> Optional[Dict[str, str]]:
+        """기업 분석 데이터를 읽어서 DB 저장 형태로 변환"""
+        summaries = self.read_all_summaries()
+        
+        if not summaries:
+            logger.warning(f"No summaries found for mapping_id={self.mapping_id}")
+            return None
+        
+        # 챕터별 매핑 (1:사업개요, 2:제품/서비스, 3:매출/수주, 4:계약/연구개발, 5:기타)
+        analysis_data = {
+            'business_overview': summaries.get(1, ''),      # 1. 사업의 개요
+            'products_service': summaries.get(2, ''),       # 2. 주요 제품 및 서비스  
+            'sales_contracts': summaries.get(3, ''),        # 4. 매출 및 수주 상황
+            'rnd_activities': summaries.get(4, ''),         # 6. 주요 계약 및 연구 개발 활동
+            'other_notes': summaries.get(5, '')             # 7. 기타 참고사항
+        }
+        
+        # 빈 데이터 체크
+        has_data = any(data.strip() for data in analysis_data.values())
+        if not has_data:
+            logger.warning(f"All summary data is empty for mapping_id={self.mapping_id}")
+            return None
+            
+        logger.info(f"Extracted company analysis data for mapping_id={self.mapping_id}")
+        return analysis_data
+    
     def get_standardized_file_path(self, chapter: int) -> Optional[str]:
         """표준화된 파일 경로 반환"""
         pattern = f"chapter_{chapter}_*.txt"
