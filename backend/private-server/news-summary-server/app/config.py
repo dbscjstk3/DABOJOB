@@ -9,7 +9,7 @@ load_dotenv()
 
 class Config:
     # Redis 설정
-    REDIS_HOST = os.getenv('REDIS_HOST', 'localhost')
+    REDIS_HOST = os.getenv('REDIS_HOST', 'redis')
     REDIS_PORT = int(os.getenv('REDIS_PORT', 6379))
     REDIS_DB = int(os.getenv('REDIS_DB', 0))
 
@@ -23,7 +23,7 @@ class Config:
     GROUP_NEWS = "news-group"
 
     # MySQL 설정 (나중에 사용)
-    MYSQL_HOST = os.getenv('MYSQL_HOST', 'localhost')
+    MYSQL_HOST = os.getenv('MYSQL_HOST', 'mysql')
     MYSQL_PORT = int(os.getenv('MYSQL_PORT', 3306))
     MYSQL_USER = os.getenv('MYSQL_USER', 'root')
     MYSQL_PASSWORD = os.getenv('MYSQL_PASSWORD', '')
@@ -33,7 +33,7 @@ class Config:
     AWS_ACCESS_KEY_ID = os.getenv('AWS_ACCESS_KEY_ID')
     AWS_SECRET_ACCESS_KEY = os.getenv('AWS_SECRET_ACCESS_KEY')
     AWS_REGION = os.getenv('AWS_REGION', 'ap-northeast-2')
-    S3_BUCKET = os.getenv('S3_BUCKET', 'dart-analysis-bucket')
+    S3_BUCKET = os.getenv('S3_BUCKET', 'dabojob-bucket')
 
     # 파일 시스템 설정
     DATA_ROOT = "/app/data/mappings"
@@ -63,5 +63,6 @@ class Config:
     @property
     def ollama_url(self) -> str:
         return f"http://{self.OLLAMA_HOST}:{self.OLLAMA_PORT}"
-    
-    config = Config()
+
+# 전역 config 인스턴스 생성
+config = Config()
