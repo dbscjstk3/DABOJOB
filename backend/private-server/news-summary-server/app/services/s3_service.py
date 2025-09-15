@@ -19,16 +19,31 @@ class S3Service:
         self.bucket_name = config.S3_BUCKET
         self.region = config.AWS_REGION
         
-        # A2 EC2에서는 daboja-bridge-private 프로필 사용
+        # AWS 자격증명 초기화
         try:
-            # 세션 생성 (프로필 기반)
-            session = boto3.Session(profile_name='daboja-bridge-private')
-            self.s3_client = session.client('s3', region_name=self.region)
-            logger.info("S3 client initialized with daboja-bridge-private profile")
+            # 환경변수에서 자격증명 확인
+            if config.AWS_ACCESS_KEY_ID and config.AWS_SECRET_ACCESS_KEY:
+                # 환경변수로 세션 생성
+                session = boto3.Session(
+                    aws_access_key_id=config.AWS_ACCESS_KEY_ID,
+                    aws_secret_access_key=config.AWS_SECRET_ACCESS_KEY,
+                    region_name=self.region
+                )
+                self.s3_client = session.client('s3')
+                logger.info("S3 client initialized with environment variables")
+            else:
+                # 프로필 기반 시도
+                try:
+                    session = boto3.Session(profile_name='daboja-bridge-private')
+                    self.s3_client = session.client('s3', region_name=self.region)
+                    logger.info("S3 client initialized with daboja-bridge-private profile")
+                except Exception:
+                    # 기본 credential provider 사용
+                    self.s3_client = boto3.client('s3', region_name=self.region)
+                    logger.info("S3 client initialized with default credentials")
         except Exception as e:
-            logger.warning(f"Profile not found, using default credentials: {e}")
-            # 프로필이 없으면 기본 credential provider 사용
-            self.s3_client = boto3.client('s3', region_name=self.region)
+            logger.warning(f"Failed to initialize S3 client: {e}")
+            self.s3_client = None  # S3 기능 비활성화
     
     async def upload_news_report(self, mapping_id: int, report_data: Dict[str, Any]) -> Optional[str]:
         """
@@ -42,6 +57,10 @@ class S3Service:
             S3 키 (업로드 성공 시) 또는 None (실패 시)
         """
         try:
+            if not self.s3_client:
+                logger.warning("S3 client not available, skipping upload")
+                return None
+                
             # S3 키 생성: reports/{YYYY-MM-DD}/news-report-{mapping_id}.json
             today = datetime.now().strftime('%Y-%m-%d')
             s3_key = f"reports/{today}/news-report-{mapping_id}.json"
