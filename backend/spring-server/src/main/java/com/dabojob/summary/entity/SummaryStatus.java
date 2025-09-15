@@ -1,4 +1,4 @@
-package com.dabojob.analysis.entity;
+package com.dabojob.summary.entity;
 
 import lombok.Getter;
 

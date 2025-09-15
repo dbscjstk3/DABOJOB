@@ -1,14 +1,16 @@
-package com.dabojob.analysis.entity;
+package com.dabojob.summary.entity;
+
 
 import com.dabojob.company.entity.DartCompany;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.FetchType;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
-import java.time.LocalDate;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
@@ -21,29 +23,23 @@ import lombok.Setter;
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
-@Table(name = "news")
-public class News {
+@Table(name = "summary_hashtags")
+public class SummaryHashtag {
 
     @Id
-    @Column(name="news_id")
-    private String newsId;
+    @Column(name="summary_hashtag_id")
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long summaryHashtagId;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "dart_id")
-    private DartCompany  dartCompany;
-
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "summary_id")
+    @JoinColumn(name="summary_id")
     private CompanyAnalysisSummary summary;
 
-    @Column(name="news_content")
-    private String newsContent;
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name="hashtag_id")
+    private Hashtag hashtag;
 
-    @Column(name="news_url")
-    private String newsUrl;
-
-    @Column(name="news_created_at")
-    private LocalDate newsCreatedAt;
-
-
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name="dart_id")
+    private DartCompany dartCompany;
 }
