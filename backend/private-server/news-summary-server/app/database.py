@@ -68,13 +68,16 @@ class Database:
             news_title VARCHAR(500) NOT NULL COMMENT '뉴스 제목',
             news_url VARCHAR(1000) NOT NULL COMMENT '뉴스 URL',
             news_created_at DATETIME NOT NULL COMMENT '뉴스 생성 날짜',
-            news_content TEXT NOT NULL COMMENT '뉴스 요약',
+            news_content TEXT DEFAULT NULL COMMENT '뉴스 요약',
             company_name VARCHAR(200) DEFAULT NULL COMMENT '기업명',
+            status ENUM('raw', 'completed') DEFAULT 'raw' COMMENT '처리 상태',
             created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
             
             INDEX idx_mapping_id (mapping_id),
             INDEX idx_hashtag (hashtag_id),
             INDEX idx_summary_id (summary_id),
+            INDEX idx_status (status),
             UNIQUE KEY uk_mapping_hashtag_url (mapping_id, hashtag_id, news_url)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
         """
@@ -174,6 +177,129 @@ class Database:
             return [dict(zip(cols, r)) for r in rows]
 
     
+    async def save_company_analysis(self, mapping_id: int, analysis_data: Dict[str, str]) -> int:
+        """기업 분석 요약 저장"""
+        insert_query = """
+        INSERT INTO company_analysis_summaries (
+            mapping_id, business_overview, products_service, 
+            sales_contracts, rnd_activities, other_notes
+        ) VALUES (%s, %s, %s, %s, %s, %s)
+        ON DUPLICATE KEY UPDATE
+            business_overview = VALUES(business_overview),
+            products_service = VALUES(products_service),
+            sales_contracts = VALUES(sales_contracts),
+            rnd_activities = VALUES(rnd_activities),
+            other_notes = VALUES(other_notes),
+            updated_at = NOW()
+        """
+        
+        async with self.get_connection() as cursor:
+            await cursor.execute(insert_query, (
+                mapping_id,
+                analysis_data.get('business_overview'),
+                analysis_data.get('products_service'), 
+                analysis_data.get('sales_contracts'),
+                analysis_data.get('rnd_activities'),
+                analysis_data.get('other_notes')
+            ))
+            
+            if cursor.rowcount > 0:
+                logger.info(f"Saved company analysis for mapping_id={mapping_id}")
+                return cursor.lastrowid or mapping_id
+            return 0
+
+    async def get_company_analysis(self, mapping_id: int) -> Optional[Dict[str, Any]]:
+        """기업 분석 요약 조회"""
+        query = """
+        SELECT summary_id, mapping_id, business_overview, products_service,
+               sales_contracts, rnd_activities, other_notes, created_at, updated_at
+        FROM company_analysis_summaries
+        WHERE mapping_id = %s
+        """
+        
+        async with self.get_connection() as cursor:
+            await cursor.execute(query, (mapping_id,))
+            row = await cursor.fetchone()
+            
+            if row:
+                columns = [desc[0] for desc in cursor.description]
+                return dict(zip(columns, row))
+            return None
+
+    async def save_hashtags(self, mapping_id: int, summary_id: int, chapter: str, hashtags: List[str]) -> int:
+        """해시태그 저장"""
+        if not hashtags:
+            return 0
+        
+        insert_query = """
+        INSERT INTO summary_hashtags (
+            mapping_id, summary_id, chapter, hashtag
+        ) VALUES (%s, %s, %s, %s)
+        ON DUPLICATE KEY UPDATE
+            updated_at = NOW()
+        """
+        
+        saved_count = 0
+        async with self.get_connection() as cursor:
+            for hashtag in hashtags:
+                if hashtag and hashtag.strip():  # 빈 해시태그 제외
+                    await cursor.execute(insert_query, (
+                        mapping_id,
+                        summary_id,
+                        str(chapter),
+                        hashtag.strip()[:100]  # 100자 제한
+                    ))
+                    saved_count += cursor.rowcount
+        
+        logger.info(f"Saved {saved_count} hashtags for mapping_id={mapping_id}, chapter={chapter}")
+        return saved_count
+
+    async def get_hashtags_by_mapping(self, mapping_id: int) -> List[Dict[str, Any]]:
+        """매핑 ID로 해시태그 조회"""
+        query = """
+        SELECT hashtag_id, mapping_id, summary_id, chapter, hashtag, created_at, updated_at
+        FROM summary_hashtags
+        WHERE mapping_id = %s
+        ORDER BY chapter, hashtag_id
+        """
+        
+        async with self.get_connection() as cursor:
+            await cursor.execute(query, (mapping_id,))
+            rows = await cursor.fetchall()
+            
+            columns = [desc[0] for desc in cursor.description]
+            return [dict(zip(columns, row)) for row in rows]
+
+    async def get_hashtags_by_chapter(self, mapping_id: int, chapter: str) -> List[str]:
+        """챕터별 해시태그 조회"""
+        query = """
+        SELECT hashtag
+        FROM summary_hashtags
+        WHERE mapping_id = %s AND chapter = %s
+        ORDER BY hashtag_id
+        """
+        
+        async with self.get_connection() as cursor:
+            await cursor.execute(query, (mapping_id, str(chapter)))
+            rows = await cursor.fetchall()
+            
+            return [row[0] for row in rows]
+
+    async def update_hashtags_summary_id(self, mapping_id: int, summary_id: int) -> int:
+        """해시태그의 summary_id 업데이트"""
+        update_query = """
+        UPDATE summary_hashtags 
+        SET summary_id = %s, updated_at = NOW()
+        WHERE mapping_id = %s AND summary_id = 0
+        """
+        
+        async with self.get_connection() as cursor:
+            await cursor.execute(update_query, (summary_id, mapping_id))
+            updated_count = cursor.rowcount
+            
+            logger.info(f"Updated {updated_count} hashtags with summary_id={summary_id} for mapping_id={mapping_id}")
+            return updated_count
+
     async def get_statistics(self) -> Dict[str, int]:
         queries = {
             "total_news": "SELECT COUNT(*) FROM news_summaries",
