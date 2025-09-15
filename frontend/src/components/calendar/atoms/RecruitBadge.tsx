@@ -32,14 +32,16 @@ export const RecruitBadge: React.FC<RecruitBadgeProps> = ({
       <Typography variant="recruits" weight="bold" color={type === 'start' ? 'dabojob' : 'red'}>
         {type === 'start' ? '시작' : '종료'}
       </Typography>
-      <Typography
-        variant="recruits"
-        className={cn('truncate max-w-[8rem]')}
-        weight="regular"
-        color="black"
-      >
-        {company}
-      </Typography>
+      {company && (
+        <Typography
+          variant="recruits"
+          className={cn('truncate max-w-[8rem]')}
+          weight="regular"
+          color="black"
+        >
+          {company}
+        </Typography>
+      )}
     </div>
   );
 };

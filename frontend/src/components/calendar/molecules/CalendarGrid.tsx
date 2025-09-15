@@ -7,13 +7,25 @@ import { cn } from '../../../lib/utils';
 export interface CalendarGridProps {
   viewDate: Date;
   getFilteredRecruits: (day: number) => {
-    type: 'start' | 'end';
-    company: string;
-    employmentType: string;
-    jobCategory: string;
+    event_type: 'job_posted' | 'job_expired';
+    job_id: string;
+    csn: string;
+    company_name: string;
+    title: string;
+    job_code: {
+      code: string;
+      name: string;
+    };
+    job_type: {
+      code: string;
+      name: string;
+    };
+    posting_date: string;
+    expiration_date: string;
   }[];
   expandedDays: Set<number>;
   onExpandedDaysChange: (days: Set<number>) => void;
+  onOpenModal?: (day: number) => void;
   className?: string;
 }
 
@@ -22,6 +34,7 @@ export const CalendarGrid: React.FC<CalendarGridProps> = ({
   getFilteredRecruits,
   expandedDays,
   onExpandedDaysChange,
+  onOpenModal,
   className,
 }) => {
   const year = viewDate.getFullYear();
@@ -68,6 +81,7 @@ export const CalendarGrid: React.FC<CalendarGridProps> = ({
             today={cell.isToday}
             interactive={cell.isCurrentMonth}
             day={cell.day}
+            dayOfWeek={cell.dayOfWeek}
             recruits={cell.day ? getFilteredRecruits(cell.day) : []}
             isExpanded={cell.day ? expandedDays.has(cell.day) : false}
             onToggleExpanded={(day) => {
@@ -76,6 +90,7 @@ export const CalendarGrid: React.FC<CalendarGridProps> = ({
               else next.add(day);
               onExpandedDaysChange(next);
             }}
+            onOpenModal={onOpenModal}
           />
         ))}
       </div>

@@ -35,17 +35,32 @@ export interface CellBoxProps
   children?: React.ReactNode;
   /** 날짜 */
   day?: number | null;
+  /** 요일 (0: 일요일, 1: 월요일, ..., 6: 토요일) */
+  dayOfWeek?: number;
   /** 공고 데이터 */
   recruits?: {
-    type: 'start' | 'end';
-    company: string;
-    employmentType: string;
-    jobCategory: string;
+    event_type: 'job_posted' | 'job_expired';
+    job_id: string;
+    csn: string;
+    company_name: string;
+    title: string;
+    job_code: {
+      code: string;
+      name: string;
+    };
+    job_type: {
+      code: string;
+      name: string;
+    };
+    posting_date: string;
+    expiration_date: string;
   }[];
   /** 확장 상태 */
   isExpanded?: boolean;
   /** 확장 토글 함수 */
   onToggleExpanded?: (day: number) => void;
+  /** 모달 열기 함수 */
+  onOpenModal?: (day: number) => void;
 }
 
 /**
@@ -58,9 +73,11 @@ export const CellBox: React.FC<CellBoxProps> = ({
   className,
   children,
   day,
+  dayOfWeek,
   recruits = [],
   isExpanded = false,
-  onToggleExpanded,
+  onToggleExpanded: _onToggleExpanded,
+  onOpenModal,
   ...props
 }) => {
   return (
@@ -68,6 +85,12 @@ export const CellBox: React.FC<CellBoxProps> = ({
       tabIndex={0}
       role="gridcell"
       className={cn(cellBoxVariants({ tone, today, interactive }), className)}
+      onClick={() => {
+        if (day && recruits.length > 0) {
+          onOpenModal?.(day);
+        }
+      }}
+      style={{ cursor: day && recruits.length > 0 ? 'pointer' : 'default' }}
       {...props}
     >
       {day && (
@@ -82,7 +105,15 @@ export const CellBox: React.FC<CellBoxProps> = ({
             ) : (
               <Typography
                 variant="dayNumber"
-                color={tone === 'default' ? 'black' : 'gray'}
+                color={
+                  tone === 'default'
+                    ? dayOfWeek === 0
+                      ? 'red'
+                      : dayOfWeek === 6
+                        ? 'dabojob'
+                        : 'black'
+                    : 'gray'
+                }
                 weight="regular"
                 align="left"
               >
@@ -94,17 +125,30 @@ export const CellBox: React.FC<CellBoxProps> = ({
           <div className="flex flex-col gap-1">
             {recruits.length > 0 && (
               <>
-                {(isExpanded ? recruits : recruits.slice(0, 8)).map((item, idx) => (
-                  <RecruitBadge key={idx} type={item.type} company={item.company} />
-                ))}
+                {(isExpanded ? recruits : recruits.slice(0, 8)).map((item, idx) => {
+                  // 공고가 해당 날짜에 공고일인지 마감일인지 구분
+                  const postingDate = new Date(item.posting_date);
+                  const isPostingDate = postingDate.getDate() === day;
+
+                  return (
+                    <RecruitBadge
+                      key={idx}
+                      type={isPostingDate ? 'start' : 'end'}
+                      company={item.company_name}
+                    />
+                  );
+                })}
                 {recruits.length > 8 && (
                   <button
                     type="button"
                     className="text-left"
-                    onClick={() => onToggleExpanded?.(day)}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onOpenModal?.(day);
+                    }}
                   >
                     <Typography variant="recruits" color="gray">
-                      {isExpanded ? '접기' : `+${recruits.length - 8} 더보기`}
+                      +{recruits.length - 8} 더보기
                     </Typography>
                   </button>
                 )}
