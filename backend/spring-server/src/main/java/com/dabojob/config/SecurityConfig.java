@@ -44,6 +44,7 @@ public class SecurityConfig {
                 .authorizeHttpRequests(authz -> authz
                         // ✅ Actuator health/info 공개 (context-path 유무 모두 대비)
                         .requestMatchers(
+                                "/health", "/api/health",
                                 "/actuator/health", "/actuator/health/**", "/actuator/info",
                                 "/api/actuator/health", "/api/actuator/health/**", "/api/actuator/info"
                         ).permitAll()
