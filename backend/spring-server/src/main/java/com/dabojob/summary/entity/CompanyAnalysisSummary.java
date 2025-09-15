@@ -1,4 +1,4 @@
-package com.dabojob.analysis.entity;
+package com.dabojob.summary.entity;
 
 import com.dabojob.company.entity.DartCompany;
 import com.dabojob.global.entity.BaseTimeEntity;
