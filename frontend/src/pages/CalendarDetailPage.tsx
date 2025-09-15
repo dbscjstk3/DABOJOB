@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import ReportContainer from '@/components/calendar-detail/organisms/ReportContainer';
+import NewsContainer, { type NewsItem } from '@/components/calendar-detail/organisms/NewsContainer';
 import { Link } from '@tanstack/react-router';
 import { ChevronsLeft, SquareArrowOutUpRight } from 'lucide-react';
 import Typography from '@/components/common/atoms/Typography';
@@ -18,7 +19,74 @@ interface JobInfo {
 export default function CalendarDetailPage() {
   const [newsFilter, setNewsFilter] = useState<string | null>(null);
 
-  // 테스트 데이터
+  // 테스트 뉴스 데이터
+  const mockNewsData: NewsItem[] = [
+    {
+      id: 1,
+      title: 'AI 기업 DART 보고서 요약',
+      source:
+        'AI ipsum is simply dummy text of the printing and typesetting industry. Lorem ipsum has been the industry standard dummy text ever since the 1500s, when an unknown printer took a galley of type and scrambled it to make a type specimen book.',
+      publishedDate: '2025-09-03',
+      hashtags: ['AI', '반도체', '투자'],
+      url: 'https://example.com/news/1',
+    },
+    {
+      id: 2,
+      title: '삼성전자, AI 반도체 투자 확대',
+      source:
+        '삼성전자가 ai 기술 개발에 대규모 투자를 결정했다. 향후 3년간 100조원 규모의 투자가 예상되며, 이는 국내 반도체 산업 전체에 긍정적인 영향을 미칠 것으로 보인다.',
+      publishedDate: '2025-09-03',
+      hashtags: ['AI', '반도체', '삼성전자'],
+      url: 'https://example.com/news/2',
+    },
+    {
+      id: 3,
+      title: '금로빙 AI 시장 동향',
+      source:
+        '삼성전자가 ai 기술 개발에 대규모 투자를 결정했다. 앞으로 있어서 지어미면 두목이 되어있지 않으니까.',
+      publishedDate: '2025-09-03',
+      hashtags: ['AI', '시장', '투자'],
+      url: 'https://example.com/news/3',
+    },
+    {
+      id: 4,
+      title: '경제 성장률 2.8% 달성 전망',
+      source:
+        '한국은행은 올해 경제 성장률이 당초 예상보다 높은 2.8%를 기록할 것으로 전망했다. 수출 호조와 내수 회복이 주요 요인으로 꼽혔다.',
+      publishedDate: '2025-09-02',
+      hashtags: ['경제', '성장', '한국은행'],
+      url: 'https://example.com/news/4',
+    },
+    {
+      id: 5,
+      title: 'IT 업계 하반기 채용 확대',
+      source:
+        'IT 대기업들이 하반기 대규모 채용을 예고했다. AI와 클라우드 분야 개발자 수요가 특히 높은 것으로 나타났다.',
+      publishedDate: '2025-09-02',
+      hashtags: ['IT', '채용', '개발자'],
+      url: 'https://example.com/news/5',
+    },
+    {
+      id: 6,
+      title: '바이오 산업 투자 급증',
+      source:
+        '국내 바이오 산업에 대한 투자가 역대 최고치를 기록했다. 신약 개발과 바이오시밀러 분야가 주목받고 있다.',
+      publishedDate: '2025-09-01',
+      hashtags: ['바이오', '투자', '신약'],
+      url: 'https://example.com/news/6',
+    },
+    {
+      id: 7,
+      title: '상반기 수출 실적 호조',
+      source:
+        '올해 상반기 수출이 전년 동기 대비 15% 증가했다. 반도체와 자동차 부문이 수출 증가를 주도했다.',
+      publishedDate: '2025-09-01',
+      hashtags: ['경제', '수출', '상반기'],
+      url: 'https://example.com/news/7',
+    },
+  ];
+
+  // 테스트 채용공고 데이터
   const mockJobData: JobInfo = {
     id: '1',
     status: 'recruiting',
@@ -80,8 +148,8 @@ export default function CalendarDetailPage() {
   };
 
   return (
-    <div className="max-w-4xl mx-auto p-4 space-y-4">
-      <Link to="/" className="inline-flex items-center gap-1.5 text-sm mb-4">
+    <div className="max-w-5xl mx-auto p-4 space-y-4">
+      <Link to="/" className="inline-flex items-center gap-1.5 text-sm mb-1 mt-5">
         <ChevronsLeft className="h-4 w-4 text-daboja-default" />
         <span>캘린더로 돌아가기</span>
       </Link>
@@ -123,14 +191,22 @@ export default function CalendarDetailPage() {
           </Button>
         </div>
       </div>
-      <ReportContainer
-        title={mockData.title}
-        sections={mockData.sections}
-        onTagSelect={setNewsFilter}
-      />
+      {/* 리포트와 뉴스 나란히 배치 (3:2 비율) */}
+      <div className="grid grid-cols-1 lg:grid-cols-5 gap-4">
+        <div className="lg:col-span-3">
+          <ReportContainer
+            title={mockData.title}
+            sections={mockData.sections}
+            onTagSelect={setNewsFilter}
+          />
+        </div>
 
-      {/* 선택된 태그 확인용 (임시) */}
-      {newsFilter && <div className="p-2 bg-blue-50 rounded">선택된 필터: #{newsFilter}</div>}
+        <div className="lg:col-span-2">
+          <div className="sticky top-20 lg:top-24">
+            <NewsContainer news={mockNewsData} filterTag={newsFilter} itemsPerPage={3} />
+          </div>
+        </div>
+      </div>
     </div>
   );
 }
