@@ -1,3 +1,4 @@
+import React from 'react';
 import {
   createRouter,
   createRootRoute,
@@ -54,13 +55,56 @@ const authCallbackRoute = createRoute({
   path: '/auth/callback',
   component: function AuthCallback() {
     const navigate = useNavigate();
-    // 백엔드 OAuth 성공 시 쿠키에 토큰이 설정되어 있음. 클라이언트 상태만 동기화.
-    useAuthStore.getState().fetchUser();
-    const stored = sessionStorage.getItem('post_login_redirect');
-    const target = stored || '/';
-    if (stored) sessionStorage.removeItem('post_login_redirect');
-    navigate({ to: target });
-    return <div className="p-8">로그인 처리중...</div>;
+    const { fetchUser } = useAuthStore.getState();
+
+    // URL 파라미터 확인
+    const urlParams = new URLSearchParams(window.location.search);
+    const success = urlParams.get('success');
+    const error = urlParams.get('error');
+
+    React.useEffect(() => {
+      const handleAuthCallback = async () => {
+        try {
+          if (error) {
+            console.error('OAuth 인증 오류:', error);
+            navigate({ to: '/login' });
+            return;
+          }
+
+          if (success === 'true') {
+            console.log('OAuth 인증 성공, 사용자 정보 가져오기 시작');
+            // 백엔드에서 쿠키에 토큰을 설정했으므로 사용자 정보 가져오기
+            await fetchUser();
+
+            // 잠시 대기 후 리다이렉트 (상태 업데이트 시간 확보)
+            setTimeout(() => {
+              const stored = sessionStorage.getItem('post_login_redirect');
+              const target = stored || '/';
+              if (stored) sessionStorage.removeItem('post_login_redirect');
+              console.log('리다이렉트 대상:', target);
+              navigate({ to: target });
+            }, 1000);
+          } else {
+            console.log('OAuth 인증 결과 불명확, 로그인 페이지로 이동');
+            navigate({ to: '/login' });
+          }
+        } catch (error) {
+          console.error('인증 콜백 처리 중 오류:', error);
+          navigate({ to: '/login' });
+        }
+      };
+
+      handleAuthCallback();
+    }, [navigate, fetchUser, error, success]);
+
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <p className="text-lg text-gray-600">로그인 처리중...</p>
+        </div>
+      </div>
+    );
   },
 });
 
