@@ -3,7 +3,6 @@ import {
   createRouter,
   createRootRoute,
   createRoute,
-  redirect,
   useNavigate,
   useSearch,
 } from '@tanstack/react-router';
@@ -28,12 +27,12 @@ const calendarListRoute = createRoute({
 const calendarDetailRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/calendar/$id',
-  beforeLoad: ({ location }) => {
-    const authed = useAuthStore.getState().isAuthed;
-    if (!authed) {
-      throw redirect({ to: '/login', search: { redirect: location.href } });
-    }
-  },
+  // beforeLoad: ({ location }) => {
+  //   const authed = useAuthStore.getState().isAuthed;
+  //   if (!authed) {
+  //     throw redirect({ to: '/login', search: { redirect: location.href } });
+  //   }
+  // },
   component: CalendarDetailPage,
 });
 
