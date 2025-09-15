@@ -6,7 +6,7 @@ import json
 import logging
 from pathlib import Path
 from typing import Dict, List, Optional
-from .config import DATA_ROOT
+from .config import config
 
 logger = logging.getLogger(__name__)
 
@@ -15,7 +15,7 @@ class FileManager:
     
     def __init__(self, mapping_id: int):
         self.mapping_id = mapping_id
-        self.base_path = Path(DATA_ROOT) / str(mapping_id)
+        self.base_path = Path(config.DATA_ROOT) / str(mapping_id)
         
         # 디렉토리 구조
         self.raw_dir = self.base_path / "raw"
@@ -172,8 +172,8 @@ class FileManager:
     @classmethod
     def ensure_data_root(cls):
         """데이터 루트 디렉토리 생성"""
-        Path(DATA_ROOT).mkdir(parents=True, exist_ok=True)
-        logger.info(f"Ensured data root directory: {DATA_ROOT}")
+        Path(config.DATA_ROOT).mkdir(parents=True, exist_ok=True)
+        logger.info(f"Ensured data root directory: {config.DATA_ROOT}")
 
 # 챕터명 매핑
 CHAPTER_NAMES = {
