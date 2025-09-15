@@ -55,7 +55,7 @@ const authCallbackRoute = createRoute({
   component: function AuthCallback() {
     const navigate = useNavigate();
     // 백엔드 OAuth 성공 시 쿠키에 토큰이 설정되어 있음. 클라이언트 상태만 동기화.
-    useAuthStore.getState().login();
+    useAuthStore.getState().fetchUser();
     const stored = sessionStorage.getItem('post_login_redirect');
     const target = stored || '/';
     if (stored) sessionStorage.removeItem('post_login_redirect');
