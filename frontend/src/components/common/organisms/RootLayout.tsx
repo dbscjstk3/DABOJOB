@@ -4,6 +4,7 @@ import { Header } from './Header';
 import type { SearchItem } from '../molecules/SearchResult';
 import { Footer } from './Footer';
 import { useAuthStore } from '../../../stores/useAuthStore';
+import { API_ENDPOINTS } from '../../../lib/api';
 
 export function RootLayout() {
   const location = useLocation();
@@ -77,8 +78,22 @@ export function RootLayout() {
     navigate({ to: '/login' });
   };
 
-  const handleLogout = () => {
-    logout();
+  const handleLogout = async () => {
+    try {
+      console.log('로그아웃 요청 전송:', API_ENDPOINTS.AUTH.LOGOUT);
+      const res = await fetch(API_ENDPOINTS.AUTH.LOGOUT, {
+        method: 'POST',
+        credentials: 'include',
+      });
+      if (!res.ok) {
+        console.warn('로그아웃 요청 실패', res.status, res.statusText);
+      }
+    } catch (e) {
+      console.error('로그아웃 요청 오류', e);
+    } finally {
+      logout();
+      navigate({ to: '/' });
+    }
   };
 
   return (
