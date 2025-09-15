@@ -13,6 +13,8 @@ const typographyVariants = cva('font-pretendard', {
       dayNumber: 'text-[18px] leading-tight tracking-normal',
       //기본 - 대부분 기본 크기
       default: 'text-[16px] leading-tight tracking-normal',
+      //소제목 - 섹션 제목 등
+      subtitle: 'text-[20px] leading-tight tracking-normal',
       //달력상세 보고서 제목, 직무명, 뉴스제목 등
       title: 'text-[24px] leading-tight tracking-normal',
     },
