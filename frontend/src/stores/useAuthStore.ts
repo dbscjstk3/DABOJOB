@@ -23,7 +23,7 @@ export const useAuthStore = create<AuthState>((set) => ({
   logout: () => set({ isAuthed: false, user: null }),
   fetchUser: async () => {
     try {
-      const response = await fetch('j13a402.p.ssafy.io/api/auth/me', {
+      const response = await fetch('http://j13a402.p.ssafy.io/api/auth/me', {
         credentials: 'include',
       });
 
