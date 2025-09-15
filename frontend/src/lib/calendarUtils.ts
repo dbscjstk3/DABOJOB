@@ -6,6 +6,7 @@ export interface CalendarCell {
   day: number | null;
   isCurrentMonth: boolean;
   isToday: boolean;
+  dayOfWeek?: number;
 }
 
 /**
@@ -39,11 +40,13 @@ export function generateCalendarCells(year: number, month: number): CalendarCell
   for (let day = 1; day <= daysInMonth; day++) {
     const isToday =
       today.getFullYear() === year && today.getMonth() === month && today.getDate() === day;
+    const dayOfWeek = new Date(year, month, day).getDay();
 
     calendarCells.push({
       day,
       isCurrentMonth: true,
       isToday,
+      dayOfWeek,
     });
   }
 

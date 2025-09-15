@@ -2,7 +2,9 @@ import React, { useState } from 'react';
 import { CalendarGrid } from '../molecules/CalendarGrid';
 import { CalendarHeader } from '../molecules/CalendarHeader';
 import { FilterSection } from './FilterSection';
+import { RecruitModal } from './RecruitModal';
 import { cn } from '../../../lib/utils';
+import { getRecruitsByDate, recruitMap } from '../../../mocks/recruitData';
 
 export interface CalendarProps {
   viewDate: Date;
@@ -13,87 +15,6 @@ export interface CalendarProps {
   onJobCategoryChange: (values: string[]) => void;
   className?: string;
 }
-
-// 샘플 공고 데이터 (날짜별 시작/종료 이벤트)
-const recruitMap: Record<
-  number,
-  {
-    type: 'start' | 'end';
-    company: string;
-    employmentType: string;
-    jobCategory: string;
-  }[]
-> = {
-  2: [
-    {
-      type: 'start',
-      company: '삼성전자',
-      employmentType: 'full-time',
-      jobCategory: 'development',
-    },
-    {
-      type: 'start',
-      company: '삼성SDS',
-      employmentType: 'full-time',
-      jobCategory: 'development',
-    },
-    { type: 'start', company: '삼성생명', employmentType: 'contract', jobCategory: 'finance' },
-    {
-      type: 'start',
-      company: '삼성SDI',
-      employmentType: 'full-time',
-      jobCategory: 'development',
-    },
-    {
-      type: 'start',
-      company: '삼성디스플레이',
-      employmentType: 'full-time',
-      jobCategory: 'design',
-    },
-    { type: 'start', company: '삼성물산', employmentType: 'contract', jobCategory: 'management' },
-    { type: 'start', company: '삼성화재', employmentType: 'full-time', jobCategory: 'finance' },
-    {
-      type: 'start',
-      company: '삼성바이오',
-      employmentType: 'full-time',
-      jobCategory: 'development',
-    },
-    {
-      type: 'start',
-      company: '삼성전기',
-      employmentType: 'full-time',
-      jobCategory: 'development',
-    },
-    {
-      type: 'start',
-      company: '삼성중공업',
-      employmentType: 'full-time',
-      jobCategory: 'development',
-    },
-    { type: 'start', company: '삼성카드', employmentType: 'full-time', jobCategory: 'finance' },
-    { type: 'start', company: '삼성증권', employmentType: 'full-time', jobCategory: 'finance' },
-    { type: 'start', company: '삼성E&A', employmentType: 'contract', jobCategory: 'development' },
-    {
-      type: 'end',
-      company: '현대자동차',
-      employmentType: 'full-time',
-      jobCategory: 'development',
-    },
-  ],
-  3: [
-    { type: 'start', company: 'KB국민은행', employmentType: 'full-time', jobCategory: 'finance' },
-  ],
-  4: [{ type: 'end', company: '멀티캠퍼스', employmentType: 'contract', jobCategory: 'education' }],
-  5: [
-    {
-      type: 'start',
-      company: '비바리퍼블리카',
-      employmentType: 'full-time',
-      jobCategory: 'development',
-    },
-    { type: 'start', company: '카카오', employmentType: 'full-time', jobCategory: 'development' },
-  ],
-};
 
 export const Calendar: React.FC<CalendarProps> = ({
   viewDate,
@@ -107,16 +28,62 @@ export const Calendar: React.FC<CalendarProps> = ({
   // 더보기(확장) 상태: 날짜 번호 Set
   const [expandedDays, setExpandedDays] = useState<Set<number>>(new Set());
 
-  // 필터링된 공고 데이터
+  // 모달 상태
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [selectedDay, setSelectedDay] = useState<number | null>(null);
+  const [modalDate, setModalDate] = useState<Date>(new Date());
+
+  // 필터링된 공고 데이터 (공고일과 마감일 모두 포함)
   const getFilteredRecruits = (day: number) => {
-    const recruits = recruitMap[day] || [];
-    return recruits.filter((recruit) => {
+    const allRecruits = getRecruitsByDate(day);
+
+    // 마감일이 해당 날짜인 공고들도 추가로 가져오기
+    const expirationRecruits = Object.values(recruitMap)
+      .flat()
+      .filter((recruit) => {
+        const expirationDate = new Date(recruit.expiration_date);
+        return (
+          expirationDate.getDate() === day &&
+          expirationDate.getMonth() === viewDate.getMonth() &&
+          expirationDate.getFullYear() === viewDate.getFullYear()
+        );
+      });
+
+    // 공고일과 마감일 공고를 합치고 중복 제거
+    const combinedRecruits = [...allRecruits, ...expirationRecruits];
+    const uniqueRecruits = combinedRecruits.filter(
+      (recruit, index, self) => index === self.findIndex((r) => r.job_id === recruit.job_id),
+    );
+
+    return uniqueRecruits.filter((recruit) => {
       const employmentTypeMatch =
-        employmentTypeFilter.length === 0 || employmentTypeFilter.includes(recruit.employmentType);
+        employmentTypeFilter.length === 0 || employmentTypeFilter.includes(recruit.job_type.name);
       const jobCategoryMatch =
-        jobCategoryFilter.length === 0 || jobCategoryFilter.includes(recruit.jobCategory);
+        jobCategoryFilter.length === 0 || jobCategoryFilter.includes(recruit.job_code.name);
       return employmentTypeMatch && jobCategoryMatch;
     });
+  };
+
+  // 모달 열기 함수
+  const handleOpenModal = (day: number) => {
+    setSelectedDay(day);
+    setModalDate(new Date(viewDate.getFullYear(), viewDate.getMonth(), day));
+    setIsModalOpen(true);
+  };
+
+  // 모달 닫기 함수
+  const handleCloseModal = () => {
+    setIsModalOpen(false);
+    setSelectedDay(null);
+  };
+
+  // 모달에서 날짜 변경 함수 (같은 달 내에서만)
+  const handleModalDateChange = (date: Date) => {
+    // 같은 달 내에서만 변경 허용
+    if (date.getMonth() === viewDate.getMonth() && date.getFullYear() === viewDate.getFullYear()) {
+      setModalDate(date);
+      setSelectedDay(date.getDate());
+    }
   };
 
   return (
@@ -139,8 +106,22 @@ export const Calendar: React.FC<CalendarProps> = ({
           getFilteredRecruits={getFilteredRecruits}
           expandedDays={expandedDays}
           onExpandedDaysChange={setExpandedDays}
+          onOpenModal={handleOpenModal}
         />
       </div>
+
+      {/* 채용 공고 모달 */}
+      {selectedDay && (
+        <RecruitModal
+          isOpen={isModalOpen}
+          onClose={handleCloseModal}
+          recruits={getFilteredRecruits(modalDate.getDate())}
+          selectedDate={modalDate.getDate()}
+          selectedMonth={modalDate.getMonth()}
+          selectedYear={modalDate.getFullYear()}
+          onDateChange={handleModalDateChange}
+        />
+      )}
     </div>
   );
 };
