@@ -8,7 +8,7 @@ const typographyVariants = cva('font-pretendard', {
       //채용공고 전용
       recruits: 'text-[14px] leading-tight tracking-normal',
       //달력 네비게이션 전용
-      calendarNavigation: 'text-[28px] leading-tight tracking-normal',
+      calendarNavigation: 'text-[20px] md:text-[28px] leading-tight tracking-normal',
       //달력 숫자
       dayNumber: 'text-[18px] leading-tight tracking-normal',
       //기본 - 대부분 기본 크기

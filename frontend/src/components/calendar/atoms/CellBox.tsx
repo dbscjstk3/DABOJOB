@@ -4,7 +4,7 @@ import { cn } from '../../../lib/utils';
 import { RecruitBadge } from './RecruitBadge';
 import { Typography } from '../../common/atoms/Typography';
 
-const cellBoxVariants = cva('flex flex-col border-t border-daboja-default p-2 h-72', {
+const cellBoxVariants = cva('flex flex-col border-t border-daboja-default p-2 h-20 md:h-72', {
   variants: {
     tone: {
       default: 'bg-white',
@@ -103,55 +103,69 @@ export const CellBox: React.FC<CellBoxProps> = ({
                 </Typography>
               </div>
             ) : (
-              <Typography
-                variant="dayNumber"
-                color={
-                  tone === 'default'
-                    ? dayOfWeek === 0
-                      ? 'red'
-                      : dayOfWeek === 6
-                        ? 'dabojob'
-                        : 'black'
-                    : 'gray'
-                }
-                weight="regular"
-                align="left"
-              >
-                {day}
-              </Typography>
+              <div className="w-7 h-7 rounded-full flex items-center justify-center">
+                <Typography
+                  variant="dayNumber"
+                  color={
+                    tone === 'default'
+                      ? dayOfWeek === 0
+                        ? 'red'
+                        : dayOfWeek === 6
+                          ? 'dabojob'
+                          : 'black'
+                      : 'gray'
+                  }
+                  weight="regular"
+                  align="center"
+                >
+                  {day}
+                </Typography>
+              </div>
             )}
           </div>
           {/* 공고 배지 렌더링 */}
           <div className="flex flex-col gap-1">
             {recruits.length > 0 && (
               <>
-                {(isExpanded ? recruits : recruits.slice(0, 8)).map((item, idx) => {
-                  // 공고가 해당 날짜에 공고일인지 마감일인지 구분
-                  const postingDate = new Date(item.posting_date);
-                  const isPostingDate = postingDate.getDate() === day;
+                {/* 모바일: 개수만 표시, 데스크톱: 개별 공고 표시 */}
+                <div className="block md:hidden">
+                  <div className="flex items-center justify-center">
+                    <div className="bg-blue-100 text-black text-xs px-2 py-1 rounded-full font-medium">
+                      +{recruits.length}
+                    </div>
+                  </div>
+                </div>
 
-                  return (
-                    <RecruitBadge
-                      key={idx}
-                      type={isPostingDate ? 'start' : 'end'}
-                      company={item.company_name}
-                    />
-                  );
-                })}
-                {recruits.length > 8 && (
-                  <button
-                    type="button"
-                    className="text-left"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      onOpenModal?.(day);
-                    }}
-                  >
-                    <Typography variant="recruits" color="gray">
-                      +{recruits.length - 8} 더보기
-                    </Typography>
-                  </button>
-                )}
+                {/* 데스크톱: 개별 공고 표시 */}
+                <div className="hidden md:flex md:flex-col md:gap-1">
+                  {(isExpanded ? recruits : recruits.slice(0, 8)).map((item, idx) => {
+                    // 공고가 해당 날짜에 공고일인지 마감일인지 구분
+                    const postingDate = new Date(item.posting_date);
+                    const isPostingDate = postingDate.getDate() === day;
+
+                    return (
+                      <RecruitBadge
+                        key={idx}
+                        type={isPostingDate ? 'start' : 'end'}
+                        company={item.company_name}
+                      />
+                    );
+                  })}
+                  {recruits.length > 8 && (
+                    <button
+                      type="button"
+                      className="text-left"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onOpenModal?.(day);
+                      }}
+                    >
+                      <Typography variant="recruits" color="gray">
+                        +{recruits.length - 8} 더보기
+                      </Typography>
+                    </button>
+                  )}
+                </div>
               </>
             )}
           </div>
