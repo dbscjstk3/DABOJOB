@@ -38,9 +38,14 @@ class Database:
     async def disconnect(self):
         """DB 연결 해제"""
         if self.pool:
-            self.pool.close()
-            await self.pool.wait_closed()
-            logger.info("Database disconnected")
+            try:
+                self.pool.close()
+                await self.pool.wait_closed()
+                logger.info("Database disconnected")
+            except Exception as e:
+                logger.warning(f"Error during disconnect: {e}")
+            finally:
+                self.pool = None
     
     @asynccontextmanager
     async def get_connection(self):
@@ -78,7 +83,7 @@ class Database:
             INDEX idx_hashtag (hashtag_id),
             INDEX idx_summary_id (summary_id),
             INDEX idx_status (status),
-            UNIQUE KEY uk_mapping_hashtag_url (mapping_id, hashtag_id, news_url)
+            UNIQUE KEY uk_mapping_hashtag_url (mapping_id, hashtag_id, news_url(255))
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
         """
         create_summary_hashtags = """
@@ -94,7 +99,7 @@ class Database:
             INDEX idx_mapping_id (mapping_id),
             INDEX idx_summary_id (summary_id),
             INDEX idx_chapter (chapter),
-            UNIQUE KEY uk_mapping_chapter_hashtag (mapping_id, chapter, summary_id)
+            UNIQUE KEY uk_mapping_chapter_hashtag (mapping_id, chapter(50), summary_id)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
         """
         
