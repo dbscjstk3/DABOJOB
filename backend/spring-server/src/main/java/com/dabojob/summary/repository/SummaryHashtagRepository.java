@@ -1,0 +1,14 @@
+package com.dabojob.summary.repository;
+
+import com.dabojob.summary.entity.CompanyAnalysisSummary;
+import com.dabojob.summary.entity.Hashtag;
+import com.dabojob.summary.entity.SummaryHashtag;
+import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.stereotype.Repository;
+
+@Repository
+public interface SummaryHashtagRepository extends JpaRepository<SummaryHashtag,Long> {
+
+    boolean existsBySummaryAndHashtag(CompanyAnalysisSummary summary, Hashtag hashtag);
+    SummaryHashtag findFirstBySummary(CompanyAnalysisSummary summary);
+}
