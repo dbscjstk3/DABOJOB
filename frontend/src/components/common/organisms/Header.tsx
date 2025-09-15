@@ -107,7 +107,7 @@ function UserArea({
     <div className="flex items-center gap-3 shrink-0">
       {user ? (
         <>
-          <span className="hidden sm:block text-xs text-slate-600 max-w-[120px] truncate">
+          <span className="hidden sm:block text-sm text-slate-600 max-w-[140px] truncate -ml-1">
             {user.name}님 반가워요!
           </span>
           <Button variant="contained" size="sm" onClick={onLogout} aria-label="로그아웃">
