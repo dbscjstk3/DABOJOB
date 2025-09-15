@@ -45,7 +45,7 @@ export function Header({
             <Logo />
 
             {/* 태블릿+ 검색창 */}
-            <div className="hidden md:block md:w-[400px] lg:w-[600px] xl:w-[800px]">
+            <div className="hidden md:block md:w-[300px] lg:w-[500px] xl:w-[700px]">
               <SearchBox
                 fetchSuggestions={fetchSuggestions}
                 onSelect={onSelectSuggestion}
@@ -108,14 +108,10 @@ function UserArea({
     <div className="flex items-center gap-3 shrink-0">
       {user ? (
         <>
-          <span className="hidden sm:block text-sm text-slate-600">{user.name}님 반가워요!</span>
-          <Button
-            variant="contained"
-            size="sm"
-            onClick={onLogout}
-            startIcon={<LogOut className="h-4 w-4" aria-hidden />}
-            aria-label="로그아웃"
-          >
+          <span className="hidden sm:block text-xs text-slate-600 max-w-[120px] truncate">
+            {user.name}님 반가워요!
+          </span>
+          <Button variant="contained" size="sm" onClick={onLogout} aria-label="로그아웃">
             로그아웃
           </Button>
         </>
