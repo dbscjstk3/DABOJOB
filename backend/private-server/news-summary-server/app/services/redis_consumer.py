@@ -102,16 +102,18 @@ class RedisConsumer:
             total_news_count = 0
             for hashtag in hashtags:
                 try:
-                    # TODO: 실제 hashtag_id 조회 로직 필요 (현재는 임시로 0 사용)
+                    # 해시태그를 DB에 저장하고 ID 가져오기
+                    hashtag_id = await self._save_and_get_hashtag_id(job_id, chapter, hashtag)
+
                     news_count = await news_service.search_and_process_news(
                         mapping_id=job_id,
-                        hashtag_id=0,  # 임시
+                        hashtag_id=hashtag_id,
                         summary_id=0,  # 임시
                         hashtag=hashtag,
                         company_name=""  # 기업명은 별도로 추출 필요
                     )
                     total_news_count += news_count
-                    logger.info(f"Found {news_count} news for hashtag: {hashtag}")
+                    logger.info(f"Found {news_count} news for hashtag: {hashtag} (hashtag_id: {hashtag_id})")
                 except Exception as e:
                     logger.error(f"Error searching news for hashtag {hashtag}: {e}")
             
@@ -141,7 +143,40 @@ class RedisConsumer:
         except Exception as e:
             logger.error(f"Failed to process message: {e}")
             return False
-    
+
+    async def _save_and_get_hashtag_id(self, job_id: int, chapter: int, hashtag: str) -> int:
+        """해시태그를 DB에 저장하고 ID 반환"""
+        try:
+            # 이미 존재하는 해시태그인지 확인
+            query_check = """
+            SELECT hashtag_id FROM summary_hashtags
+            WHERE mapping_id = %s AND chapter = %s AND hashtag = %s
+            """
+
+            async with database.get_connection() as cursor:
+                await cursor.execute(query_check, (job_id, chapter, hashtag))
+                result = await cursor.fetchone()
+
+                if result:
+                    return result[0]
+
+                # 새로운 해시태그 저장 (summary_id는 0으로 설정, 나중에 업데이트)
+                query_insert = """
+                INSERT INTO summary_hashtags (mapping_id, summary_id, chapter, hashtag)
+                VALUES (%s, %s, %s, %s)
+                """
+
+                await cursor.execute(query_insert, (job_id, 0, chapter, hashtag))
+                hashtag_id = cursor.lastrowid
+
+                logger.info(f"Saved hashtag: {hashtag} with ID: {hashtag_id}")
+                return hashtag_id
+
+        except Exception as e:
+            logger.error(f"Error saving hashtag {hashtag}: {e}")
+            # 에러 시 해시태그 이름으로 고유 ID 생성
+            return abs(hash(f"{job_id}_{chapter}_{hashtag}")) % 1000000
+
     async def _increment_counter_and_check_completion(self, job_id: int):
         """Counter 증가 및 완료 체크"""
         counter_key = f"completed:{job_id}"
@@ -177,7 +212,10 @@ class RedisConsumer:
                 if max_messages and processed_count >= max_messages:
                     logger.info(f"Processed {processed_count} messages, stopping")
                     break
-                
+
+                # 디버그 로그 추가
+                logger.debug(f"Consumer {self.consumer_name} waiting for messages...")
+
                 # 메시지 읽기 (블로킹, 타임아웃 1초)
                 messages = self.client.xreadgroup(
                     self.consumer_group,
@@ -186,6 +224,8 @@ class RedisConsumer:
                     count=10,
                     block=1000
                 )
+
+                logger.debug(f"Received {len(messages)} stream responses")
                 
                 if messages:
                     for stream_name, stream_messages in messages:
