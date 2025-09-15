@@ -1,12 +1,33 @@
 import { useState } from 'react';
 import ReportContainer from '@/components/calendar-detail/organisms/ReportContainer';
 import { Link } from '@tanstack/react-router';
-import { ChevronsLeft } from 'lucide-react';
+import { ChevronsLeft, SquareArrowOutUpRight } from 'lucide-react';
+import Typography from '@/components/common/atoms/Typography';
+import { Button } from '@/components/common/atoms/Button';
+import { cn } from '@/lib/utils';
+
+interface JobInfo {
+  id: string;
+  status: 'recruiting' | 'ended';
+  company: string;
+  date: string;
+  title: string;
+  applicationUrl: string;
+}
 
 export default function CalendarDetailPage() {
   const [newsFilter, setNewsFilter] = useState<string | null>(null);
 
   // 테스트 데이터
+  const mockJobData: JobInfo = {
+    id: '1',
+    status: 'recruiting',
+    company: '삼성전자',
+    date: '2024.12.31',
+    title: '소프트웨어 개발자',
+    applicationUrl: 'https://www.saramin.co.kr',
+  };
+
   const mockData = {
     title: '2024년 경제 전망 보고서',
     sections: [
@@ -61,10 +82,47 @@ export default function CalendarDetailPage() {
   return (
     <div className="max-w-4xl mx-auto p-4 space-y-4">
       <Link to="/" className="inline-flex items-center gap-1.5 text-sm mb-4">
-        <ChevronsLeft className="h-4 w-4" />
+        <ChevronsLeft className="h-4 w-4 text-daboja-default" />
         <span>캘린더로 돌아가기</span>
       </Link>
 
+      {/* 채용공고 섹션 */}
+      <div className="rounded-xl border border-slate-200 bg-white p-4 md:p-6">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-4">
+            {/* 상태 */}
+            <Typography
+              variant="default"
+              weight="semibold"
+              className={cn(
+                'text-md',
+                mockJobData.status === 'recruiting' ? 'text-daboja-default' : 'text-red-600',
+              )}
+            >
+              {mockJobData.status === 'recruiting' ? '시작' : '마감'}
+            </Typography>
+
+            {/* 회사명 */}
+            <Typography variant="default" weight="semibold">
+              {mockJobData.company}
+            </Typography>
+
+            {/* 공고명 */}
+            <Typography variant="subtitle" weight="bold">
+              {mockJobData.title}
+            </Typography>
+          </div>
+
+          {/* 버튼 */}
+          <Button
+            size="md"
+            onClick={() => window.open(mockJobData.applicationUrl, '_blank')}
+            endIcon={<SquareArrowOutUpRight className="h-4 w-4" />}
+          >
+            지원공고 보러가기
+          </Button>
+        </div>
+      </div>
       <ReportContainer
         title={mockData.title}
         sections={mockData.sections}
