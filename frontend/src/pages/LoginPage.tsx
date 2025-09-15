@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Button } from '../components/common/atoms/Button';
 import { cn } from '../lib/utils';
+import { API_ENDPOINTS } from '../lib/api';
 import DABOJOBLogo from '../assets/logo/DABOJOB_logo.svg';
 import GoogleLogo from '../assets/logo/googleLogo.svg';
 import SSAFYLogo from '../assets/logo/ssafyLogo.png';
@@ -32,21 +33,35 @@ export default function LoginPage({ redirectTo: _redirectTo }: LoginPageProps) {
     return () => window.removeEventListener('resize', computeScale);
   }, []);
   const handleSSAFYLogin = () => {
+    console.log('🚀 SSAFY 로그인 시도');
+    console.log('📡 OAuth URL:', API_ENDPOINTS.AUTH.LOGIN('ssafy'));
+    console.log('🔄 리다이렉트 대상:', _redirectTo || '/');
+
     // 실제 로그인 로직 (현재는 시뮬레이션)
     // 실제 구현 시 아래 코드 사용
     if (_redirectTo) {
       sessionStorage.setItem('post_login_redirect', _redirectTo);
+      console.log('💾 리다이렉트 URL 저장:', _redirectTo);
     }
-    window.location.href = 'http://j13a402.p.ssafy.io/api/auth/login/ssafy';
+
+    console.log('🌐 OAuth 페이지로 리다이렉트 중...');
+    window.location.href = API_ENDPOINTS.AUTH.LOGIN('ssafy');
   };
 
   const handleGoogleLogin = () => {
+    console.log('🚀 Google 로그인 시도');
+    console.log('📡 OAuth URL:', API_ENDPOINTS.AUTH.LOGIN('google'));
+    console.log('🔄 리다이렉트 대상:', _redirectTo || '/');
+
     // 실제 로그인 로직 (현재는 시뮬레이션)
     // 실제 구현 시 아래 코드 사용
     if (_redirectTo) {
       sessionStorage.setItem('post_login_redirect', _redirectTo);
+      console.log('💾 리다이렉트 URL 저장:', _redirectTo);
     }
-    window.location.href = 'http://j13a402.p.ssafy.io/api/auth/login/google';
+
+    console.log('🌐 OAuth 페이지로 리다이렉트 중...');
+    window.location.href = API_ENDPOINTS.AUTH.LOGIN('google');
   };
 
   return (
