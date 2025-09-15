@@ -34,7 +34,7 @@ public class CookieService {
     public void setRefreshTokenCookie(HttpServletResponse response, String refreshToken, long maxAge) {
         Cookie cookie = new Cookie("refresh_token", refreshToken);
         cookie.setHttpOnly(true);
-        cookie.setSecure(true);
+        cookie.setSecure(false);
         cookie.setPath("/");
         cookie.setMaxAge((int) maxAge);
         response.addCookie(cookie);
@@ -43,7 +43,7 @@ public class CookieService {
     public void setAccessTokenCookie(HttpServletResponse response, String accessToken, long maxAge) {
         Cookie cookie = new Cookie("access_token", accessToken);
         cookie.setHttpOnly(true);
-        cookie.setSecure(true);
+        cookie.setSecure(false);
         cookie.setPath("/");
         cookie.setMaxAge((int) maxAge);
         response.addCookie(cookie);
