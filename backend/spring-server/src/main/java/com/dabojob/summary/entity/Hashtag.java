@@ -1,4 +1,4 @@
-package com.dabojob.analysis.entity;
+package com.dabojob.summary.entity;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
