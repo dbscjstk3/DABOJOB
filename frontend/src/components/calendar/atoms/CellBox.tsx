@@ -130,7 +130,7 @@ export const CellBox: React.FC<CellBoxProps> = ({
                 {/* 모바일: 개수만 표시, 데스크톱: 개별 공고 표시 */}
                 <div className="block md:hidden">
                   <div className="flex items-center justify-center">
-                    <div className="bg-[#099AEE] text-white text-xs px-2 py-1 rounded-full font-medium">
+                    <div className="bg-blue-100 text-black text-xs px-2 py-1 rounded-full font-medium">
                       +{recruits.length}
                     </div>
                   </div>
