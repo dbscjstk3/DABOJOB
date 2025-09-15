@@ -1,11 +1,29 @@
-import { Outlet, useLocation } from '@tanstack/react-router';
+import { Outlet, useLocation, useNavigate } from '@tanstack/react-router';
+import { useEffect } from 'react';
 import { Header } from './Header';
 import type { SearchItem } from '../molecules/SearchResult';
 import { Footer } from './Footer';
+import { useAuthStore } from '../../../stores/useAuthStore';
 
 export function RootLayout() {
   const location = useLocation();
+  const navigate = useNavigate();
   const isLoginPage = location.pathname === '/login';
+  const { isAuthed, user, logout, fetchUser } = useAuthStore();
+
+  // 앱 시작 시 사용자 정보 가져오기
+  useEffect(() => {
+    fetchUser();
+  }, [fetchUser]);
+
+  // 로그인 후 리다이렉트 처리
+  useEffect(() => {
+    const redirectTo = sessionStorage.getItem('post_login_redirect');
+    if (redirectTo && isAuthed) {
+      sessionStorage.removeItem('post_login_redirect');
+      navigate({ to: redirectTo });
+    }
+  }, [isAuthed, navigate]);
 
   // 임시 mock fetchSuggestions 함수(추후 실제 api호출로 변경할 예정)
   const fetchSuggestions = async (query: string, signal?: AbortSignal): Promise<SearchItem[]> => {
@@ -40,15 +58,25 @@ export function RootLayout() {
     // TODO: 검색 결과 페이지로 이동
   };
 
+  const handleLogin = () => {
+    // 로그인 페이지로 이동 (실제 로그인은 OAuth를 통해 처리)
+    navigate({ to: '/login' });
+  };
+
+  const handleLogout = () => {
+    logout();
+  };
+
   return (
     <div className="min-h-screen flex flex-col">
       {!isLoginPage && (
         <Header
+          user={user ? { name: user.name } : null}
+          onLogin={handleLogin}
+          onLogout={handleLogout}
           fetchSuggestions={fetchSuggestions}
           onSelectSuggestion={handleSelectSuggestion}
           onSubmitSearch={handleSubmitSearch}
-          // user={null} // 로그인 전
-          // user={{ name: '홍길동' }} // 로그인 후 테스트용
         />
       )}
       <main className="w-full flex-1">

@@ -11,7 +11,7 @@ type LoginPageProps = {
   redirectTo?: string;
 };
 
-export default function LoginPage({ redirectTo }: LoginPageProps) {
+export default function LoginPage({ redirectTo: _redirectTo }: LoginPageProps) {
   // 디자인 기준 사이즈(카드): 1366 x 849
   const BASE_WIDTH = 1366;
   const BASE_HEIGHT = 849;
@@ -32,15 +32,19 @@ export default function LoginPage({ redirectTo }: LoginPageProps) {
     return () => window.removeEventListener('resize', computeScale);
   }, []);
   const handleSSAFYLogin = () => {
-    if (redirectTo) {
-      sessionStorage.setItem('post_login_redirect', redirectTo);
+    // 실제 로그인 로직 (현재는 시뮬레이션)
+    // 실제 구현 시 아래 코드 사용
+    if (_redirectTo) {
+      sessionStorage.setItem('post_login_redirect', _redirectTo);
     }
     window.location.href = 'http://j13a402.p.ssafy.io/api/auth/login/ssafy';
   };
 
   const handleGoogleLogin = () => {
-    if (redirectTo) {
-      sessionStorage.setItem('post_login_redirect', redirectTo);
+    // 실제 로그인 로직 (현재는 시뮬레이션)
+    // 실제 구현 시 아래 코드 사용
+    if (_redirectTo) {
+      sessionStorage.setItem('post_login_redirect', _redirectTo);
     }
     window.location.href = 'http://j13a402.p.ssafy.io/api/auth/login/google';
   };
