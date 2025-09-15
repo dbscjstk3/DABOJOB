@@ -35,45 +35,69 @@ class NewsService:
             '신사업': ['신사업', '새로운', '신규', '확장', '진출', '사업', '출시', '론칭']
         }
     
-    async def search_and_process_news(self, mapping_id: int, hashtag_id: int, summary_id: int, 
+    async def search_and_process_news(self, mapping_id: int, hashtag_id: int, summary_id: int,
                                     hashtag: str, company_name: str = "") -> int:
         """
         해시태그로 뉴스 검색하고 처리
-        
+
         Args:
             mapping_id: 매핑 ID
-            hashtag_id: 해시태그 ID  
+            hashtag_id: 해시태그 ID
             summary_id: 요약 ID
             hashtag: 검색할 해시태그
             company_name: 기업명
-            
+
         Returns:
             처리된 뉴스 수
         """
         try:
             logger.info(f"Searching news for hashtag: {hashtag}, company: {company_name}")
-            
-            # 1. Naver API로 뉴스 검색
-            raw_news_list = await self._search_naver_news(hashtag, company_name)
-            
+
+            # 중복 처리 방지 체크
+            existing_count = await self._check_existing_news(mapping_id, hashtag_id, hashtag)
+            if existing_count > 0:
+                logger.info(f"News already processed for hashtag: {hashtag} (count: {existing_count})")
+                return existing_count
+
+            # 1. Naver API로 뉴스 검색 (3개로 제한)
+            raw_news_list = await self._search_naver_news(hashtag, company_name, target_articles=3)
+
             if not raw_news_list:
                 logger.warning(f"No news found for hashtag: {hashtag}")
                 return 0
-            
+
             # 2. Raw 뉴스를 DB에 저장 (status='raw')
             saved_count = await self._save_raw_news(mapping_id, hashtag_id, summary_id, raw_news_list)
-            
-            # 3. 비동기로 크롤링 + 요약 처리 시작 (백그라운드)
-            asyncio.create_task(self._process_news_content(mapping_id, hashtag_id, hashtag))
-            
+
+            # 3. 즉시 크롤링 + 요약 처리 (백그라운드 아님)
+            await self._process_news_content(mapping_id, hashtag_id, hashtag)
+
             return saved_count
-            
+
         except Exception as e:
             logger.error(f"Error searching news for hashtag {hashtag}: {e}")
             return 0
-    
-    async def _search_naver_news(self, hashtag: str, company_name: str = "", 
-                               target_articles: int = 10) -> List[Dict[str, Any]]:
+
+    async def _check_existing_news(self, mapping_id: int, hashtag_id: int, hashtag: str) -> int:
+        """해당 해시태그로 이미 처리된 뉴스가 있는지 확인"""
+        try:
+            query = """
+            SELECT COUNT(*) as count
+            FROM news_summaries
+            WHERE mapping_id = %s AND hashtag_id = %s
+            """
+
+            async with database.get_connection() as cursor:
+                await cursor.execute(query, (mapping_id, hashtag_id))
+                result = await cursor.fetchone()
+                return result[0] if result else 0
+
+        except Exception as e:
+            logger.error(f"Error checking existing news: {e}")
+            return 0
+
+    async def _search_naver_news(self, hashtag: str, company_name: str = "",
+                               target_articles: int = 3) -> List[Dict[str, Any]]:
         """Naver 뉴스 API 검색 (참고 코드 기반)"""
         try:
             hashtag_clean = hashtag.replace('#', '').lower()
@@ -292,40 +316,45 @@ class NewsService:
         return saved_count
     
     async def _process_news_content(self, mapping_id: int, hashtag_id: int, hashtag: str):
-        """뉴스 크롤링 + 요약 처리 (백그라운드)"""
+        """뉴스 크롤링 + 요약 처리"""
         try:
             # status='raw'인 뉴스들 조회
             raw_news = await self._get_raw_news(mapping_id, hashtag_id)
-            
+
             for news in raw_news:
                 try:
+                    # 이미 처리된 뉴스인지 확인
+                    if news.get('status') == 'completed':
+                        logger.info(f"News {news['news_id']} already processed, skipping")
+                        continue
+
                     # 크롤링 + 요약
                     content = await self._crawl_news_content(news['news_url'])
                     if content:
                         summary = await self._summarize_content(content, hashtag)
                         company_name = self._extract_company_name(content)
-                        
+
                         # DB 업데이트 (status='completed')
                         await self._update_news_summary(news['news_id'], summary, company_name)
-                        
+
                 except Exception as e:
                     logger.error(f"Error processing news {news['news_id']}: {e}")
-                    
+
         except Exception as e:
-            logger.error(f"Error in background news processing: {e}")
+            logger.error(f"Error in news processing: {e}")
     
     async def _get_raw_news(self, mapping_id: int, hashtag_id: int) -> List[Dict]:
         """Raw 상태의 뉴스 조회"""
         query = """
-        SELECT news_id, news_url, news_title
+        SELECT news_id, news_url, news_title, status
         FROM news_summaries
         WHERE mapping_id = %s AND hashtag_id = %s AND status = 'raw'
         """
-        
+
         async with database.get_connection() as cursor:
             await cursor.execute(query, (mapping_id, hashtag_id))
             rows = await cursor.fetchall()
-            
+
             columns = [desc[0] for desc in cursor.description]
             return [dict(zip(columns, row)) for row in rows]
     
