@@ -17,7 +17,7 @@ COPY requirements.txt ./
 RUN pip install --upgrade pip \
     && pip install -r requirements.txt
 
-# Copy only app directory contents to /app (avoiding nested app/app structure)
+# Copy the entire app directory to /app/app/
 COPY app/ ./app/
 
 EXPOSE 8000
