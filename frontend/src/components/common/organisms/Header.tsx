@@ -1,5 +1,4 @@
 import { Link, useNavigate } from '@tanstack/react-router';
-import { LogOut } from 'lucide-react';
 import { SearchBox } from '../molecules/SearchBox';
 import { Button } from '../atoms/Button';
 
