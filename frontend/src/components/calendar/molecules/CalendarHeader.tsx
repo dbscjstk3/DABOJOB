@@ -43,16 +43,17 @@ export const CalendarHeader: React.FC<CalendarHeaderProps> = ({
   };
 
   return (
-    <div className={cn('mb-6 flex items-center justify-center', className)}>
-      <div className="flex items-center gap-3">
+    <div className={cn('mb-4 md:mb-6 flex items-center justify-center', className)}>
+      <div className="flex items-center gap-2 md:gap-3">
         <IconButton
           size="3xl"
           aria-label={dayOnly ? 'previous day' : 'previous month'}
           onClick={handlePrevious}
+          className="text-lg md:text-3xl"
         >
           ‹
         </IconButton>
-        <div className="flex items-baseline gap-2">
+        <div className="flex items-baseline gap-1 md:gap-2 whitespace-nowrap">
           <Typography variant="calendarNavigation" color="black" weight="regular">
             {year}년
           </Typography>
@@ -69,6 +70,7 @@ export const CalendarHeader: React.FC<CalendarHeaderProps> = ({
           size="3xl"
           aria-label={dayOnly ? 'next day' : 'next month'}
           onClick={handleNext}
+          className="text-lg md:text-3xl"
         >
           ›
         </IconButton>
