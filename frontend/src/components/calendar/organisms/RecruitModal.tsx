@@ -64,11 +64,27 @@ export const RecruitModal: React.FC<RecruitModalProps> = ({
   // 날짜 포맷팅 함수
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
-    return date.toLocaleDateString('ko-KR', {
-      year: 'numeric',
-      month: '2-digit',
-      day: '2-digit',
-    });
+    return date
+      .toLocaleDateString('ko-KR', {
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+      })
+      .replace(/\.$/, ''); // 마지막 점 제거
+  };
+
+  // 마감일용 날짜+시간 포맷팅 함수
+  const formatDateTime = (dateString: string) => {
+    const date = new Date(dateString);
+    return date
+      .toLocaleString('ko-KR', {
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit',
+      })
+      .replace(/\.$/, ''); // 마지막 점 제거
   };
 
   return (
@@ -100,7 +116,7 @@ export const RecruitModal: React.FC<RecruitModalProps> = ({
                 color="dabojob"
                 className="mb-3 text-lg"
               >
-                공고일 공고 ({postingRecruits.length}개)
+                오늘 올라온 공고 ({postingRecruits.length}개)
               </Typography>
               <div className="space-y-3">
                 {postingRecruits.map((recruit, index) => (
@@ -127,7 +143,7 @@ export const RecruitModal: React.FC<RecruitModalProps> = ({
                     <div className="text-xs text-gray-600">
                       <div>
                         📅 {formatDate(recruit.posting_date)} ~{' '}
-                        {formatDate(recruit.expiration_date)}
+                        {formatDateTime(recruit.expiration_date)}
                       </div>
                     </div>
                   </div>
@@ -146,7 +162,7 @@ export const RecruitModal: React.FC<RecruitModalProps> = ({
                 color="red"
                 className="mb-3 text-lg"
               >
-                마감일 공고 ({expirationRecruits.length}개)
+                오늘 마감인 공고 ({expirationRecruits.length}개)
               </Typography>
               <div className="space-y-3">
                 {expirationRecruits.map((recruit, index) => (
@@ -173,7 +189,7 @@ export const RecruitModal: React.FC<RecruitModalProps> = ({
                     <div className="text-xs text-gray-600">
                       <div>
                         📅 {formatDate(recruit.posting_date)} ~{' '}
-                        {formatDate(recruit.expiration_date)}
+                        {formatDateTime(recruit.expiration_date)}
                       </div>
                     </div>
                   </div>
