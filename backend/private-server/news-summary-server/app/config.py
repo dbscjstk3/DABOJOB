@@ -40,3 +40,25 @@ DATA_ROOT = "/app/data/mappings"
 # 고정 값
 TOTAL_CHAPTERS = 5
 KEYWORDS_PER_CHAPTER = 3
+HASHTAGS_PER_CHAPTER = 3
+NEWS_PER_HASHTAG = 3
+
+# Naver API
+NAVER_CLIENT_ID = os.getenv("NAVER_CLIENT_ID", "")
+NAVER_CLIENT_SECRET = os.getenv("NAVER_CLIENT_SECRET", "")
+
+# App Settings
+DEBUG = os.getenv("DEBUG", "false").lower() == "true"
+MAX_WORKERS = int(os.getenv("MAX_WORKERS", "3"))
+
+@property
+def database_url(self) -> str:
+    return f"mysql+aiomysql://{self.MYSQL_USER}:{self.MYSQL_PASSWORD}@{self.MYSQL_HOST}:{self.MYSQL_PORT}/{self.MYSQL_DATABASE}?charset=utf8mb4"
+
+@property
+def redis_url(self) -> str:
+    return f"redis://{self.REDIS_HOST}:{self.REDIS_PORT}/{self.REDIS_DB}"
+
+@property
+def ollama_url(self) -> str:
+    return f"http://{self.OLLAMA_HOST}:{self.OLLAMA_PORT}"
