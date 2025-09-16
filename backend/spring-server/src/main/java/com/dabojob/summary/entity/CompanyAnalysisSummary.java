@@ -43,8 +43,24 @@ public class CompanyAnalysisSummary extends BaseTimeEntity {
     private String companyNameNormalized;
 
     @Lob
-    @Column(name="full_summary",columnDefinition = "TEXT")
-    private String fullSummary;
+    @Column(name="overview",columnDefinition = "TEXT")
+    private String overview;
+
+    @Lob
+    @Column(name="products",columnDefinition = "TEXT")
+    private String products;
+
+    @Lob
+    @Column(name="financials",columnDefinition = "TEXT")
+    private String financials;
+
+    @Lob
+    @Column(name="contracts",columnDefinition = "TEXT")
+    private String contracts;
+
+    @Lob
+    @Column(name="misc_info",columnDefinition = "TEXT")
+    private String misc_info;
 
     @Enumerated(EnumType.STRING)  // DB에 "CREATED", "UPDATED", "FINISHED" 저장
     @Column(name = "status", nullable = false)
