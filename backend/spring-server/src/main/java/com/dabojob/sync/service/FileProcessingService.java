@@ -122,7 +122,7 @@ public class FileProcessingService {
                 .products(products)
                 .financials(financials)
                 .contracts(contracts)
-                .misc_info(miscInfo)
+                .miscInfo(miscInfo)
                 .status(SummaryStatus.CREATED)
                 .build();
     }
@@ -169,7 +169,7 @@ public class FileProcessingService {
                     .summary(summary)
                     .hashtag(hashtag)
                     .company(company)
-                    .chapterType(chapterType) // 추가
+                    .chapterType(chapterType)
                     .build();
 
             summaryHashtagRepository.save(summaryHashtag);

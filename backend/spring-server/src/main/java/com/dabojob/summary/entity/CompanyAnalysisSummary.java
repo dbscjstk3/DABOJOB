@@ -60,7 +60,7 @@ public class CompanyAnalysisSummary extends BaseTimeEntity {
 
     @Lob
     @Column(name="misc_info",columnDefinition = "TEXT")
-    private String misc_info;
+    private String miscInfo;
 
     @Enumerated(EnumType.STRING)  // DB에 "CREATED", "UPDATED", "FINISHED" 저장
     @Column(name = "status", nullable = false)

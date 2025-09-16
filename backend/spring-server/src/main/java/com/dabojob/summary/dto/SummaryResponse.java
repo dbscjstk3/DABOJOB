@@ -22,7 +22,7 @@ public class SummaryResponse {
     private String products;
     private String financials;
     private String contracts;
-    private String misc_info;
+    private String miscInfo;
 
     private Map<ChapterType, List<String>> chapterHashtags;
 
@@ -35,7 +35,7 @@ public class SummaryResponse {
                 .products(summary.getProducts())
                 .financials(summary.getFinancials())
                 .contracts(summary.getContracts())
-                .misc_info(summary.getMisc_info())
+                .miscInfo(summary.getMiscInfo())
                 .chapterHashtags(chapterHashtags)
                 .build();
     }
