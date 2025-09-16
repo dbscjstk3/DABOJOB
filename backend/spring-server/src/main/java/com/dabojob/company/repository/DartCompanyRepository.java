@@ -7,5 +7,5 @@ import org.springframework.stereotype.Repository;
 
 @Repository
 public interface DartCompanyRepository extends JpaRepository<DartCompany, Long> {
-    Optional<DartCompany> findByDartId(Long dartId);
+    Optional<DartCompany> findByCompanyId(Long companyId);
 }

@@ -24,7 +24,7 @@ public class JobPostingResponse {
     public static JobPostingResponse of(JobPosting jobPosting ){
         return JobPostingResponse.builder()
                 .jobId(jobPosting.getJobPostingId())
-                .dartCompanyId(jobPosting.getDartJob().getDartCompany().getDartId())
+                .dartCompanyId(jobPosting.getDartJob().getDartCompany().getCompanyId())
                 .saraminJobId(jobPosting.getSaraminJobId())
                 .companyName(jobPosting.getCompanyName())
                 .title(jobPosting.getTitle())

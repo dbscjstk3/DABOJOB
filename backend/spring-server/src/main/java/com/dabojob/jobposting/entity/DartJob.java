@@ -37,7 +37,7 @@ public class DartJob extends BaseTimeEntity {
     private JobPosting jobPosting;
 
     @ManyToOne(fetch =  FetchType.LAZY)
-    @JoinColumn(name="dart_id")
+    @JoinColumn(name="company_id")
     private DartCompany  dartCompany;
 
     @Column(name="company_name_normalized")

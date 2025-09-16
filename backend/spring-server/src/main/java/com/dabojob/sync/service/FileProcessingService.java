@@ -51,10 +51,10 @@ public class FileProcessingService {
             JsonNode metadata = jsonData.get("metadata");
             Integer mappingId = metadata.get("mapping_id").asInt();
 
-            // 2. DartCompany 조회 (임의의 dartId로 가정)
-            Long dartId = 1L; // 실제로는 어떤 로직으로 결정
-            DartCompany dartCompany = dartCompanyRepository.findById(dartId)
-                    .orElseThrow(() -> new IllegalArgumentException("DartCompany not found: " + dartId));
+            // 2. DartCompany 조회 (임의의 companyId로 가정)
+            Long companyId = 1L; // 실제로는 어떤 로직으로 결정
+            DartCompany dartCompany = dartCompanyRepository.findById(companyId)
+                    .orElseThrow(() -> new IllegalArgumentException("DartCompany not found: " + companyId));
 
             // 3. CompanyAnalysisSummary 생성 및 저장
             CompanyAnalysisSummary summary = createSummaryFromJson(jsonData.get("company_analysis"));
@@ -210,25 +210,26 @@ public class FileProcessingService {
     private DartCompany findOrCreateDartCompany(JobPostingDataDto dto) {
         try{
 
-            Long parsedDartId = Long.parseLong(dto.getDartId());
-            // dartId로 기존 DartCompany 조회
-            Optional<DartCompany> existingCompany = dartCompanyRepository.findByDartId(parsedDartId);
+            Long parsedCompanyId = Long.parseLong(dto.getCompanyId());
+            // companyId로 기존 DartCompany 조회
+            Optional<DartCompany> existingCompany = dartCompanyRepository.findByCompanyId(parsedCompanyId);
 
             if (existingCompany.isPresent()) {
-                log.info("Found existing DartCompany for dartId: {}", dto.getDartId());
+                log.info("Found existing DartCompany for CompanyId: {}", dto.getCompanyId());
                 return existingCompany.get();
             }
 
             // 없으면 새로 생성
-            log.info("Creating new DartCompany for dartId: {}", dto.getDartId());
+            log.info("Creating new DartCompany for CompanyId: {}", dto.getCompanyId());
             DartCompany newCompany = DartCompany.builder()
-                    .dartCompanyCode(dto.getDartId())
+                    .companyId(parsedCompanyId)
+                    .dartCompanyCode("") //TODO: companyCode를 받아야함 or 필드값삭제
                     .dartCompanyName(dto.getCompanyName())  // 회사명도 저장
                     .build();
 
             return dartCompanyRepository.save(newCompany);
         } catch(NumberFormatException e){
-            throw new IllegalArgumentException("Invalid Dart ID format: " + dto.getDartId());
+            throw new IllegalArgumentException("Invalid Company ID format: " + dto.getCompanyId());
         }
 
     }

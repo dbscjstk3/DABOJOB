@@ -41,6 +41,6 @@ public class SummaryHashtag {
     private Hashtag hashtag;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name="dart_id")
+    @JoinColumn(name="company_id")
     private DartCompany dartCompany;
 }

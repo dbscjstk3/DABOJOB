@@ -20,7 +20,7 @@ public class SummaryResponse {
     public static SummaryResponse of(CompanyAnalysisSummary summary) {
         return SummaryResponse.builder()
                 .summaryId(summary.getSummaryId())
-                .companyId(summary.getDartCompany().getDartId())
+                .companyId(summary.getDartCompany().getCompanyId())
                 .companyName(summary.getDartCompany().getDartCompanyName())
                 .fullSummary(summary.getFullSummary())
                 .build();

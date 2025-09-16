@@ -17,5 +17,5 @@ public class JobPostingDataDto {
     private Long postingTimeStamp;
     private Long expirationTimestamp;
     private String companyNameNormalized;
-    private String dartId;
+    private String companyId;
 }

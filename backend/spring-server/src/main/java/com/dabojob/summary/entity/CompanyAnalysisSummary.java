@@ -36,7 +36,7 @@ public class CompanyAnalysisSummary extends BaseTimeEntity {
     private Long summaryId;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "dart_id")
+    @JoinColumn(name = "company_id")
     private DartCompany dartCompany;
 
     @Column(name="company_name_normalized")
