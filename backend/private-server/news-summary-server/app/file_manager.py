@@ -31,7 +31,7 @@ class FileManager:
             directory.mkdir(parents=True, exist_ok=True)
             logger.debug(f"Created directory: {directory}")
     
-    def save_raw_data(self, filename: str, data: str or Dict):
+    def save_raw_data(self, filename: str, data: str | Dict):
         """원본 데이터 저장"""
         file_path = self.raw_dir / filename
         
