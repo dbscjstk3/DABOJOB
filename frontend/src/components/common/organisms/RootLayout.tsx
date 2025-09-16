@@ -65,12 +65,31 @@ export function RootLayout() {
 
   const handleSelectSuggestion = (item: SearchItem) => {
     console.log('선택된 항목:', item);
-    // TODO: 실제 라우팅 또는 검색 처리
+    // 선택된 항목의 라벨에서 회사명 추출 (예: "개발자 - 삼성전자" → "삼성전자")
+    const companyName = item.label.split(' - ').pop();
+    if (companyName) {
+      navigate({
+        to: '/search',
+        search: {
+          q: companyName,
+          page: 1,
+        },
+      });
+    }
   };
 
   const handleSubmitSearch = (query: string) => {
     console.log('검색 제출:', query);
-    // TODO: 검색 결과 페이지로 이동
+    // 검색 결과 페이지로 이동
+    if (query.trim()) {
+      navigate({
+        to: '/search',
+        search: {
+          q: query.trim(),
+          page: 1,
+        },
+      });
+    }
   };
 
   const handleLogin = () => {

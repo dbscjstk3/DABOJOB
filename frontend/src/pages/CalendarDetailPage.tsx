@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import ReportContainer from '@/components/calendar-detail/organisms/ReportContainer';
 import NewsContainer, { type NewsItem } from '@/components/calendar-detail/organisms/NewsContainer';
-import { Link } from '@tanstack/react-router';
+import { Link, useNavigate } from '@tanstack/react-router';
 import { ChevronsLeft, SquareArrowOutUpRight } from 'lucide-react';
 import Typography from '@/components/common/atoms/Typography';
 import { Button } from '@/components/common/atoms/Button';
@@ -17,7 +17,19 @@ interface JobInfo {
 }
 
 export default function CalendarDetailPage() {
+  const navigate = useNavigate();
   const [newsFilter, setNewsFilter] = useState<string | null>(null);
+
+  // 태그 클릭 시 검색 페이지로 이동하는 함수
+  const handleTagSearch = (tag: string) => {
+    navigate({
+      to: '/search',
+      search: {
+        q: tag,
+        page: 1,
+      },
+    });
+  };
 
   // 테스트 뉴스 데이터
   const mockNewsData: NewsItem[] = [
@@ -197,13 +209,22 @@ export default function CalendarDetailPage() {
           <ReportContainer
             title={mockData.title}
             sections={mockData.sections}
-            onTagSelect={setNewsFilter}
+            onTagSelect={(tag) => {
+              setNewsFilter(tag); // 뉴스 필터링용
+              // if(tag)
+              //   handleTagSearch(tag); // 검색 페이지 이동용
+            }}
           />
         </div>
 
         <div className="lg:col-span-2">
           <div className="sticky top-20 lg:top-24">
-            <NewsContainer news={mockNewsData} filterTag={newsFilter} itemsPerPage={3} />
+            <NewsContainer
+              news={mockNewsData}
+              filterTag={newsFilter}
+              itemsPerPage={3}
+              onTagSearch={handleTagSearch}
+            />
           </div>
         </div>
       </div>
