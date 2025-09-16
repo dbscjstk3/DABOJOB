@@ -19,6 +19,15 @@ class CrawlStatus(enum.Enum):
     running = "running"
 
 
+class MappingStatus(enum.Enum):
+    pending = "pending"          # 매핑 대기 중
+    processing = "processing"    # GPT API 처리 중
+    suggested = "suggested"      # GPT가 제안함
+    verified = "verified"        # 수동 검증 완료
+    rejected = "rejected"        # 매핑 거부됨
+    failed = "failed"           # 매핑 실패
+
+
 class Company(Base):
     __tablename__ = 'companies'
     
@@ -159,4 +168,46 @@ class CrawlingLog(Base):
         Index('idx_crawl_type', 'crawl_type'),
         Index('idx_crawl_status', 'crawl_status'),
         Index('idx_started_at', 'started_at'),
+    )
+
+
+class CompanyDartMapping(Base):
+    """회사명-DART 매핑 테이블 (기존 테이블과 느슨한 결합)"""
+    __tablename__ = 'company_dart_mappings'
+
+    mapping_id = Column(BigInteger, primary_key=True, autoincrement=True)
+    company_id = Column(BigInteger, ForeignKey('companies.company_id'), nullable=False)
+
+    # 크롤링된 회사 정보
+    crawled_company_name = Column(String(255), nullable=False)
+    crawled_company_url = Column(String(500))
+
+    # DART 매핑 정보
+    dart_corp_code = Column(String(8))      # DART 고유 기업 코드
+    dart_corp_name = Column(String(255))    # DART 기업명 (정식명칭)
+    dart_stock_code = Column(String(6))     # 주식 종목 코드
+
+    # 매핑 메타데이터
+    mapping_status = Column(Enum(MappingStatus), default=MappingStatus.pending)
+    confidence_score = Column(Integer)       # GPT 신뢰도 (0-100)
+    gpt_response = Column(Text)             # GPT 원본 응답
+    manual_notes = Column(Text)             # 수동 검증 메모
+
+    # 처리 이력
+    processed_at = Column(DateTime)         # GPT 처리 완료 시간
+    verified_at = Column(DateTime)          # 수동 검증 완료 시간
+    verified_by = Column(String(100))       # 검증자
+
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    # 관계 설정
+    company = relationship("Company")
+
+    __table_args__ = (
+        Index('idx_company_id', 'company_id'),
+        Index('idx_mapping_status', 'mapping_status'),
+        Index('idx_dart_corp_code', 'dart_corp_code'),
+        Index('idx_processed_at', 'processed_at'),
+        UniqueConstraint('company_id', name='unique_company_mapping'),
     )

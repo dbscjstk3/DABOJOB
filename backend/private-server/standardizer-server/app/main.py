@@ -8,7 +8,7 @@ import asyncio
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from .routes import job_routes, dart_routes, crawler_routes
+from .routes import job_routes, dart_routes, crawler_routes, mapping_routes
 from .workers.background_worker import BackgroundWorker
 from .services.standardizer import StandardizerService
 from .database import init_db
@@ -122,6 +122,7 @@ def health_check() -> dict:
 app.include_router(job_routes.router)
 app.include_router(dart_routes.router)
 app.include_router(crawler_routes.router)
+app.include_router(mapping_routes.router)
 
 
 if __name__ == "__main__":
