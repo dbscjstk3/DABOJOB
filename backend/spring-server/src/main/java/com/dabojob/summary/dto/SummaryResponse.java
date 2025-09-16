@@ -18,11 +18,11 @@ public class SummaryResponse {
     private Long summaryId;
     private Long companyId;
     private String companyName;
-    private String overview;
-    private String products;
-    private String financials;
-    private String contracts;
-    private String miscInfo;
+    private String businessOverview;
+    private String productsService;
+    private String salesContracts;
+    private String rndActivities;
+    private String otherNotes;
 
     private Map<ChapterType, List<String>> chapterHashtags;
 
@@ -31,11 +31,11 @@ public class SummaryResponse {
                 .summaryId(summary.getSummaryId())
                 .companyId(summary.getCompany().getCompanyId())
                 .companyName(summary.getCompany().getCompanyName())
-                .overview(summary.getOverview())
-                .products(summary.getProducts())
-                .financials(summary.getFinancials())
-                .contracts(summary.getContracts())
-                .miscInfo(summary.getMiscInfo())
+                .businessOverview(summary.getBusinessOverview())
+                .productsService(summary.getProductsService())
+                .salesContracts(summary.getSalesContracts())
+                .rndActivities(summary.getRndActivities())
+                .otherNotes(summary.getOtherNotes())
                 .chapterHashtags(chapterHashtags)
                 .build();
     }

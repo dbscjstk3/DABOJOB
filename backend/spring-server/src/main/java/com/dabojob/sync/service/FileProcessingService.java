@@ -79,50 +79,50 @@ public class FileProcessingService {
     private CompanyAnalysisSummary createSummaryFromJson(JsonNode companyAnalysis) {
         JsonNode chapters = companyAnalysis.get("chapters");
 
-        String overview = "";
-        String products = "";
-        String financials = "";
-        String contracts = "";
-        String miscInfo = "";
+        String businessOverview = "";
+        String productsService = "";
+        String salesContracts = "";
+        String rndActivities = "";
+        String otherNotes = "";
 
         if (chapters != null) {
-            // 챕터 1: 사업의 개요 -> overview
+            // 챕터 1: 사업의 개요 -> businessOverview
             JsonNode chapter1 = chapters.get("1");
             if (chapter1 != null) {
-                overview = chapter1.get("content").asText("");
+                businessOverview = chapter1.get("content").asText("");
             }
 
-            // 챕터 2: 주요 제품 및 서비스 -> products
+            // 챕터 2: 주요 제품 및 서비스 -> productsService
             JsonNode chapter2 = chapters.get("2");
             if (chapter2 != null) {
-                products = chapter2.get("content").asText("");
+                productsService = chapter2.get("content").asText("");
             }
 
-            // 챕터 3: 매출 및 수주 상황 -> financials
+            // 챕터 3: 매출 및 수주 상황 -> salesContracts
             JsonNode chapter3 = chapters.get("3");
             if (chapter3 != null) {
-                financials = chapter3.get("content").asText("");
+                salesContracts = chapter3.get("content").asText("");
             }
 
-            // 챕터 4: 주요 계약 및 연구 개발 활동 -> contracts
+            // 챕터 4: 주요 계약 및 연구 개발 활동 -> rndActivities
             JsonNode chapter4 = chapters.get("4");
             if (chapter4 != null) {
-                contracts = chapter4.get("content").asText("");
+                rndActivities = chapter4.get("content").asText("");
             }
 
-            // 챕터 5: 기타 참고사항 -> misc_info
+            // 챕터 5: 기타 참고사항 -> otherNotes
             JsonNode chapter5 = chapters.get("5");
             if (chapter5 != null) {
-                miscInfo = chapter5.get("content").asText("");
+                otherNotes = chapter5.get("content").asText("");
             }
         }
 
         return CompanyAnalysisSummary.builder()
-                .overview(overview)
-                .products(products)
-                .financials(financials)
-                .contracts(contracts)
-                .miscInfo(miscInfo)
+                .businessOverview(businessOverview)
+                .productsService(productsService)
+                .salesContracts(salesContracts)
+                .rndActivities(rndActivities)
+                .otherNotes(otherNotes)
                 .status(SummaryStatus.CREATED)
                 .build();
     }
@@ -152,11 +152,11 @@ public class FileProcessingService {
 
     private ChapterType mapChapterNumberToType(String chapterNumber) {
         return switch (chapterNumber) {
-            case "1" -> ChapterType.OVERVIEW;
-            case "2" -> ChapterType.PRODUCTS;
-            case "3" -> ChapterType.FINANCIALS;
-            case "4" -> ChapterType.CONTRACTS;
-            case "5" -> ChapterType.MISC_INFO;
+            case "1" -> ChapterType.BUSINESS_OVERVIEW;
+            case "2" -> ChapterType.PRODUCTS_SERVICE;
+            case "3" -> ChapterType.SALES_CONTRACTS;
+            case "4" -> ChapterType.RND_ACTIVITIES;
+            case "5" -> ChapterType.OTHER_NOTES;
             default -> null;
         };
     }

@@ -1,9 +1,9 @@
 package com.dabojob.summary.entity;
 
 public enum ChapterType {
-    OVERVIEW,
-    PRODUCTS,
-    FINANCIALS,
-    CONTRACTS,
-    MISC_INFO
+    BUSINESS_OVERVIEW,
+    PRODUCTS_SERVICE,
+    SALES_CONTRACTS,
+    RND_ACTIVITIES,
+    OTHER_NOTES
 }
