@@ -6,6 +6,7 @@ import com.dabojob.jobposting.entity.CompanyJobPosting;
 import com.dabojob.jobposting.entity.JobPosting;
 import com.dabojob.jobposting.repository.CompanyJobPostingRepository;
 import com.dabojob.jobposting.repository.JobPostingRepository;
+import com.dabojob.summary.entity.ChapterType;
 import com.dabojob.summary.entity.CompanyAnalysisSummary;
 import com.dabojob.summary.entity.Hashtag;
 import com.dabojob.summary.entity.News;
@@ -76,45 +77,103 @@ public class FileProcessingService {
     }
 
     private CompanyAnalysisSummary createSummaryFromJson(JsonNode companyAnalysis) {
-        StringBuilder fullSummary = new StringBuilder();
-
         JsonNode chapters = companyAnalysis.get("chapters");
-        if (chapters != null) {
-            chapters.fields().forEachRemaining(entry -> {
-                JsonNode chapter = entry.getValue();
-                String name = chapter.get("name").asText();
-                String content = chapter.get("content").asText();
 
-                fullSummary.append("[").append(name).append("]\n");
-                fullSummary.append(content).append("\n\n");
-            });
+        String overview = "";
+        String products = "";
+        String financials = "";
+        String contracts = "";
+        String miscInfo = "";
+
+        if (chapters != null) {
+            // 챕터 1: 사업의 개요 -> overview
+            JsonNode chapter1 = chapters.get("1");
+            if (chapter1 != null) {
+                overview = chapter1.get("content").asText("");
+            }
+
+            // 챕터 2: 주요 제품 및 서비스 -> products
+            JsonNode chapter2 = chapters.get("2");
+            if (chapter2 != null) {
+                products = chapter2.get("content").asText("");
+            }
+
+            // 챕터 3: 매출 및 수주 상황 -> financials
+            JsonNode chapter3 = chapters.get("3");
+            if (chapter3 != null) {
+                financials = chapter3.get("content").asText("");
+            }
+
+            // 챕터 4: 주요 계약 및 연구 개발 활동 -> contracts
+            JsonNode chapter4 = chapters.get("4");
+            if (chapter4 != null) {
+                contracts = chapter4.get("content").asText("");
+            }
+
+            // 챕터 5: 기타 참고사항 -> misc_info
+            JsonNode chapter5 = chapters.get("5");
+            if (chapter5 != null) {
+                miscInfo = chapter5.get("content").asText("");
+            }
         }
 
         return CompanyAnalysisSummary.builder()
-                .fullSummary(fullSummary.toString())
+                .overview(overview)
+                .products(products)
+                .financials(financials)
+                .contracts(contracts)
+                .misc_info(miscInfo)
                 .status(SummaryStatus.CREATED)
                 .build();
     }
 
-    private void processHashtagsAndCreateMappings(JsonNode hashtagsData, CompanyAnalysisSummary summary, Company dartCompany) {
+    private void processHashtagsAndCreateMappings(JsonNode hashtagsData, CompanyAnalysisSummary summary, Company company) {
         JsonNode byChapter = hashtagsData.get("by_chapter");
 
         if (byChapter != null) {
             byChapter.fields().forEachRemaining(chapterEntry -> {
+                String chapterNumber = chapterEntry.getKey(); // "1", "2", "3", "4", "5"
                 JsonNode hashtagList = chapterEntry.getValue();
 
-                if (hashtagList.isArray()) {
+                // 챕터 번호를 ChapterType으로 변환
+                ChapterType chapterType = mapChapterNumberToType(chapterNumber);
+
+                if (chapterType != null && hashtagList.isArray()) {
                     for (JsonNode hashtagNode : hashtagList) {
                         String hashtagName = hashtagNode.get("hashtag").asText();
 
-                        // Hashtag 조회 또는 생성
                         Hashtag hashtag = findOrCreateHashtag(hashtagName);
-
-                        // SummaryHashtag 생성 (중복 체크)
-                        createSummaryHashtagIfNotExists(summary, hashtag, dartCompany);
+                        createSummaryHashtagIfNotExists(summary, hashtag, company, chapterType);
                     }
                 }
             });
+        }
+    }
+
+    private ChapterType mapChapterNumberToType(String chapterNumber) {
+        return switch (chapterNumber) {
+            case "1" -> ChapterType.OVERVIEW;
+            case "2" -> ChapterType.PRODUCTS;
+            case "3" -> ChapterType.FINANCIALS;
+            case "4" -> ChapterType.CONTRACTS;
+            case "5" -> ChapterType.MISC_INFO;
+            default -> null;
+        };
+    }
+
+    private void createSummaryHashtagIfNotExists(CompanyAnalysisSummary summary, Hashtag hashtag, Company company, ChapterType chapterType) {
+        boolean exists = summaryHashtagRepository.existsBySummaryAndHashtag(summary, hashtag);
+
+        if (!exists) {
+            SummaryHashtag summaryHashtag = SummaryHashtag.builder()
+                    .summary(summary)
+                    .hashtag(hashtag)
+                    .company(company)
+                    .chapterType(chapterType) // 추가
+                    .build();
+
+            summaryHashtagRepository.save(summaryHashtag);
+            log.info("Created SummaryHashtag for hashtag: {} in chapter: {}", hashtag.getHashtagName(), chapterType);
         }
     }
 
@@ -129,42 +188,37 @@ public class FileProcessingService {
                 });
     }
 
-    private void createSummaryHashtagIfNotExists(CompanyAnalysisSummary summary, Hashtag hashtag, Company dartCompany) {
-        // 중복 체크 (이미 같은 summary-hashtag 매핑이 있는지)
-        boolean exists = summaryHashtagRepository.existsBySummaryAndHashtag(summary, hashtag);
-
-        if (!exists) {
-            SummaryHashtag summaryHashtag = SummaryHashtag.builder()
-                    .summary(summary)
-                    .hashtag(hashtag)
-                    .company(dartCompany)
-                    .build();
-
-            summaryHashtagRepository.save(summaryHashtag);
-            log.info("Created SummaryHashtag for hashtag: {}", hashtag.getHashtagName());
-        }
-    }
 
     private void processNewsData(JsonNode newsData, CompanyAnalysisSummary summary) {
-        JsonNode articles = newsData.get("articles");
+        JsonNode byHashtag = newsData.get("by_hashtag");
 
-        if (articles != null && articles.isArray()) {
-            for (JsonNode articleNode : articles) {
-                createNewsFromJson(articleNode, summary);
-            }
+        if (byHashtag != null) {
+            byHashtag.fields().forEachRemaining(hashtagEntry -> {
+                String hashtagName = hashtagEntry.getKey(); // "#플랫폼", "#채용" 등
+                JsonNode hashtagData = hashtagEntry.getValue();
+
+                JsonNode articles = hashtagData.get("articles");
+                if (articles != null && articles.isArray()) {
+                    for (JsonNode articleNode : articles) {
+                        createNewsFromJson(articleNode, summary, hashtagName);
+                    }
+                }
+            });
         }
     }
 
-    private void createNewsFromJson(JsonNode articleNode, CompanyAnalysisSummary summary) {
+    private void createNewsFromJson(JsonNode articleNode, CompanyAnalysisSummary summary, String hashtagName) {
         Long newsId = articleNode.get("news_id").asLong();
         String title = articleNode.get("title").asText();
         String content = articleNode.get("content").asText();
         String url = articleNode.get("url").asText();
-        String companyName = articleNode.get("company_name").asText();
+        String pubDateStr = articleNode.get("pub_date").asText();
 
-        // hashtag_id는 news 구조에서 어떻게 매핑할지 확인 필요
-        // 일단 summary와 연결된 SummaryHashtag 중 하나를 사용
-        SummaryHashtag summaryHashtag = summaryHashtagRepository.findFirstBySummary(summary);
+        // pub_date 파싱 (ISO 8601 형식)
+        LocalDate newsCreatedAt = parsePublishDate(pubDateStr);
+
+        // 해당 Summary의 특정 해시태그에 매핑된 SummaryHashtag 찾기
+        SummaryHashtag summaryHashtag = findSummaryHashtagByName(summary, hashtagName);
 
         if (summaryHashtag != null) {
             News news = News.builder()
@@ -173,12 +227,35 @@ public class FileProcessingService {
                     .newsTitle(title)
                     .newsContent(content)
                     .newsUrl(url)
-                    .newsCreatedAt(LocalDate.now()) // pub_date 파싱 필요시 수정
+                    .newsCreatedAt(newsCreatedAt)
                     .build();
 
             newsRepository.save(news);
-            log.info("Created news: {}", title);
+            log.info("Created news: {} for hashtag: {} in chapter: {}",
+                    title, hashtagName, summaryHashtag.getChapterType());
+        } else {
+            log.warn("SummaryHashtag not found for hashtag: {} in summary: {}",
+                    hashtagName, summary.getSummaryId());
         }
+    }
+
+    private LocalDate parsePublishDate(String pubDateStr) {
+        try {
+            // ISO 8601 형식 파싱: "2024-01-15T08:30:00Z"
+            return LocalDate.parse(pubDateStr.substring(0, 10)); // 날짜 부분만 추출
+        } catch (Exception e) {
+            log.warn("Failed to parse pub_date: {}, using current date", pubDateStr);
+            return LocalDate.now();
+        }
+    }
+
+    private SummaryHashtag findSummaryHashtagByName(CompanyAnalysisSummary summary, String hashtagName) {
+        // 먼저 해시태그 조회
+        Optional<Hashtag> hashtagOpt = hashtagRepository.findByHashtagName(hashtagName);
+
+        // Summary와 Hashtag로 SummaryHashtag 조회
+        return hashtagOpt.map(hashtag -> summaryHashtagRepository.findBySummaryAndHashtag(summary, hashtag))
+                .orElse(null);
     }
 
     // TODO: JSON 데이터 파싱 및 저장
@@ -188,18 +265,18 @@ public class FileProcessingService {
             // JSON → DTO 변환
             JobPostingDataDto dto = objectMapper.treeToValue(jsonData, JobPostingDataDto.class);
 
-            // 1. DartCompany 조회 또는 생성
-            Company dartCompany = findOrCreateCompany(dto);
+            // 1. Company 조회 또는 생성
+            Company company = findOrCreateCompany(dto);
 
             // 2. JobPosting 생성 및 저장
             JobPosting jobPosting = createJobPosting(dto);
             jobPosting = jobPostingRepository.save(jobPosting);
 
-            // 3. DartJob 생성 및 저장 (JobPosting + DartCompany 매핑)
-            CompanyJobPosting companyJobPosting = createCompanyJobPosting(jobPosting, dartCompany, dto);
+            // 3. CompanyJobPosting 생성 및 저장 (JobPosting + Company 매핑)
+            CompanyJobPosting companyJobPosting = createCompanyJobPosting(jobPosting, company, dto);
             companyJobPostingRepository.save(companyJobPosting);
 
-            log.info("Successfully saved JobPosting and DartJob for saraminJobId: {}", dto.getSaraminJobId());
+            log.info("Successfully saved JobPosting and Company for saraminJobPostingId: {}", dto.getSaraminJobPostingId());
 
         } catch (Exception e) {
             log.error("Failed to parse and save data from file {}: {}", fileName, e.getMessage(), e);
@@ -223,7 +300,7 @@ public class FileProcessingService {
             log.info("Creating new Company for CompanyId: {}", dto.getCompanyId());
             Company newCompany = Company.builder()
                     .companyId(parsedCompanyId)
-                    .dartCompanyCode("") //TODO: companyCode를 받아야함 or 필드값삭제
+                    .dartCompanyCode("") //TODO: companyCode를 받아야함 or 필드값삭제 or 우리가 받는 값이 companyId가 아닌 dartCompanyCode일수도 -> 확인필요
                     .companyName(dto.getCompanyName())  // 회사명도 저장
                     .build();
 
@@ -236,7 +313,7 @@ public class FileProcessingService {
 
     private JobPosting createJobPosting(JobPostingDataDto dto) {
         return JobPosting.builder()
-                .saraminJobPostingId(dto.getSaraminJobId())
+                .saraminJobPostingId(dto.getSaraminJobPostingId())
                 .companyName(dto.getCompanyName())
                 .title(dto.getTitle())
                 .url(dto.getUrl())

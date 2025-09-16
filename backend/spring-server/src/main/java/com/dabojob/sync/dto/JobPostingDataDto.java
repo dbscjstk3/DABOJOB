@@ -8,7 +8,7 @@ import lombok.Setter;
 @Setter
 @NoArgsConstructor
 public class JobPostingDataDto {
-    private String saraminJobId;
+    private String saraminJobPostingId;
     private String companyName;
     private String title;
     private String url;
