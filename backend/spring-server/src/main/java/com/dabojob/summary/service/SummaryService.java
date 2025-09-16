@@ -8,7 +8,6 @@ import com.dabojob.summary.repository.CompanyAnalysisSummaryRepository;
 import com.dabojob.summary.repository.SummaryHashtagRepository;
 import jakarta.persistence.EntityNotFoundException;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;

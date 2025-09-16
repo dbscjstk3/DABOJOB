@@ -29,7 +29,7 @@ public class JobPostingController {
         return ResponseEntity.ok(jobPostingResponse);
     }
 
-    @GetMapping("/calender")
+    @GetMapping("/calendar")
     public ResponseEntity<List<JobPostingResponse>> getCalender(@RequestParam LocalDate startDate, @RequestParam LocalDate endDate){
         List<JobPostingResponse> jobPostingResponses = jobPostingService.getJobPostingsByDate(startDate, endDate);
         return ResponseEntity.ok(jobPostingResponses);
