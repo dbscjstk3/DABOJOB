@@ -129,6 +129,9 @@ async def news_summarize_content(request: NewsSummarizeRequest) -> NewsSummarize
         raise HTTPException(status_code=503, detail="Server is shutting down")
     
     # 세마포어로 동시 요청 수 제한
+    if not request_semaphore:
+        raise HTTPException(status_code=503, detail="Request semaphore not initialized")
+
     async with request_semaphore:
         try:
             logger.info(f"Processing news summary: mapping_id={request.mapping_id}, chapter={request.chapter}")
@@ -198,7 +201,7 @@ async def shutdown_event_handler():
         logger.info("Redis consumer shutdown completed")
     
     if executor:
-        executor.shutdown(wait=True, timeout=5)
+        executor.shutdown(wait=True)
         logger.info("Executor shutdown completed")
 
 if __name__ == "__main__":
