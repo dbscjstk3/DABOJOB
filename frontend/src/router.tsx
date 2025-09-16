@@ -9,6 +9,7 @@ import {
 import LoginPage from './pages/LoginPage';
 import CalendarPage from './pages/CalendarPage';
 import CalendarDetailPage from './pages/CalendarDetailPage';
+import SearchDetailPage from './pages/SearchDetailPage';
 import { useAuthStore } from './stores/useAuthStore';
 import { RootLayout } from './components/common/organisms/RootLayout';
 
@@ -46,6 +47,18 @@ const loginRoute = createRoute({
         <LoginPage redirectTo={backTo ?? '/'} />
       </div>
     );
+  },
+});
+
+const searchDetailRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/search',
+  component: SearchDetailPage,
+  validateSearch: (search: Record<string, unknown>) => {
+    return {
+      q: (search.q as string) || '',
+      page: Number(search.page || 1),
+    };
   },
 });
 
@@ -129,6 +142,7 @@ const authCallbackRoute = createRoute({
 const routeTree = rootRoute.addChildren([
   calendarListRoute,
   calendarDetailRoute,
+  searchDetailRoute,
   loginRoute,
   authCallbackRoute,
 ]);

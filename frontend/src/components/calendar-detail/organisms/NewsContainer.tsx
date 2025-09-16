@@ -20,6 +20,7 @@ interface NewsContainerProps {
   filterTag?: string | null;
   itemsPerPage?: number;
   className?: string;
+  onTagSearch?: (tag: string) => void;
 }
 
 export default function NewsContainer({
@@ -27,6 +28,7 @@ export default function NewsContainer({
   filterTag,
   itemsPerPage = 3,
   className = '',
+  onTagSearch,
 }: NewsContainerProps) {
   // const navigate = useNavigate();
   const [currentPage, setCurrentPage] = useState(0);
@@ -68,16 +70,8 @@ export default function NewsContainer({
 
   // 전체보기 버튼 클릭 핸들러
   const handleViewAll = () => {
-    if (filterTag) {
-      // TODO: /search 라우트 추가 후 주석 해제
-      // 현재는 임시로 콘솔 로그만 출력
-      console.log('Navigate to search with tag:', filterTag);
-
-      // 나중에 search 라우트 추가 시 사용할 코드:
-      // void navigate({
-      //   to: '/search',
-      //   search: { tag: filterTag.replace('#', '') }
-      // });
+    if (filterTag && onTagSearch) {
+      onTagSearch(filterTag);
     }
   };
 
