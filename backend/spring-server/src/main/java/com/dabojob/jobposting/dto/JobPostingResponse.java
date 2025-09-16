@@ -1,6 +1,8 @@
 package com.dabojob.jobposting.dto;
 
+import com.dabojob.global.utils.DateTimeUtil;
 import com.dabojob.jobposting.entity.JobPosting;
+import java.time.LocalDate;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -18,8 +20,8 @@ public class JobPostingResponse {
     private String title;
     private String url;
     private Integer experienceLevelCode;
-    private Long postingTimeStamp;
-    private Long expirationTimestamp;
+    private LocalDate postingTimeStamp;
+    private LocalDate expirationTimestamp;
 
     public static JobPostingResponse of(JobPosting jobPosting ){
         return JobPostingResponse.builder()
@@ -30,9 +32,11 @@ public class JobPostingResponse {
                 .title(jobPosting.getTitle())
                 .url(jobPosting.getUrl())
                 .experienceLevelCode(jobPosting.getExperienceLevelCode())
-                .postingTimeStamp(jobPosting.getPostingTimeStamp())
-                .expirationTimestamp(jobPosting.getExpirationTimestamp())
+                .postingTimeStamp(DateTimeUtil.convertToLocalDate(jobPosting.getPostingTimeStamp()))
+                .expirationTimestamp(DateTimeUtil.convertToLocalDate(jobPosting.getExpirationTimestamp()))
                 .build();
     }
+
+
 
 }
