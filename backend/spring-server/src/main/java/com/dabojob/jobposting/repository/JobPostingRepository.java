@@ -23,8 +23,8 @@ public interface JobPostingRepository extends JpaRepository<JobPosting,Long> {
 
     @Query("SELECT jp FROM JobPosting jp " +
             "JOIN FETCH jp.dartJob dj " +
-            "WHERE (jp.postingTimeStamp BETWEEN :startTimestamp AND :endTimestamp) OR " +
-            "(jp.expirationTimestamp BETWEEN :startTimestamp AND :endTimestamp)")
+            "WHERE (jp.postingTimeStamp <= :endTimestamp) AND " +
+            "(jp.expirationTimestamp >= :startTimestamp )")
     List<JobPosting> findByDateRange(@Param("startTimestamp") Long startTimestamp,
                                      @Param("endTimestamp") Long endTimestamp);
 }
