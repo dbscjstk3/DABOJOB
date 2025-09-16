@@ -13,16 +13,16 @@ import org.springframework.stereotype.Repository;
 @Repository
 public interface JobPostingRepository extends JpaRepository<JobPosting,Long> {
 
-    @Query("SELECT jp FROM JobPosting jp JOIN FETCH jp.dartJob WHERE jp.jobPostingId = :jobPostingId")
-    Optional<JobPosting> findByJobPostingIdWithDartJob(@Param("jobPostingId") Long jobPostingId);
+    @Query("SELECT jp FROM JobPosting jp JOIN FETCH jp.companyJobPosting WHERE jp.jobPostingId = :jobPostingId")
+    Optional<JobPosting> findByJobPostingId(@Param("jobPostingId") Long jobPostingId);
 
     @Query("SELECT jp FROM JobPosting jp " +
-            "JOIN FETCH jp.dartJob dj " +
+            "JOIN FETCH jp.companyJobPosting dj " +
             "WHERE dj.company.companyId = :companyId")
     Page<JobPosting> findByCompanyId(@Param("companyId") Long companyId, Pageable pageable);
 
     @Query("SELECT jp FROM JobPosting jp " +
-            "JOIN FETCH jp.dartJob dj " +
+            "JOIN FETCH jp.companyJobPosting dj " +
             "WHERE (jp.postingTimeStamp <= :endTimestamp) AND " +
             "(jp.expirationTimestamp >= :startTimestamp )")
     List<JobPosting> findByDateRange(@Param("startTimestamp") Long startTimestamp,

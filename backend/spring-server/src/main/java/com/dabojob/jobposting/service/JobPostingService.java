@@ -25,7 +25,7 @@ public class JobPostingService {
         try {
             Long parsedJobPostingId = Long.parseLong(jobPostingId);
 
-            JobPosting jobPosting = jobPostingRepository.findByJobPostingIdWithDartJob(parsedJobPostingId)
+            JobPosting jobPosting = jobPostingRepository.findByJobPostingId(parsedJobPostingId)
                     .orElseThrow(() -> new EntityNotFoundException("JobPosting not found with JobPostingId: " + jobPostingId));
 
             return JobPostingResponse.of(jobPosting);

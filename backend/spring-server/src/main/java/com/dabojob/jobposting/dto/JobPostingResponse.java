@@ -13,7 +13,7 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 @AllArgsConstructor
 public class JobPostingResponse {
-    private Long jobId;
+    private Long jobPostingId;
     private Long companyId;
     private String saraminJobId;
     private String companyName;
@@ -26,9 +26,9 @@ public class JobPostingResponse {
 
     public static JobPostingResponse of(JobPosting jobPosting ){
         return JobPostingResponse.builder()
-                .jobId(jobPosting.getJobPostingId())
-                .companyId(jobPosting.getDartJob().getCompany().getCompanyId())
-                .saraminJobId(jobPosting.getSaraminJobId())
+                .jobPostingId(jobPosting.getJobPostingId())
+                .companyId(jobPosting.getCompanyJobPosting().getCompany().getCompanyId())
+                .saraminJobId(jobPosting.getSaraminJobPostingId())
                 .companyName(jobPosting.getCompanyName())
                 .title(jobPosting.getTitle())
                 .url(jobPosting.getUrl())

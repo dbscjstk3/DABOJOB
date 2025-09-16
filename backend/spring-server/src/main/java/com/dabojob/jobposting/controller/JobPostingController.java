@@ -23,9 +23,9 @@ public class JobPostingController {
 
     private final JobPostingService jobPostingService;
 
-    @GetMapping("/{jobId}")
-    public ResponseEntity<JobPostingResponse> getJobPosting(@PathVariable String jobId){
-        JobPostingResponse jobPostingResponse =  jobPostingService.getJobPosting(jobId);
+    @GetMapping("/{jobPostingId}")
+    public ResponseEntity<JobPostingResponse> getJobPosting(@PathVariable String jobPostingId){
+        JobPostingResponse jobPostingResponse =  jobPostingService.getJobPosting(jobPostingId);
         return ResponseEntity.ok(jobPostingResponse);
     }
 

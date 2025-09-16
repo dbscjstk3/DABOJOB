@@ -24,16 +24,16 @@ import lombok.Setter;
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
-@Table(name = "dart_jobs")
-public class DartJob extends BaseTimeEntity {
+@Table(name = "company_job_postings")
+public class CompanyJobPosting extends BaseTimeEntity {
 
     @Id
-    @Column(name="dart_job_id")
+    @Column(name="company_job_postings_id")
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long dartJobId;
+    private Long companyJobPostingId;
 
     @OneToOne
-    @JoinColumn(name="job_id")
+    @JoinColumn(name="job_posting_id")
     private JobPosting jobPosting;
 
     @ManyToOne(fetch =  FetchType.LAZY)

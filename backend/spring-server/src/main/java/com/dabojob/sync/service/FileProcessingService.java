@@ -2,9 +2,9 @@ package com.dabojob.sync.service;
 
 import com.dabojob.company.entity.Company;
 import com.dabojob.company.repository.CompanyRepository;
-import com.dabojob.jobposting.entity.DartJob;
+import com.dabojob.jobposting.entity.CompanyJobPosting;
 import com.dabojob.jobposting.entity.JobPosting;
-import com.dabojob.jobposting.repository.DartJobRepository;
+import com.dabojob.jobposting.repository.CompanyJobPostingRepository;
 import com.dabojob.jobposting.repository.JobPostingRepository;
 import com.dabojob.summary.entity.CompanyAnalysisSummary;
 import com.dabojob.summary.entity.Hashtag;
@@ -34,7 +34,7 @@ public class FileProcessingService {
 
     private final CompanyRepository companyRepository;
     private final JobPostingRepository jobPostingRepository;
-    private final DartJobRepository dartJobRepository;
+    private final CompanyJobPostingRepository companyJobPostingRepository;
     private final HashtagRepository  hashtagRepository;
     private final SummaryHashtagRepository summaryHashtagRepository;
     private final CompanyAnalysisSummaryRepository summaryRepository;
@@ -189,15 +189,15 @@ public class FileProcessingService {
             JobPostingDataDto dto = objectMapper.treeToValue(jsonData, JobPostingDataDto.class);
 
             // 1. DartCompany 조회 또는 생성
-            Company dartCompany = findOrCreateDartCompany(dto);
+            Company dartCompany = findOrCreateCompany(dto);
 
             // 2. JobPosting 생성 및 저장
             JobPosting jobPosting = createJobPosting(dto);
             jobPosting = jobPostingRepository.save(jobPosting);
 
             // 3. DartJob 생성 및 저장 (JobPosting + DartCompany 매핑)
-            DartJob dartJob = createDartJob(jobPosting, dartCompany, dto);
-            dartJobRepository.save(dartJob);
+            CompanyJobPosting companyJobPosting = createCompanyJobPosting(jobPosting, dartCompany, dto);
+            companyJobPostingRepository.save(companyJobPosting);
 
             log.info("Successfully saved JobPosting and DartJob for saraminJobId: {}", dto.getSaraminJobId());
 
@@ -207,11 +207,11 @@ public class FileProcessingService {
         }
     }
 
-    private Company findOrCreateDartCompany(JobPostingDataDto dto) {
+    private Company findOrCreateCompany(JobPostingDataDto dto) {
         try{
 
             Long parsedCompanyId = Long.parseLong(dto.getCompanyId());
-            // companyId로 기존 DartCompany 조회
+            // companyId로 기존 Company 조회
             Optional<Company> existingCompany = companyRepository.findByCompanyId(parsedCompanyId);
 
             if (existingCompany.isPresent()) {
@@ -236,7 +236,7 @@ public class FileProcessingService {
 
     private JobPosting createJobPosting(JobPostingDataDto dto) {
         return JobPosting.builder()
-                .saraminJobId(dto.getSaraminJobId())
+                .saraminJobPostingId(dto.getSaraminJobId())
                 .companyName(dto.getCompanyName())
                 .title(dto.getTitle())
                 .url(dto.getUrl())
@@ -247,10 +247,10 @@ public class FileProcessingService {
                 .build();
     }
 
-    private DartJob createDartJob(JobPosting jobPosting, Company dartCompany, JobPostingDataDto dto) {
-        return DartJob.builder()
+    private CompanyJobPosting createCompanyJobPosting(JobPosting jobPosting, Company company, JobPostingDataDto dto) {
+        return CompanyJobPosting.builder()
                 .jobPosting(jobPosting)
-                .company(dartCompany)
+                .company(company)
                 .companyNameNormalized(dto.getCompanyNameNormalized())
                 .build();
     }
