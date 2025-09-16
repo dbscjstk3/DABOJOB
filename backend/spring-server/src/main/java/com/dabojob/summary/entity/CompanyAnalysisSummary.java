@@ -1,6 +1,6 @@
 package com.dabojob.summary.entity;
 
-import com.dabojob.company.entity.DartCompany;
+import com.dabojob.company.entity.Company;
 import com.dabojob.global.entity.BaseTimeEntity;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -37,7 +37,7 @@ public class CompanyAnalysisSummary extends BaseTimeEntity {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "company_id")
-    private DartCompany dartCompany;
+    private Company company;
 
     @Column(name="company_name_normalized")
     private String companyNameNormalized;

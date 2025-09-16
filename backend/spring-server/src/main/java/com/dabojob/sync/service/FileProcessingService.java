@@ -1,7 +1,7 @@
 package com.dabojob.sync.service;
 
-import com.dabojob.company.entity.DartCompany;
-import com.dabojob.company.repository.DartCompanyRepository;
+import com.dabojob.company.entity.Company;
+import com.dabojob.company.repository.CompanyRepository;
 import com.dabojob.jobposting.entity.DartJob;
 import com.dabojob.jobposting.entity.JobPosting;
 import com.dabojob.jobposting.repository.DartJobRepository;
@@ -32,7 +32,7 @@ import org.springframework.transaction.annotation.Transactional;
 @RequiredArgsConstructor
 public class FileProcessingService {
 
-    private final DartCompanyRepository dartCompanyRepository;
+    private final CompanyRepository companyRepository;
     private final JobPostingRepository jobPostingRepository;
     private final DartJobRepository dartJobRepository;
     private final HashtagRepository  hashtagRepository;
@@ -51,18 +51,18 @@ public class FileProcessingService {
             JsonNode metadata = jsonData.get("metadata");
             Integer mappingId = metadata.get("mapping_id").asInt();
 
-            // 2. DartCompany 조회 (임의의 companyId로 가정)
+            // 2. Company 조회 (임의의 companyId로 가정)
             Long companyId = 1L; // 실제로는 어떤 로직으로 결정
-            DartCompany dartCompany = dartCompanyRepository.findById(companyId)
-                    .orElseThrow(() -> new IllegalArgumentException("DartCompany not found: " + companyId));
+            Company company = companyRepository.findById(companyId)
+                    .orElseThrow(() -> new IllegalArgumentException("Company not found: " + companyId));
 
             // 3. CompanyAnalysisSummary 생성 및 저장
             CompanyAnalysisSummary summary = createSummaryFromJson(jsonData.get("company_analysis"));
-            summary.setDartCompany(dartCompany);
+            summary.setCompany(company);
             summary = summaryRepository.save(summary);
 
             // 4. Hashtag 처리 및 SummaryHashtag 생성
-            processHashtagsAndCreateMappings(jsonData.get("hashtags"), summary, dartCompany);
+            processHashtagsAndCreateMappings(jsonData.get("hashtags"), summary, company);
 
             // 5. News 데이터 처리
             processNewsData(jsonData.get("news"), summary);
@@ -96,7 +96,7 @@ public class FileProcessingService {
                 .build();
     }
 
-    private void processHashtagsAndCreateMappings(JsonNode hashtagsData, CompanyAnalysisSummary summary, DartCompany dartCompany) {
+    private void processHashtagsAndCreateMappings(JsonNode hashtagsData, CompanyAnalysisSummary summary, Company dartCompany) {
         JsonNode byChapter = hashtagsData.get("by_chapter");
 
         if (byChapter != null) {
@@ -129,7 +129,7 @@ public class FileProcessingService {
                 });
     }
 
-    private void createSummaryHashtagIfNotExists(CompanyAnalysisSummary summary, Hashtag hashtag, DartCompany dartCompany) {
+    private void createSummaryHashtagIfNotExists(CompanyAnalysisSummary summary, Hashtag hashtag, Company dartCompany) {
         // 중복 체크 (이미 같은 summary-hashtag 매핑이 있는지)
         boolean exists = summaryHashtagRepository.existsBySummaryAndHashtag(summary, hashtag);
 
@@ -137,7 +137,7 @@ public class FileProcessingService {
             SummaryHashtag summaryHashtag = SummaryHashtag.builder()
                     .summary(summary)
                     .hashtag(hashtag)
-                    .dartCompany(dartCompany)
+                    .company(dartCompany)
                     .build();
 
             summaryHashtagRepository.save(summaryHashtag);
@@ -189,7 +189,7 @@ public class FileProcessingService {
             JobPostingDataDto dto = objectMapper.treeToValue(jsonData, JobPostingDataDto.class);
 
             // 1. DartCompany 조회 또는 생성
-            DartCompany dartCompany = findOrCreateDartCompany(dto);
+            Company dartCompany = findOrCreateDartCompany(dto);
 
             // 2. JobPosting 생성 및 저장
             JobPosting jobPosting = createJobPosting(dto);
@@ -207,27 +207,27 @@ public class FileProcessingService {
         }
     }
 
-    private DartCompany findOrCreateDartCompany(JobPostingDataDto dto) {
+    private Company findOrCreateDartCompany(JobPostingDataDto dto) {
         try{
 
             Long parsedCompanyId = Long.parseLong(dto.getCompanyId());
             // companyId로 기존 DartCompany 조회
-            Optional<DartCompany> existingCompany = dartCompanyRepository.findByCompanyId(parsedCompanyId);
+            Optional<Company> existingCompany = companyRepository.findByCompanyId(parsedCompanyId);
 
             if (existingCompany.isPresent()) {
-                log.info("Found existing DartCompany for CompanyId: {}", dto.getCompanyId());
+                log.info("Found existing Company for CompanyId: {}", dto.getCompanyId());
                 return existingCompany.get();
             }
 
             // 없으면 새로 생성
-            log.info("Creating new DartCompany for CompanyId: {}", dto.getCompanyId());
-            DartCompany newCompany = DartCompany.builder()
+            log.info("Creating new Company for CompanyId: {}", dto.getCompanyId());
+            Company newCompany = Company.builder()
                     .companyId(parsedCompanyId)
                     .dartCompanyCode("") //TODO: companyCode를 받아야함 or 필드값삭제
-                    .dartCompanyName(dto.getCompanyName())  // 회사명도 저장
+                    .companyName(dto.getCompanyName())  // 회사명도 저장
                     .build();
 
-            return dartCompanyRepository.save(newCompany);
+            return companyRepository.save(newCompany);
         } catch(NumberFormatException e){
             throw new IllegalArgumentException("Invalid Company ID format: " + dto.getCompanyId());
         }
@@ -247,10 +247,10 @@ public class FileProcessingService {
                 .build();
     }
 
-    private DartJob createDartJob(JobPosting jobPosting, DartCompany dartCompany, JobPostingDataDto dto) {
+    private DartJob createDartJob(JobPosting jobPosting, Company dartCompany, JobPostingDataDto dto) {
         return DartJob.builder()
                 .jobPosting(jobPosting)
-                .dartCompany(dartCompany)
+                .company(dartCompany)
                 .companyNameNormalized(dto.getCompanyNameNormalized())
                 .build();
     }

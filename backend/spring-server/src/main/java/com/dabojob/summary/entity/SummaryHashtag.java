@@ -1,7 +1,7 @@
 package com.dabojob.summary.entity;
 
 
-import com.dabojob.company.entity.DartCompany;
+import com.dabojob.company.entity.Company;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.FetchType;
@@ -42,5 +42,5 @@ public class SummaryHashtag {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name="company_id")
-    private DartCompany dartCompany;
+    private Company company;
 }

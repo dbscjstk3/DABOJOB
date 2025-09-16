@@ -21,7 +21,7 @@ import lombok.Setter;
 @AllArgsConstructor
 @Builder
 @Table(name = "companies")
-public class DartCompany extends BaseTimeEntity {
+public class Company extends BaseTimeEntity {
 
     @Id
     @Column(name="company_id")
@@ -30,8 +30,8 @@ public class DartCompany extends BaseTimeEntity {
 
     @Column(name="dart_company_code")
     private String dartCompanyCode;
-    @Column(name="dart_company_name")
-    private String dartCompanyName;
+    @Column(name="company_name")
+    private String companyName;
 
 
 

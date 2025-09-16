@@ -18,7 +18,7 @@ public interface JobPostingRepository extends JpaRepository<JobPosting,Long> {
 
     @Query("SELECT jp FROM JobPosting jp " +
             "JOIN FETCH jp.dartJob dj " +
-            "WHERE dj.dartCompany.companyId = :companyId")
+            "WHERE dj.company.companyId = :companyId")
     Page<JobPosting> findByCompanyId(@Param("companyId") Long companyId, Pageable pageable);
 
     @Query("SELECT jp FROM JobPosting jp " +

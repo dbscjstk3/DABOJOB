@@ -45,7 +45,7 @@ public class JobPostingService {
             return jobPostingPage.map(JobPostingResponse::of);
 
         } catch (NumberFormatException e) {
-            throw new IllegalArgumentException("Invalid DartCompany ID format: " + companyId);
+            throw new IllegalArgumentException("Invalid Company ID format: " + companyId);
         }
     }
 

@@ -35,11 +35,11 @@ public class JobPostingController {
         return ResponseEntity.ok(jobPostingResponses);
     }
 
-    @GetMapping("/company/{dartCompanyId}")
-    public ResponseEntity<Page<JobPostingResponse>> getJobPostingByCompanyId(@PathVariable String dartCompanyId,
+    @GetMapping("/company/{companyId}")
+    public ResponseEntity<Page<JobPostingResponse>> getJobPostingByCompanyId(@PathVariable String companyId,
                                                                              @RequestParam(defaultValue = "0") int page,
                                                                              @RequestParam(defaultValue = "20") int size){
-        Page<JobPostingResponse> jobPostingResponses = jobPostingService.getJobPostingByCompanyId(dartCompanyId,page,size);
+        Page<JobPostingResponse> jobPostingResponses = jobPostingService.getJobPostingByCompanyId(companyId,page,size);
         return ResponseEntity.ok(jobPostingResponses);
     }
 
