@@ -13,7 +13,7 @@ from .utils import qwen_summarize
 from .services.redis_consumer import RedisConsumer
 
 # 로깅 설정
-logging.basicConfig(level=logging.DEBUG)
+logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 app = FastAPI(title="news-summary-server")
