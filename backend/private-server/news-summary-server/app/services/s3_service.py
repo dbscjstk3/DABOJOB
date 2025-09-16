@@ -135,7 +135,7 @@ class S3Service:
             logger.error(f"Error uploading daily summary: {e}")
             return None
     
-    def list_reports(self, date_str: str = None) -> List[str]:
+    def list_reports(self, date_str: Optional[str] = None) -> List[str]:
         """
         특정 날짜의 리포트 목록 조회
         
