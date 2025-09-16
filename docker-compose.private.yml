@@ -42,13 +42,20 @@ services:
       - .env.private
     environment:
       - TZ=Asia/Seoul
-      # DB 의존 시 애플리케이션 환경변수도 이쪽에서 주입(예: DB_URL 등)
+      - DATABASE_URL=mysql+pymysql://${MYSQL_USER}:${MYSQL_PASSWORD}@mysql:3306/${MYSQL_DATABASE}
+      - ENABLE_CRAWLER_SCHEDULER=${ENABLE_CRAWLER_SCHEDULER:-false}
+      - DISPLAY=:99
     # 리버스 프록시 뒤에 둘 때는 포트 매핑 비활성화 가능
     ports:
       - "${STANDARDIZER_PORT:-8000}:8000"
     depends_on:
       mysql:
         condition: service_healthy
+    # 크롤러를 위한 추가 권한
+    cap_add:
+      - SYS_ADMIN
+    security_opt:
+      - seccomp:unconfined
     # (권장) 헬스체크가 있다면 추가
     # healthcheck:
     #   test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
@@ -58,6 +65,8 @@ services:
     #   start_period: 30s
     volumes:
       - shared-data:/app/data
+      - crawler-data:/app/output
+      - /dev/shm:/dev/shm  # Chrome 성능 향상을 위한 공유 메모리
     networks:
       - app-net
     restart: unless-stopped
@@ -107,6 +116,7 @@ services:
 volumes:
   private-db-data:
   shared-data:
+  crawler-data:
 
 networks:
   app-net:

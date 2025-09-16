@@ -22,7 +22,7 @@ class RedisPublisher:
         """
         self.redis_host = redis_host or os.getenv('REDIS_HOST', 'redis')
         self.redis_port = redis_port or int(os.getenv('REDIS_PORT', '6379'))
-        self.stream_key = 'news:hashtag:stream'
+        self.stream_key = 'stream:news'
         self.client = None
         self._connect()
     

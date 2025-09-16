@@ -11,7 +11,7 @@ from concurrent.futures import ThreadPoolExecutor
 logger = logging.getLogger(__name__)
 
 class HashtagExtractor:
-    def __init__(self, ollama_client, model_name: str = "qwen2.5:0.5b-instruct-fp16"):
+    def __init__(self, ollama_client, model_name: str = "llama3.2:1b-instruct-fp16"):
         """
         해시태그 추출기 초기화
         
@@ -37,23 +37,19 @@ class HashtagExtractor:
         
         guide = category_guides.get(category, "핵심 비즈니스 키워드")
         
-        prompt = f"""다음 기업분석 요약에서 {guide} 키워드를 정확히 3개 추출하세요.
+        prompt = f"""{guide}를 3개만 추출해라.
 
-엄격한 규칙:
-1. 반드시 단어 또는 2단어 구문만 (예: "반도체", "스마트폰", "글로벌기업")
-2. 번호 매기기 금지 (1., 2., 3. 사용 금지)
-3. 줄바꿈 금지 (\n 사용 금지)
-4. 쉼표(,)로만 구분
-5. 불필요한 설명 금지
-6. 한국어 단어만 사용
+규칙:
+- 단어 또는 2단어만
+- 쉼표로 구분
+- 번호매기기 금지
+- 한국어만
 
-잘못된 예시: "1. TV\n2. DRAM", "- 제품혁신", "반도체 사업"
-올바른 예시: "반도체, 스마트폰, 글로벌기업"
+예시: 반도체, 스마트폰, 글로벌기업
 
-요약문:
 {text[:500]}
 
-3개 키워드:"""
+키워드:"""
         
         try:
             response = self.ollama_client.chat(
