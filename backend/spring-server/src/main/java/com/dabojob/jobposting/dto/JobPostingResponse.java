@@ -20,6 +20,7 @@ public class JobPostingResponse {
     private String title;
     private String url;
     private Integer experienceLevelCode;
+    private Integer jobMidCode;
     private LocalDate postingTimeStamp;
     private LocalDate expirationTimestamp;
 
@@ -32,6 +33,7 @@ public class JobPostingResponse {
                 .title(jobPosting.getTitle())
                 .url(jobPosting.getUrl())
                 .experienceLevelCode(jobPosting.getExperienceLevelCode())
+                .jobMidCode(jobPosting.getJobMidCode())
                 .postingTimeStamp(DateTimeUtil.convertToLocalDate(jobPosting.getPostingTimeStamp()))
                 .expirationTimestamp(DateTimeUtil.convertToLocalDate(jobPosting.getExpirationTimestamp()))
                 .build();
