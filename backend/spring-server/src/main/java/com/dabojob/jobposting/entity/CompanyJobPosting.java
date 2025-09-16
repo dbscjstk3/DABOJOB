@@ -28,7 +28,7 @@ import lombok.Setter;
 public class CompanyJobPosting extends BaseTimeEntity {
 
     @Id
-    @Column(name="company_job_postings_id")
+    @Column(name="company_job_posting_id")
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long companyJobPostingId;
 
