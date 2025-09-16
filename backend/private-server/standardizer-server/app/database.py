@@ -4,21 +4,33 @@ import os
 from typing import Generator
 
 # 데이터베이스 URL 설정 (환경변수에서 읽기)
+# Docker 환경에서는 DATABASE_URL이 자동으로 설정됨
+# 예: mysql+pymysql://private_user:private_password@mysql:3306/private_app
 DATABASE_URL = os.getenv(
-    "DATABASE_URL", 
-    "sqlite:///./crawler_data.db"  # 기본값: SQLite
+    "DATABASE_URL",
+    "sqlite:///./crawler_data.db"  # 로컬 개발용 기본값
 )
 
-# PostgreSQL 예시: postgresql://user:password@localhost/dbname
-# MySQL 예시: mysql+pymysql://user:password@localhost/dbname
+# 데이터베이스 타입 확인
+is_sqlite = "sqlite" in DATABASE_URL
+is_mysql = "mysql" in DATABASE_URL
+is_postgresql = "postgresql" in DATABASE_URL
 
-# SQLAlchemy 엔진 생성
+# MySQL 연결 파라미터 설정
+mysql_connect_args = {
+    "charset": "utf8mb4",
+    "connect_timeout": 10,
+} if is_mysql else {}
+
+# SQLAlchemy 엔진 생성 (MySQL 최적화 설정 포함)
 engine = create_engine(
     DATABASE_URL,
-    connect_args={"check_same_thread": False} if "sqlite" in DATABASE_URL else {},
-    pool_pre_ping=True,
-    pool_size=10,
-    max_overflow=20
+    connect_args={"check_same_thread": False} if is_sqlite else mysql_connect_args,
+    pool_pre_ping=True,  # 연결 상태 자동 확인
+    pool_size=10,        # 연결 풀 크기
+    max_overflow=20,     # 최대 오버플로우 연결 수
+    pool_recycle=3600,   # 1시간마다 연결 재활용
+    echo=os.getenv("SQL_DEBUG", "false").lower() == "true"  # SQL 디버깅
 )
 
 # 세션 팩토리 생성
