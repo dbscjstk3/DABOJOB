@@ -22,7 +22,7 @@ public class SummaryResponse {
                 .summaryId(summary.getSummaryId())
                 .companyId(summary.getCompany().getCompanyId())
                 .companyName(summary.getCompany().getCompanyName())
-                .fullSummary(summary.getFullSummary())
+                .fullSummary(summary.getOverview())
                 .build();
     }
 }
