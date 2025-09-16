@@ -105,13 +105,17 @@ class S3Service:
             S3 키 (업로드 성공 시) 또는 None (실패 시)
         """
         try:
+            if not self.s3_client:
+                logger.warning("S3 client not available, skipping upload")
+                return None
+
             # S3 키 생성: reports/{YYYY-MM-DD}/daily-news-summary.json
             today = datetime.now().strftime('%Y-%m-%d')
             s3_key = f"reports/{today}/daily-news-summary.json"
-            
+
             # JSON 문자열로 변환
             json_content = json.dumps(summary_data, ensure_ascii=False, indent=2)
-            
+
             # S3에 업로드
             self.s3_client.put_object(
                 Bucket=self.bucket_name,
@@ -142,11 +146,15 @@ class S3Service:
             S3 키 목록
         """
         try:
+            if not self.s3_client:
+                logger.warning("S3 client not available, returning empty list")
+                return []
+
             if not date_str:
                 date_str = datetime.now().strftime('%Y-%m-%d')
-                
+
             prefix = f"reports/{date_str}/"
-            
+
             response = self.s3_client.list_objects_v2(
                 Bucket=self.bucket_name,
                 Prefix=prefix
