@@ -1,5 +1,5 @@
 import Typography from '@/components/common/atoms/Typography';
-import ResultTitleLink from '@/components/search-detail/molecules/ResultTitleLink';
+import ResultTitleLink from '@/components/search/molecules/ResultTitleLink';
 import { cn } from '@/lib/utils';
 
 interface SearchResultCardProps {

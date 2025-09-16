@@ -34,7 +34,8 @@ export default function SearchDetailPage() {
   const [loading, setLoading] = useState(false);
 
   // Mock 데이터 생성 함수 (실제로는 API 호출로 대체)
-  const fetchSearchResults = async (query: string, page: number = 1) => {
+  // query: string 추가할 예정
+  const fetchSearchResults = async (page: number = 1) => {
     // 실제 API 호출 예시:
     // const response = await fetch(`/api/search?q=${query}&page=${page}`);
     // return response.json();
@@ -99,14 +100,14 @@ export default function SearchDetailPage() {
       currentPage: page,
     };
   };
-
+  // query: string 추가할 예정
   useEffect(() => {
     const loadResults = async () => {
       if (!query) return;
 
       setLoading(true);
       try {
-        const data = await fetchSearchResults(query, currentPage);
+        const data = await fetchSearchResults(currentPage);
         setResults(data.items);
         setTotalPages(data.totalPages);
       } catch (error) {
@@ -117,7 +118,7 @@ export default function SearchDetailPage() {
     };
 
     loadResults();
-  }, [query, currentPage]);
+  }, [currentPage]);
 
   // 페이지 변경 핸들러
   const handlePageChange = (newPage: number) => {
@@ -134,8 +135,6 @@ export default function SearchDetailPage() {
       <Typography variant="title" weight="bold" className="mt-5">
         {query ? `"${query}" 검색 결과` : '검색'}
       </Typography>
-      {/* <h1 className="text-2xl font-bold mb-4">
-      </h1> */}
 
       {!query ? (
         <EmptyState />
