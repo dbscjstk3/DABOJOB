@@ -1,5 +1,6 @@
 package com.dabojob.summary.entity;
 
+import com.dabojob.global.entity.BaseTimeEntity;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.FetchType;
@@ -21,7 +22,7 @@ import lombok.Setter;
 @AllArgsConstructor
 @Builder
 @Table(name = "news")
-public class News {
+public class News extends BaseTimeEntity {
 
     @Id
     @Column(name="news_id")

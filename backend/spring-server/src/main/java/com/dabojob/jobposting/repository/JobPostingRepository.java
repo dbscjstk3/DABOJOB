@@ -13,18 +13,18 @@ import org.springframework.stereotype.Repository;
 @Repository
 public interface JobPostingRepository extends JpaRepository<JobPosting,Long> {
 
-    @Query("SELECT jp FROM JobPosting jp JOIN FETCH jp.dartJob WHERE jp.jobPostingId = :jobPostingId")
-    Optional<JobPosting> findByJobPostingIdWithDartJob(@Param("jobPostingId") Long jobPostingId);
+    @Query("SELECT jp FROM JobPosting jp JOIN FETCH jp.companyJobPosting WHERE jp.jobPostingId = :jobPostingId")
+    Optional<JobPosting> findByJobPostingId(@Param("jobPostingId") Long jobPostingId);
 
     @Query("SELECT jp FROM JobPosting jp " +
-            "JOIN FETCH jp.dartJob dj " +
-            "WHERE dj.dartCompany.dartId = :dartCompanyId")
-    Page<JobPosting> findByDartCompanyId(@Param("dartCompanyId") Long dartCompanyId, Pageable pageable);
+            "JOIN FETCH jp.companyJobPosting dj " +
+            "WHERE dj.company.companyId = :companyId")
+    Page<JobPosting> findByCompanyId(@Param("companyId") Long companyId, Pageable pageable);
 
     @Query("SELECT jp FROM JobPosting jp " +
-            "JOIN FETCH jp.dartJob dj " +
-            "WHERE (jp.postingTimeStamp BETWEEN :startTimestamp AND :endTimestamp) OR " +
-            "(jp.expirationTimestamp BETWEEN :startTimestamp AND :endTimestamp)")
+            "JOIN FETCH jp.companyJobPosting dj " +
+            "WHERE (jp.postingTimeStamp <= :endTimestamp) AND " +
+            "(jp.expirationTimestamp >= :startTimestamp )")
     List<JobPosting> findByDateRange(@Param("startTimestamp") Long startTimestamp,
                                      @Param("endTimestamp") Long endTimestamp);
 }

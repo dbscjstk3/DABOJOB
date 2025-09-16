@@ -1,6 +1,9 @@
 package com.dabojob.summary.dto;
 
+import com.dabojob.summary.entity.ChapterType;
 import com.dabojob.summary.entity.CompanyAnalysisSummary;
+import java.util.List;
+import java.util.Map;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -15,14 +18,25 @@ public class SummaryResponse {
     private Long summaryId;
     private Long companyId;
     private String companyName;
-    private String fullSummary;
+    private String businessOverview;
+    private String productsService;
+    private String salesContracts;
+    private String rndActivities;
+    private String otherNotes;
 
-    public static SummaryResponse of(CompanyAnalysisSummary summary) {
+    private Map<ChapterType, List<String>> chapterHashtags;
+
+    public static SummaryResponse of(CompanyAnalysisSummary summary, Map<ChapterType, List<String>> chapterHashtags) {
         return SummaryResponse.builder()
                 .summaryId(summary.getSummaryId())
-                .companyId(summary.getDartCompany().getDartId())
-                .companyName(summary.getDartCompany().getDartCompanyName())
-                .fullSummary(summary.getFullSummary())
+                .companyId(summary.getCompany().getCompanyId())
+                .companyName(summary.getCompany().getCompanyName())
+                .businessOverview(summary.getBusinessOverview())
+                .productsService(summary.getProductsService())
+                .salesContracts(summary.getSalesContracts())
+                .rndActivities(summary.getRndActivities())
+                .otherNotes(summary.getOtherNotes())
+                .chapterHashtags(chapterHashtags)
                 .build();
     }
 }

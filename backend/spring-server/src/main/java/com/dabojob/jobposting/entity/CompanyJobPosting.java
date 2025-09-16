@@ -1,6 +1,6 @@
 package com.dabojob.jobposting.entity;
 
-import com.dabojob.company.entity.DartCompany;
+import com.dabojob.company.entity.Company;
 import com.dabojob.global.entity.BaseTimeEntity;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -24,21 +24,21 @@ import lombok.Setter;
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
-@Table(name = "dart_jobs")
-public class DartJob extends BaseTimeEntity {
+@Table(name = "company_job_postings")
+public class CompanyJobPosting extends BaseTimeEntity {
 
     @Id
-    @Column(name="dart_job_id")
+    @Column(name="company_job_posting_id")
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long dartJobId;
+    private Long companyJobPostingId;
 
     @OneToOne
-    @JoinColumn(name="job_id")
+    @JoinColumn(name="job_posting_id")
     private JobPosting jobPosting;
 
     @ManyToOne(fetch =  FetchType.LAZY)
-    @JoinColumn(name="dart_id")
-    private DartCompany  dartCompany;
+    @JoinColumn(name="company_id")
+    private Company company;
 
     @Column(name="company_name_normalized")
     private String companyNameNormalized;

@@ -1,6 +1,8 @@
 package com.dabojob.jobposting.dto;
 
+import com.dabojob.global.utils.DateTimeUtil;
 import com.dabojob.jobposting.entity.JobPosting;
+import java.time.LocalDate;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -11,28 +13,32 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 @AllArgsConstructor
 public class JobPostingResponse {
-    private Long jobId;
-    private Long dartCompanyId;
+    private Long jobPostingId;
+    private Long companyId;
     private String saraminJobId;
     private String companyName;
     private String title;
     private String url;
     private Integer experienceLevelCode;
-    private Long postingTimeStamp;
-    private Long expirationTimestamp;
+    private Integer jobMidCode;
+    private LocalDate postingTimeStamp;
+    private LocalDate expirationTimestamp;
 
     public static JobPostingResponse of(JobPosting jobPosting ){
         return JobPostingResponse.builder()
-                .jobId(jobPosting.getJobPostingId())
-                .dartCompanyId(jobPosting.getDartJob().getDartCompany().getDartId())
-                .saraminJobId(jobPosting.getSaraminJobId())
+                .jobPostingId(jobPosting.getJobPostingId())
+                .companyId(jobPosting.getCompanyJobPosting().getCompany().getCompanyId())
+                .saraminJobId(jobPosting.getSaraminJobPostingId())
                 .companyName(jobPosting.getCompanyName())
                 .title(jobPosting.getTitle())
                 .url(jobPosting.getUrl())
                 .experienceLevelCode(jobPosting.getExperienceLevelCode())
-                .postingTimeStamp(jobPosting.getPostingTimeStamp())
-                .expirationTimestamp(jobPosting.getExpirationTimestamp())
+                .jobMidCode(jobPosting.getJobMidCode())
+                .postingTimeStamp(DateTimeUtil.convertToLocalDate(jobPosting.getPostingTimeStamp()))
+                .expirationTimestamp(DateTimeUtil.convertToLocalDate(jobPosting.getExpirationTimestamp()))
                 .build();
     }
+
+
 
 }

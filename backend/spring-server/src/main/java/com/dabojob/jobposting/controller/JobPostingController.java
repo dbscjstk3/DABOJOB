@@ -23,23 +23,23 @@ public class JobPostingController {
 
     private final JobPostingService jobPostingService;
 
-    @GetMapping("/{jobId}")
-    public ResponseEntity<JobPostingResponse> getJobPosting(@PathVariable String jobId){
-        JobPostingResponse jobPostingResponse =  jobPostingService.getJobPosting(jobId);
+    @GetMapping("/{jobPostingId}")
+    public ResponseEntity<JobPostingResponse> getJobPosting(@PathVariable String jobPostingId){
+        JobPostingResponse jobPostingResponse =  jobPostingService.getJobPosting(jobPostingId);
         return ResponseEntity.ok(jobPostingResponse);
     }
 
-    @GetMapping("/calender")
+    @GetMapping("/calendar")
     public ResponseEntity<List<JobPostingResponse>> getCalender(@RequestParam LocalDate startDate, @RequestParam LocalDate endDate){
         List<JobPostingResponse> jobPostingResponses = jobPostingService.getJobPostingsByDate(startDate, endDate);
         return ResponseEntity.ok(jobPostingResponses);
     }
 
-    @GetMapping("/company/{dartCompanyId}")
-    public ResponseEntity<Page<JobPostingResponse>> getJobPostingByCompanyId(@PathVariable String dartCompanyId,
+    @GetMapping("/company/{companyId}")
+    public ResponseEntity<Page<JobPostingResponse>> getJobPostingByCompanyId(@PathVariable String companyId,
                                                                              @RequestParam(defaultValue = "0") int page,
                                                                              @RequestParam(defaultValue = "20") int size){
-        Page<JobPostingResponse> jobPostingResponses = jobPostingService.getJobPostingByCompanyId(dartCompanyId,page,size);
+        Page<JobPostingResponse> jobPostingResponses = jobPostingService.getJobPostingByCompanyId(companyId,page,size);
         return ResponseEntity.ok(jobPostingResponses);
     }
 

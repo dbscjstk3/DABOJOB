@@ -1,6 +1,6 @@
 package com.dabojob.summary.entity;
 
-import com.dabojob.company.entity.DartCompany;
+import com.dabojob.company.entity.Company;
 import com.dabojob.global.entity.BaseTimeEntity;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -36,15 +36,31 @@ public class CompanyAnalysisSummary extends BaseTimeEntity {
     private Long summaryId;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "dart_id")
-    private DartCompany dartCompany;
+    @JoinColumn(name = "company_id")
+    private Company company;
 
     @Column(name="company_name_normalized")
     private String companyNameNormalized;
 
     @Lob
-    @Column(name="full_summary",columnDefinition = "TEXT")
-    private String fullSummary;
+    @Column(name="business_overview",columnDefinition = "TEXT")
+    private String businessOverview;
+
+    @Lob
+    @Column(name="products_service",columnDefinition = "TEXT")
+    private String productsService;
+
+    @Lob
+    @Column(name="sales_contracts",columnDefinition = "TEXT")
+    private String salesContracts;
+
+    @Lob
+    @Column(name="rnd_activities",columnDefinition = "TEXT")
+    private String rndActivities;
+
+    @Lob
+    @Column(name="other_notes",columnDefinition = "TEXT")
+    private String otherNotes;
 
     @Enumerated(EnumType.STRING)  // DB에 "CREATED", "UPDATED", "FINISHED" 저장
     @Column(name = "status", nullable = false)

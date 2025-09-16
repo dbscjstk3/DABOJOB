@@ -25,7 +25,7 @@ public class JobPostingService {
         try {
             Long parsedJobPostingId = Long.parseLong(jobPostingId);
 
-            JobPosting jobPosting = jobPostingRepository.findByJobPostingIdWithDartJob(parsedJobPostingId)
+            JobPosting jobPosting = jobPostingRepository.findByJobPostingId(parsedJobPostingId)
                     .orElseThrow(() -> new EntityNotFoundException("JobPosting not found with JobPostingId: " + jobPostingId));
 
             return JobPostingResponse.of(jobPosting);
@@ -35,17 +35,17 @@ public class JobPostingService {
         }
     }
 
-    public Page<JobPostingResponse> getJobPostingByCompanyId(String dartCompanyId, int page, int size) {
+    public Page<JobPostingResponse> getJobPostingByCompanyId(String companyId, int page, int size) {
         try {
-            Long parsedCompanyId = Long.parseLong(dartCompanyId);
+            Long parsedCompanyId = Long.parseLong(companyId);
             Pageable pageable = PageRequest.of(page, size);
 
-            Page<JobPosting> jobPostingPage = jobPostingRepository.findByDartCompanyId(parsedCompanyId, pageable);
+            Page<JobPosting> jobPostingPage = jobPostingRepository.findByCompanyId(parsedCompanyId, pageable);
 
             return jobPostingPage.map(JobPostingResponse::of);
 
         } catch (NumberFormatException e) {
-            throw new IllegalArgumentException("Invalid DartCompany ID format: " + dartCompanyId);
+            throw new IllegalArgumentException("Invalid Company ID format: " + companyId);
         }
     }
 

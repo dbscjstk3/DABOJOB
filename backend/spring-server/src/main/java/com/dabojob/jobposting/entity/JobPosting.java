@@ -25,15 +25,15 @@ import lombok.Setter;
 public class JobPosting extends BaseTimeEntity {
 
     @Id
-    @Column(name="job_id")
+    @Column(name="job_posting_id")
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long jobPostingId;
 
     @OneToOne(mappedBy = "jobPosting", fetch = FetchType.LAZY)
-    private DartJob dartJob;
+    private CompanyJobPosting companyJobPosting;
 
-    @Column(name="saramin_job_id", unique = true)
-    private String saraminJobId;
+    @Column(name="saramin_job_posting_id", unique = true)
+    private String saraminJobPostingId;
 
     @Column(name="company_name")
     private String companyName;
