@@ -38,10 +38,27 @@ def parse_job_item(job_item_element):
     # 1. 회사 정보 파싱
     company_section = box_item.find('div', class_='col company_nm')
     if company_section:
-        # 회사명
+        # 회사명 (여러 방법으로 시도)
         company_link = company_section.find('a', class_='str_tit')
-        job_data['company_name'] = company_link.get_text(strip=True) if company_link else None
-        job_data['company_url'] = company_link.get('href') if company_link else None
+        if not company_link:
+            # 다른 선택자로 시도
+            company_link = company_section.find('a')
+
+        company_name = None
+        company_url = None
+
+        if company_link:
+            company_name = company_link.get_text(strip=True)
+            company_url = company_link.get('href')
+        else:
+            # 링크가 없으면 텍스트만 추출 시도
+            company_text = company_section.get_text(strip=True)
+            if company_text:
+                # 첫 번째 줄만 회사명으로 사용
+                company_name = company_text.split('\n')[0].strip()
+
+        job_data['company_name'] = company_name
+        job_data['company_url'] = company_url
 
         # 계열사 정보
         main_corp = company_section.find('span', class_='main_corp')
@@ -50,6 +67,11 @@ def parse_job_item(job_item_element):
         # 기업 규모
         stock_info = company_section.find('span', class_='info_stock')
         job_data['company_size'] = stock_info.get_text(strip=True) if stock_info else None
+
+        # company_name이 비어있으면 company_group를 사용 (임시 해결책)
+        if not job_data['company_name'] and job_data['company_group']:
+            job_data['company_name'] = job_data['company_group']
+            job_data['company_group'] = None  # 중복 방지
 
     # 2. 채용공고 정보 파싱
     notification_section = box_item.find('div', class_='col notification_info')
@@ -559,7 +581,15 @@ class SaraminCrawler(BaseCrawler):
 
         for job_data in jobs_data:
             try:
+                # 회사명이 없으면 건너뛰기
+                if not job_data.get('company_name'):
+                    self.logger.warning(f"회사명이 없어 건너뜁니다: job_title={job_data.get('job_title')}")
+                    continue
+
                 company_id = self._save_or_update_company(job_data)
+                if not company_id:
+                    continue
+
                 job_id = self._save_job_posting(company_id, job_data)
 
                 if job_id:
@@ -575,8 +605,13 @@ class SaraminCrawler(BaseCrawler):
 
         return saved_count
 
-    def _save_or_update_company(self, job_data: Dict[str, Any]) -> int:
+    def _save_or_update_company(self, job_data: Dict[str, Any]) -> Optional[int]:
         try:
+            # 회사명이 없으면 저장 불가
+            if not job_data.get('company_name'):
+                self.logger.warning(f"회사명이 없어 저장을 건너뜁니다: {job_data}")
+                return None
+
             company = self.db_session.query(Company).filter_by(
                 csn=job_data.get('csn')
             ).first() if job_data.get('csn') else None
