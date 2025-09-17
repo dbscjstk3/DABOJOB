@@ -7,6 +7,7 @@ import re
 from typing import List, Dict
 import asyncio
 from concurrent.futures import ThreadPoolExecutor
+from datetime import datetime
 
 logger = logging.getLogger(__name__)
 
@@ -130,22 +131,25 @@ class HashtagExtractor:
             # 실패 시 텍스트에서 직접 추출 시도
             return self._extract_specific_terms(text[:500], category)[:3]
     
-    async def extract_hashtags(self, summaries: Dict[str, str]) -> Dict[str, List[str]]:
+    async def extract_hashtags_streaming(self, job_id: str, summaries: Dict[str, str], redis_publisher=None) -> Dict[str, List[str]]:
         """
-        각 카테고리별 요약에서 해시태그 추출
-        
+        각 카테고리별 요약에서 해시태그 추출하고 완료되는 대로 Redis로 전송
+
         Args:
+            job_id: 작업 ID
             summaries: {카테고리: 요약문} 딕셔너리
-            
+            redis_publisher: Redis 발행자 (선택적)
+
         Returns:
             {카테고리: [해시태그 리스트]} 딕셔너리
         """
         hashtags = {}
-        
+        published_count = 0
+
         # 비동기 실행을 위한 태스크 생성
         loop = asyncio.get_event_loop()
         tasks = []
-        
+
         for category, summary in summaries.items():
             if summary and summary.strip():
                 task = loop.run_in_executor(
@@ -157,17 +161,49 @@ class HashtagExtractor:
                 tasks.append((category, task))
             else:
                 hashtags[category] = []
-        
-        # 모든 태스크 완료 대기
-        for category, task in tasks:
+                # 빈 카테고리도 Redis에 전송 (빈 태그 리스트로)
+                if redis_publisher:
+                    redis_publisher.publish_single_hashtag(job_id, category, [])
+
+        # 완료되는 대로 처리 (asyncio.as_completed 사용)
+        remaining_tasks = {task: category for category, task in tasks}
+
+        for completed_task in asyncio.as_completed([task for task in remaining_tasks.keys()]):
             try:
-                result = await task
+                result = await completed_task
+                category = remaining_tasks[completed_task]
                 hashtags[category] = result
+
+                # 완료되는 즉시 Redis로 전송
+                if redis_publisher and result:
+                    message_id = redis_publisher.publish_single_hashtag(job_id, category, result)
+                    if message_id:
+                        published_count += 1
+                        logger.info(f"Hashtags for {category} published immediately: {result}")
+
             except Exception as e:
+                # 실패한 태스크의 카테고리 찾기
+                category = remaining_tasks[completed_task]
                 logger.error(f"Failed to extract hashtags for {category}: {e}")
                 hashtags[category] = []
-        
+
+        # 완료 신호 전송
+        if redis_publisher and published_count > 0:
+            redis_publisher.publish_completion_signal(job_id, published_count)
+
         return hashtags
+
+    async def extract_hashtags(self, summaries: Dict[str, str]) -> Dict[str, List[str]]:
+        """
+        기존 호환성을 위한 메서드 - 모든 추출 완료 후 일괄 반환
+
+        Args:
+            summaries: {카테고리: 요약문} 딕셔너리
+
+        Returns:
+            {카테고리: [해시태그 리스트]} 딕셔너리
+        """
+        return await self.extract_hashtags_streaming("temp", summaries, None)
     
     def _is_too_common(self, keyword: str) -> bool:
         """너무 일반적인 키워드인지 확인"""
@@ -229,24 +265,22 @@ class HashtagExtractor:
         """리소스 정리"""
         self.executor.shutdown(wait=False)
     
-    def format_message(self, job_id: str, hashtags: Dict[str, List[str]]) -> List[Dict]:
+    def format_message(self, job_id: str, category: str, hashtags: List[str]) -> Dict:
         """
-        Redis Streams로 전송할 메시지 포맷 생성
-        
+        단일 카테고리 해시태그를 Redis Streams로 전송할 메시지 포맷 생성
+
         Args:
             job_id: 작업 ID
-            hashtags: {카테고리: [해시태그]} 딕셔너리
-            
+            category: 카테고리명
+            hashtags: 해시태그 리스트
+
         Returns:
-            전송할 메시지 리스트
+            전송할 메시지 딕셔너리
         """
-        messages = []
-        for category, tags in hashtags.items():
-            if tags:  # 해시태그가 있는 경우만
-                message = {
-                    'job_id': job_id,
-                    'category': category,
-                    'hashtags': tags
-                }
-                messages.append(message)
-        return messages
+        return {
+            'job_id': job_id,
+            'category': category,
+            'hashtags': hashtags,
+            'timestamp': datetime.now().isoformat(),
+            'source': 'hashtag-extractor'
+        }

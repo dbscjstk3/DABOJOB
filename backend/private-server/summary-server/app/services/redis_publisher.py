@@ -40,6 +40,71 @@ class RedisPublisher:
             logger.error(f"Failed to connect to Redis: {e}")
             raise
     
+    def publish_single_hashtag(self, job_id: str, category: str, tags: List[str]) -> str:
+        """
+        단일 카테고리 해시태그를 Redis Streams로 즉시 발행
+
+        Args:
+            job_id: 작업 ID
+            category: 카테고리명
+            tags: 해시태그 리스트
+
+        Returns:
+            메시지 ID (실패시 None)
+        """
+        try:
+            if not tags:
+                return None
+
+            # 메시지 데이터 준비
+            message_data = {
+                'job_id': job_id,
+                'category': category,
+                'hashtags': json.dumps(tags, ensure_ascii=False),
+                'timestamp': datetime.now().isoformat(),
+                'source': 'summary-server'
+            }
+
+            # Redis Streams에 메시지 추가
+            message_id = self.client.xadd(
+                self.stream_key,
+                message_data,
+                maxlen=1000
+            )
+
+            logger.info(f"Published to Redis Streams - ID: {message_id}, Category: {category}, Tags: {tags}")
+            return message_id
+
+        except Exception as e:
+            logger.error(f"Failed to publish hashtag for {category}: {e}")
+            return None
+
+    def publish_completion_signal(self, job_id: str, total_categories: int) -> str:
+        """
+        해시태그 추출 완료 신호 전송
+
+        Args:
+            job_id: 작업 ID
+            total_categories: 처리된 카테고리 수
+
+        Returns:
+            메시지 ID
+        """
+        try:
+            completion_data = {
+                'job_id': job_id,
+                'type': 'hashtag_extraction_complete',
+                'total_categories': str(total_categories),
+                'timestamp': datetime.now().isoformat(),
+                'source': 'summary-server'
+            }
+            message_id = self.client.xadd(self.stream_key, completion_data, maxlen=1000)
+            logger.info(f"Published completion signal for job {job_id}")
+            return message_id
+        except Exception as e:
+            logger.error(f"Failed to publish completion signal: {e}")
+            return None
+
     def publish_hashtags(self, job_id: str, hashtags: Dict[str, List[str]]) -> bool:
         """
         해시태그를 Redis Streams로 발행
