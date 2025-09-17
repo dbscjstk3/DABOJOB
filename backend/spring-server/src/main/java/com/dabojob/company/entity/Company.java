@@ -20,18 +20,18 @@ import lombok.Setter;
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
-@Table(name = "dart_companies")
-public class DartCompany extends BaseTimeEntity {
+@Table(name = "companies")
+public class Company extends BaseTimeEntity {
 
     @Id
-    @Column(name="dart_id")
+    @Column(name="company_id")
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long dartId;
+    private Long companyId;
 
     @Column(name="dart_company_code")
     private String dartCompanyCode;
-    @Column(name="dart_company_name")
-    private String dartCompanyName;
+    @Column(name="company_name")
+    private String companyName;
 
 
 

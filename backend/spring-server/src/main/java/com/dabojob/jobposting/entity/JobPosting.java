@@ -3,9 +3,11 @@ package com.dabojob.jobposting.entity;
 import com.dabojob.global.entity.BaseTimeEntity;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.FetchType;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
+import jakarta.persistence.OneToOne;
 import jakarta.persistence.Table;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -23,12 +25,15 @@ import lombok.Setter;
 public class JobPosting extends BaseTimeEntity {
 
     @Id
-    @Column(name="job_id")
+    @Column(name="job_posting_id")
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long jobId;
+    private Long jobPostingId;
 
-    @Column(name="saramin_job_id", unique = true)
-    private String saraminJobId;
+    @OneToOne(mappedBy = "jobPosting", fetch = FetchType.LAZY)
+    private CompanyJobPosting companyJobPosting;
+
+    @Column(name="saramin_job_posting_id", unique = true)
+    private String saraminJobPostingId;
 
     @Column(name="company_name")
     private String companyName;
@@ -44,10 +49,10 @@ public class JobPosting extends BaseTimeEntity {
     private Integer jobMidCode;
 
     @Column(name="posting_timestamp")
-    private Integer postingTimeStamp;
+    private Long postingTimeStamp;
 
     @Column(name="expiration_timestamp")
-    private Integer expirationTimestamp;
+    private Long expirationTimestamp;
 
 
 }

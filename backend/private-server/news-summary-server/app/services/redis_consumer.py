@@ -10,11 +10,14 @@ import os
 from typing import Dict, List, Any, Optional
 from datetime import datetime
 import threading
+from .company_processor import company_processor
+from .news_service import news_service
+from ..database import database
 
 logger = logging.getLogger(__name__)
 
 class RedisConsumer:
-    def __init__(self, redis_host: str = None, redis_port: int = None, consumer_group: str = "news-consumer"):
+    def __init__(self, redis_host: str = None, redis_port: int = None, consumer_group: str = "summary-group"):
         """
         Redis Consumer 초기화
         
@@ -79,14 +82,9 @@ class RedisConsumer:
             처리 성공 여부
         """
         try:
-            # 메시지 타입 확인
-            if message.get('type') == 'hashtag_extraction_complete':
-                logger.info(f"Received completion signal for job {message.get('job_id')}")
-                return True
-            
             # 해시태그 메시지 처리
             job_id = message.get('job_id')
-            category = message.get('category')
+            chapter = message.get('chapter')
             hashtags_json = message.get('hashtags', '[]')
             
             # JSON 파싱
@@ -95,21 +93,44 @@ class RedisConsumer:
             else:
                 hashtags = hashtags_json
             
-            logger.info(f"Processing hashtags for job {job_id}, category {category}: {hashtags}")
+            logger.info(f"Processing hashtags for job {job_id}, chapter {chapter}: {hashtags}")
             
-            # 뉴스 검색 콜백 함수 호출
+            # 해시태그를 DB에 저장 (summary_id는 임시로 0 사용)
+            await database.save_hashtags(job_id, 0, str(chapter), hashtags)
+            
+            # 뉴스 검색 실행
+            total_news_count = 0
+            for hashtag in hashtags:
+                try:
+                    # 해시태그를 DB에 저장하고 ID 가져오기
+                    hashtag_id = await self._save_and_get_hashtag_id(job_id, chapter, hashtag)
+
+                    news_count = await news_service.search_and_process_news(
+                        mapping_id=job_id,
+                        hashtag_id=hashtag_id,
+                        summary_id=0,  # 임시
+                        hashtag=hashtag,
+                        company_name=""  # 기업명은 별도로 추출 필요
+                    )
+                    total_news_count += news_count
+                    logger.info(f"Found {news_count} news for hashtag: {hashtag} (hashtag_id: {hashtag_id})")
+                except Exception as e:
+                    logger.error(f"Error searching news for hashtag {hashtag}: {e}")
+            
+            logger.info(f"Total news found for job {job_id}, chapter {chapter}: {total_news_count}")
+            
+            # 뉴스 검색 콜백 함수 호출 (추가 처리가 있다면)
             if self.news_search_callback:
-                await self.news_search_callback(job_id, category, hashtags)
-            else:
-                # 기본 처리 (로그만)
-                for hashtag in hashtags:
-                    logger.info(f"Would search news for: {hashtag}")
+                await self.news_search_callback(job_id, chapter, hashtags)
+            
+            # Counter 증가 및 완료 체크
+            await self._increment_counter_and_check_completion(job_id)
             
             # 처리 결과를 Redis에 저장 (옵션)
-            result_key = f"news:result:{job_id}:{category}"
+            result_key = f"news:result:{job_id}:{chapter}"
             result_data = {
                 'job_id': job_id,
-                'category': category,
+                'chapter': chapter,
                 'hashtags': json.dumps(hashtags, ensure_ascii=False),
                 'processed_at': datetime.now().isoformat(),
                 'status': 'processed'
@@ -122,6 +143,57 @@ class RedisConsumer:
         except Exception as e:
             logger.error(f"Failed to process message: {e}")
             return False
+
+    async def _save_and_get_hashtag_id(self, job_id: int, chapter: int, hashtag: str) -> int:
+        """해시태그를 DB에 저장하고 ID 반환"""
+        try:
+            # 이미 존재하는 해시태그인지 확인
+            query_check = """
+            SELECT hashtag_id FROM summary_hashtags
+            WHERE mapping_id = %s AND chapter = %s AND hashtag = %s
+            """
+
+            async with database.get_connection() as cursor:
+                await cursor.execute(query_check, (job_id, chapter, hashtag))
+                result = await cursor.fetchone()
+
+                if result:
+                    return result[0]
+
+                # 새로운 해시태그 저장 (summary_id는 0으로 설정, 나중에 업데이트)
+                query_insert = """
+                INSERT INTO summary_hashtags (mapping_id, summary_id, chapter, hashtag)
+                VALUES (%s, %s, %s, %s)
+                """
+
+                await cursor.execute(query_insert, (job_id, 0, chapter, hashtag))
+                hashtag_id = cursor.lastrowid
+
+                logger.info(f"Saved hashtag: {hashtag} with ID: {hashtag_id}")
+                return hashtag_id
+
+        except Exception as e:
+            logger.error(f"Error saving hashtag {hashtag}: {e}")
+            # 에러 시 해시태그 이름으로 고유 ID 생성
+            return abs(hash(f"{job_id}_{chapter}_{hashtag}")) % 1000000
+
+    async def _increment_counter_and_check_completion(self, job_id: int):
+        """Counter 증가 및 완료 체크"""
+        counter_key = f"completed:{job_id}"
+        
+        # Counter 증가
+        current_count = self.client.incr(counter_key)
+        self.client.expire(counter_key, 86400)  # 24시간 후 만료
+        
+        logger.info(f"Job {job_id} progress: {current_count}/5")
+        
+        # 5개 챕터 모두 완료 시 기업 분석 데이터 처리
+        if current_count >= 5:
+            logger.info(f"All chapters completed for job {job_id}, processing company analysis")
+            await company_processor.process_hashtag_completion(job_id, 'all', [])
+            
+            # Counter 삭제 (선택사항)
+            self.client.delete(counter_key)
     
     async def consume_async(self, max_messages: int = None):
         """
@@ -140,7 +212,10 @@ class RedisConsumer:
                 if max_messages and processed_count >= max_messages:
                     logger.info(f"Processed {processed_count} messages, stopping")
                     break
-                
+
+                # 디버그 로그 추가
+                logger.debug(f"Consumer {self.consumer_name} waiting for messages...")
+
                 # 메시지 읽기 (블로킹, 타임아웃 1초)
                 messages = self.client.xreadgroup(
                     self.consumer_group,
@@ -149,6 +224,8 @@ class RedisConsumer:
                     count=10,
                     block=1000
                 )
+
+                logger.debug(f"Received {len(messages)} stream responses")
                 
                 if messages:
                     for stream_name, stream_messages in messages:
@@ -221,7 +298,7 @@ class RedisConsumer:
             job_id: 작업 ID
             
         Returns:
-            카테고리별 처리 결과
+            챕터별 처리 결과
         """
         try:
             pattern = f"news:result:{job_id}:*"
@@ -229,14 +306,41 @@ class RedisConsumer:
             
             results = {}
             for key in keys:
-                category = key.split(':')[-1]
+                chapter = key.split(':')[-1]
                 data = self.client.hgetall(key)
-                results[category] = data
+                results[chapter] = data
             
             return results
             
         except Exception as e:
             logger.error(f"Failed to get processed results: {e}")
+            return {}
+    
+    def get_job_completion_status(self, job_id: int) -> Dict[str, Any]:
+        """
+        작업 완료 상태 조회
+        
+        Args:
+            job_id: 작업 ID
+            
+        Returns:
+            완료 상태 정보
+        """
+        try:
+            counter_key = f"completed:{job_id}"
+            current_count = self.client.get(counter_key)
+            current_count = int(current_count) if current_count else 0
+            
+            return {
+                'job_id': job_id,
+                'completed_chapters': current_count,
+                'total_chapters': 5,
+                'is_completed': current_count >= 5,
+                'progress_percentage': (current_count / 5) * 100
+            }
+            
+        except Exception as e:
+            logger.error(f"Failed to get completion status for job {job_id}: {e}")
             return {}
     
     def cleanup(self):

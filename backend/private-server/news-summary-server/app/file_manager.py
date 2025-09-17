@@ -6,7 +6,7 @@ import json
 import logging
 from pathlib import Path
 from typing import Dict, List, Optional
-from .config import DATA_ROOT
+from .config import config
 
 logger = logging.getLogger(__name__)
 
@@ -15,7 +15,7 @@ class FileManager:
     
     def __init__(self, mapping_id: int):
         self.mapping_id = mapping_id
-        self.base_path = Path(DATA_ROOT) / str(mapping_id)
+        self.base_path = Path(config.DATA_ROOT) / str(mapping_id)
         
         # 디렉토리 구조
         self.raw_dir = self.base_path / "raw"
@@ -118,6 +118,32 @@ class FileManager:
         logger.info(f"Read {len(summaries)} summaries for mapping_id={self.mapping_id}")
         return summaries
     
+    def get_company_analysis_data(self) -> Optional[Dict[str, str]]:
+        """기업 분석 데이터를 읽어서 DB 저장 형태로 변환"""
+        summaries = self.read_all_summaries()
+        
+        if not summaries:
+            logger.warning(f"No summaries found for mapping_id={self.mapping_id}")
+            return None
+        
+        # 챕터별 매핑 (1:사업개요, 2:제품/서비스, 3:매출/수주, 4:계약/연구개발, 5:기타)
+        analysis_data = {
+            'business_overview': summaries.get(1, ''),      # 1. 사업의 개요
+            'products_service': summaries.get(2, ''),       # 2. 주요 제품 및 서비스  
+            'sales_contracts': summaries.get(3, ''),        # 4. 매출 및 수주 상황
+            'rnd_activities': summaries.get(4, ''),         # 6. 주요 계약 및 연구 개발 활동
+            'other_notes': summaries.get(5, '')             # 7. 기타 참고사항
+        }
+        
+        # 빈 데이터 체크
+        has_data = any(data.strip() for data in analysis_data.values())
+        if not has_data:
+            logger.warning(f"All summary data is empty for mapping_id={self.mapping_id}")
+            return None
+            
+        logger.info(f"Extracted company analysis data for mapping_id={self.mapping_id}")
+        return analysis_data
+    
     def get_standardized_file_path(self, chapter: int) -> Optional[str]:
         """표준화된 파일 경로 반환"""
         pattern = f"chapter_{chapter}_*.txt"
@@ -146,8 +172,8 @@ class FileManager:
     @classmethod
     def ensure_data_root(cls):
         """데이터 루트 디렉토리 생성"""
-        Path(DATA_ROOT).mkdir(parents=True, exist_ok=True)
-        logger.info(f"Ensured data root directory: {DATA_ROOT}")
+        Path(config.DATA_ROOT).mkdir(parents=True, exist_ok=True)
+        logger.info(f"Ensured data root directory: {config.DATA_ROOT}")
 
 # 챕터명 매핑
 CHAPTER_NAMES = {

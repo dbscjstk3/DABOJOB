@@ -1,6 +1,6 @@
-package com.dabojob.analysis.entity;
+package com.dabojob.summary.entity;
 
-import com.dabojob.company.entity.DartCompany;
+import com.dabojob.global.entity.BaseTimeEntity;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.FetchType;
@@ -22,19 +22,18 @@ import lombok.Setter;
 @AllArgsConstructor
 @Builder
 @Table(name = "news")
-public class News {
+public class News extends BaseTimeEntity {
 
     @Id
     @Column(name="news_id")
-    private String newsId;
+    private Long newsId;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "dart_id")
-    private DartCompany  dartCompany;
+    @JoinColumn(name="summary_hashtag_id")
+    private SummaryHashtag summaryHashtag;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "summary_id")
-    private CompanyAnalysisSummary summary;
+    @Column(name="news_title")
+    private String newsTitle;
 
     @Column(name="news_content")
     private String newsContent;

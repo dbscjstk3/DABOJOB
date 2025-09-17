@@ -1,5 +1,6 @@
-package com.dabojob.analysis.entity;
+package com.dabojob.summary.entity;
 
+import com.dabojob.global.entity.BaseTimeEntity;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
@@ -19,7 +20,7 @@ import lombok.Setter;
 @AllArgsConstructor
 @Builder
 @Table(name = "hashtags")
-public class Hashtag {
+public class Hashtag extends BaseTimeEntity {
 
     @Id
     @Column(name="hashtag_id")

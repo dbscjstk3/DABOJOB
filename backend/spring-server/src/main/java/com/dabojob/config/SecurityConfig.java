@@ -44,6 +44,7 @@ public class SecurityConfig {
                 .authorizeHttpRequests(authz -> authz
                         // ✅ Actuator health/info 공개 (context-path 유무 모두 대비)
                         .requestMatchers(
+                                "/health", "/api/health",
                                 "/actuator/health", "/actuator/health/**", "/actuator/info",
                                 "/api/actuator/health", "/api/actuator/health/**", "/api/actuator/info"
                         ).permitAll()
@@ -54,6 +55,7 @@ public class SecurityConfig {
                         .requestMatchers("/", "/login", "/error", "/favicon.ico").permitAll()
                         .requestMatchers("/oauth2/**", "/api/auth/login/**").permitAll()
                         .requestMatchers("/api/auth/refresh", "/api/auth/refresh-cookie").permitAll()
+                        .requestMatchers("/api/job-posting/calendar","/api/sync/trigger").permitAll()
 
                         // 인증 필요 엔드포인트
                         .requestMatchers("/api/auth/logout", "/api/auth/token-status", "/api/auth/revoke").authenticated()
