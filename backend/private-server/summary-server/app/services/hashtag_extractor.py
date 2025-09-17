@@ -14,7 +14,7 @@ class HashtagExtractor:
     def __init__(self, ollama_client, model_name: str = "llama3.2:1b-instruct-fp16"):
         """
         해시태그 추출기 초기화
-        
+
         Args:
             ollama_client: Ollama 클라이언트
             model_name: 사용할 모델명
@@ -22,34 +22,51 @@ class HashtagExtractor:
         self.ollama_client = ollama_client
         self.model_name = model_name
         self.executor = ThreadPoolExecutor(max_workers=2)
+
+        # 제외할 일반적인 단어들
+        self.common_words = {
+            '기업', '회사', '사업', '제품', '서비스', '기술', '연구', '개발',
+            '관리', '경영', '전략', '시장', '고객', '성장', '혁신', '투자',
+            '매출', '수익', '실적', '현황', '분석', '평가', '계획', '목표',
+            '글로벌', '국내', '해외', '세계', '지역', '산업', '분야', '부문',
+            '주요', '핵심', '중요', '특별', '일반', '기본', '전체', '부분',
+            '증가', '감소', '확대', '축소', '개선', '향상', '발전', '진화',
+            'ESG', 'Environmental', 'Social', 'Governance', '지속가능',
+            '리스크', '위험', '안전', '품질', '표준', '규정', '정책', '제도'
+        }
     
     def _extract_sync(self, text: str, category: str) -> List[str]:
         """동기 방식 해시태그 추출 (executor에서 실행용)"""
-        
-        # 카테고리별 추출 가이드
+
+        # 카테고리별 추출 가이드 - 더 구체적으로
         category_guides = {
-            'business_overview': "사업분야, 산업군, 기업특성 관련 키워드",
-            'products_services': "주력제품명, 서비스명, 브랜드명",
-            'revenue_orders': "재무지표, 성장성, 시장위치 관련 키워드",
-            'contracts_rnd': "기술명, R&D분야, 혁신키워드",
-            'other_references': "경영전략, ESG, 리스크관리 관련 키워드"
+            'business_overview': "구체적인 사업 영역, 특정 산업명, 고유한 비즈니스 모델",
+            'products_services': "실제 제품명, 브랜드명, 특정 서비스명 (일반명사 제외)",
+            'revenue_orders': "구체적인 수치, 특정 거래처, 계약 프로젝트명",
+            'contracts_rnd': "특정 기술명, 특허명, 구체적인 R&D 프로젝트",
+            'other_references': "특정 인증, 수상 내역, 구체적인 파트너십"
         }
         
         guide = category_guides.get(category, "핵심 비즈니스 키워드")
         
-        prompt = f"""{guide}를 3개만 추출해라.
+        prompt = f"""텍스트에서 뉴스 검색에 사용할 구체적이고 독특한 키워드를 추출하세요.
+추출 기준: {guide}
 
-규칙:
-- 단어 또는 2단어만
-- 쉼표로 구분
-- 번호매기기 금지
-- 한국어만
+엄격한 규칙:
+1. 일반적인 단어 금지 (기업, 회사, 제품, 서비스, 기술, 관리 등)
+2. 구체적인 고유명사, 제품명, 기술명 우선
+3. 2-4단어 이내
+4. 쉼표로 구분
+5. 3개만 추출
+6. 완전한 문장 금지
 
-예시: 반도체, 스마트폰, 글로벌기업
+좋은 예: 갤럭시S24, 3나노공정, OLED패널
+나쁜 예: 글로벌기업, 주요제품, 기술혁신
 
-{text[:500]}
+텍스트:
+{text[:800]}
 
-키워드:"""
+구체적 키워드 3개:"""
         
         try:
             response = self.ollama_client.chat(
@@ -64,60 +81,54 @@ class HashtagExtractor:
             
             # 응답에서 키워드 추출
             keywords_text = response['message']['content'].strip()
-            
+
             # 불필요한 문자들 제거
             keywords_text = re.sub(r'\d+\.\s*', '', keywords_text)  # 숫자 번호 제거
-            keywords_text = re.sub(r'[-•]\s*', '', keywords_text)   # 대시, 불릿 제거  
+            keywords_text = re.sub(r'[-•]\s*', '', keywords_text)   # 대시, 불릿 제거
             keywords_text = re.sub(r'\n+', ',', keywords_text)      # 줄바꿈을 쉼표로 변환
             keywords_text = re.sub(r'[#\[\]()]', '', keywords_text) # 특수문자 제거
-            
+
             # 쉼표로 분리하고 정제
             keywords = [k.strip() for k in keywords_text.split(',')]
             keywords = [k for k in keywords if k and len(k) > 0]
+
+            # 문장 형태 필터링 (5단어 이상은 제외)
+            keywords = [k for k in keywords if len(k.split()) <= 4]
             
             # 각 키워드를 더 정제
             cleaned_keywords = []
             for keyword in keywords:
                 # 불필요한 접속사, 조사 제거
-                keyword = re.sub(r'(이다|입니다|등|및|과|와|의|을|를|에서|에게|에)$', '', keyword)
+                keyword = re.sub(r'(이다|입니다|등|및|과|와|의|을|를|에서|에게|에|은|는|이|가)$', '', keyword)
                 keyword = keyword.strip()
-                if keyword and len(keyword) >= 2:  # 최소 2글자 이상
+
+                # 흔한 단어 필터링
+                if self._is_too_common(keyword):
+                    logger.debug(f"Filtered common word: {keyword}")
+                    continue
+
+                # 최소 2글자, 최대 20글자
+                if keyword and 2 <= len(keyword) <= 20:
                     cleaned_keywords.append(keyword)
-            
+
             keywords = cleaned_keywords[:3]  # 3개로 제한
             
-            # 부족하면 기본값 추가
+            # 부족하면 텍스트에서 추가 추출 시도
             if len(keywords) < 3:
-                default_keywords = {
-                    'business_overview': ['사업다각화', '글로벌기업', '종합기업'],
-                    'products_services': ['제품혁신', '서비스확대', '기술개발'],
-                    'revenue_orders': ['매출성장', '수익개선', '시장확대'],
-                    'contracts_rnd': ['R&D투자', '기술혁신', '특허확보'],
-                    'other_references': ['지속가능경영', '리스크관리', 'ESG경영']
-                }
-                defaults = default_keywords.get(category, ['기업분석', '비즈니스', '경영전략'])
-                while len(keywords) < 3:
-                    for default in defaults:
-                        if default not in keywords:
-                            keywords.append(default)
+                additional = self._extract_specific_terms(text, category)
+                for term in additional:
+                    if term not in keywords and not self._is_too_common(term):
+                        keywords.append(term)
+                        if len(keywords) >= 3:
                             break
-                    if len(keywords) >= 3:
-                        break
             
             logger.info(f"Extracted hashtags for {category}: {keywords}")
             return keywords
             
         except Exception as e:
             logger.error(f"Failed to extract hashtags: {e}")
-            # 실패 시 기본 키워드 반환
-            default_map = {
-                'business_overview': ['사업전략', '기업개요', '비즈니스모델'],
-                'products_services': ['제품서비스', '주력상품', '기술력'],
-                'revenue_orders': ['매출실적', '재무현황', '성장성'],
-                'contracts_rnd': ['연구개발', '기술투자', '혁신'],
-                'other_references': ['경영관리', '지속가능성', '기업가치']
-            }
-            return default_map.get(category, ['기업', '비즈니스', '분석'])[:3]
+            # 실패 시 텍스트에서 직접 추출 시도
+            return self._extract_specific_terms(text[:500], category)[:3]
     
     async def extract_hashtags(self, summaries: Dict[str, str]) -> Dict[str, List[str]]:
         """
@@ -158,6 +169,62 @@ class HashtagExtractor:
         
         return hashtags
     
+    def _is_too_common(self, keyword: str) -> bool:
+        """너무 일반적인 키워드인지 확인"""
+        # 단어를 공백으로 분리
+        words = keyword.split()
+
+        # 모든 단어가 common_words에 있으면 True
+        for word in words:
+            if word in self.common_words:
+                return True
+
+        # 전체 키워드가 common_words에 있으면 True
+        if keyword in self.common_words:
+            return True
+
+        return False
+
+    def _extract_specific_terms(self, text: str, category: str) -> List[str]:
+        """텍스트에서 구체적인 용어 추출"""
+        import re
+
+        # 영문+숫자 조합 (제품명, 모델명)
+        product_pattern = r'\b[A-Z][A-Za-z0-9]+(?:[\s-][A-Z0-9]+)*\b'
+        products = re.findall(product_pattern, text)
+
+        # 숫자가 포함된 용어 (수치, 규모)
+        number_pattern = r'\b\d+[가-힣]+|[가-힣]+\d+[가-힣]*\b'
+        numbers = re.findall(number_pattern, text)
+
+        # 괄호 안의 용어 (약어, 설명)
+        bracket_pattern = r'[\(\[]([^\)\]]+)[\)\]]'
+        brackets = re.findall(bracket_pattern, text)
+
+        # 고유명사 패턴 (대문자로 시작하는 연속된 단어들)
+        proper_pattern = r'\b[A-Z가-힣][A-Za-z가-힣]+(?:\s+[A-Z가-힣][A-Za-z가-힣]+)*\b'
+        propers = re.findall(proper_pattern, text)
+
+        # 모든 추출된 용어 합치기
+        all_terms = products + numbers + brackets + propers
+
+        # 정제 및 필터링
+        specific_terms = []
+        for term in all_terms:
+            term = term.strip()
+            if term and 2 <= len(term) <= 20 and not self._is_too_common(term):
+                specific_terms.append(term)
+
+        # 중복 제거하고 상위 5개 반환
+        seen = set()
+        unique_terms = []
+        for term in specific_terms:
+            if term not in seen:
+                seen.add(term)
+                unique_terms.append(term)
+
+        return unique_terms[:5] if unique_terms else []
+
     def cleanup(self):
         """리소스 정리"""
         self.executor.shutdown(wait=False)
