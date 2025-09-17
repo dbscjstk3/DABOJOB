@@ -10,6 +10,8 @@ from typing import Dict
 
 from ..services.redis_client import RedisClient
 from ..services.file_manager import FileManager
+from ..services.hashtag_extractor import HashtagExtractor
+from ..services.redis_publisher import RedisPublisher
 from ..utils import qwen_summarize_long
 import ollama
 
@@ -22,7 +24,7 @@ class SummaryWorker:
         self.ollama_client = None
         self.model_name = os.getenv('SUMMARY_MODEL', 'llama3.2:1b-instruct-fp16')
         self.running = False
-        
+
         # 카테고리별 요약 설정
         self.category_configs = {
             "business_overview": {"max_length": 800, "description": "사업 개요"},
@@ -31,6 +33,9 @@ class SummaryWorker:
             "contracts_rnd": {"max_length": 600, "description": "주요 계약 및 연구개발"},
             "other_references": {"max_length": 500, "description": "기타 참고사항"}
         }
+
+        # job별 카테고리 완료 추적
+        self.job_completion_tracker = {}
         
     async def initialize(self):
         """워커 초기화"""
@@ -119,7 +124,10 @@ class SummaryWorker:
                     "completed_at": datetime.now().isoformat()
                 }
             )
-            
+
+            # 4. 완료된 카테고리 추적 및 모든 카테고리 완료 확인
+            await self._track_category_completion(job_id, category)
+
             await self.redis_client.ack_job(stream_id)
             logger.info(f"Category summarization completed: job_id={job_id}, category={category}")
             
@@ -136,7 +144,11 @@ class SummaryWorker:
                     "failed_at": datetime.now().isoformat()
                 }
             )
-            
+
+            # 실패한 job도 추적에서 제거
+            if job_id in self.job_completion_tracker:
+                del self.job_completion_tracker[job_id]
+
             await self.redis_client.ack_job(stream_id)
     
     async def _summarize_single_category(self, job_id: str, category: str, file_path: str, config: Dict):
@@ -166,3 +178,91 @@ class SummaryWorker:
         except Exception as e:
             logger.error(f"Failed to summarize {category}: {e}")
             raise
+
+    async def _track_category_completion(self, job_id: str, completed_category: str):
+        """카테고리 완료 추적 및 모든 카테고리 완료 시 해시태그 추출 시작"""
+        try:
+            # job_id별 완료된 카테고리 추적
+            if job_id not in self.job_completion_tracker:
+                self.job_completion_tracker[job_id] = set()
+
+            self.job_completion_tracker[job_id].add(completed_category)
+            completed_categories = self.job_completion_tracker[job_id]
+
+            logger.info(f"Job {job_id}: {len(completed_categories)}/{len(self.category_configs)} categories completed")
+
+            # 모든 카테고리가 완료되었는지 확인
+            if len(completed_categories) >= len(self.category_configs):
+                logger.info(f"All categories completed for job {job_id}. Starting hashtag extraction...")
+
+                # 자동 해시태그 추출 시작
+                await self._start_automatic_hashtag_extraction(job_id)
+
+                # 완료된 job 추적에서 제거
+                del self.job_completion_tracker[job_id]
+
+        except Exception as e:
+            logger.error(f"Failed to track category completion for job {job_id}: {e}")
+
+    async def _start_automatic_hashtag_extraction(self, job_id: str):
+        """모든 카테고리 요약 완료 후 자동 해시태그 추출 시작"""
+        try:
+            logger.info(f"Starting automatic hashtag extraction for job {job_id}")
+
+            # 1. 요약 상태 업데이트
+            await self.redis_client.update_job_status(
+                job_id,
+                "hashtag_extraction_started",
+                {
+                    "stage": "hashtag_extraction",
+                    "message": "Starting hashtag extraction from summaries",
+                    "started_at": datetime.now().isoformat()
+                }
+            )
+
+            # 2. 요약 결과 파일들 읽기
+            summaries = self.file_manager.get_summary_results(job_id)
+
+            if not summaries:
+                logger.warning(f"No summary results found for job {job_id}")
+                return
+
+            # 3. Redis Publisher 초기화
+            publisher = RedisPublisher()
+
+            # 4. 해시태그 추출기 초기화 및 스트리밍 추출 시작
+            extractor = HashtagExtractor(self.ollama_client, self.model_name)
+            hashtags = await extractor.extract_hashtags_streaming(job_id, summaries, publisher)
+
+            # 5. 정리
+            extractor.cleanup()
+            publisher.cleanup()
+
+            # 6. 완료 상태 업데이트
+            await self.redis_client.update_job_status(
+                job_id,
+                "hashtag_extraction_completed",
+                {
+                    "stage": "hashtag_extraction_completed",
+                    "message": "Hashtag extraction completed and published to Redis",
+                    "hashtag_count": sum(len(tags) for tags in hashtags.values()),
+                    "categories_processed": len(hashtags),
+                    "completed_at": datetime.now().isoformat()
+                }
+            )
+
+            logger.info(f"Automatic hashtag extraction completed for job {job_id}")
+
+        except Exception as e:
+            logger.error(f"Failed automatic hashtag extraction for job {job_id}: {e}")
+
+            # 실패 상태 업데이트
+            await self.redis_client.update_job_status(
+                job_id,
+                "hashtag_extraction_failed",
+                {
+                    "stage": "hashtag_extraction_failed",
+                    "error": str(e),
+                    "failed_at": datetime.now().isoformat()
+                }
+            )
