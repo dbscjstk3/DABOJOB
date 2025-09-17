@@ -2,7 +2,7 @@ import os
 import logging
 import asyncio
 import time
-from typing import Optional
+from typing import Optional, List
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 import ollama
@@ -31,17 +31,91 @@ redis_consumer = None
 consumer_thread = None
 
 class NewsSummarizeRequest(BaseModel):
-    mapping_id: int
-    chapter: int
-    summary: str
-    file_path: str = ""
-    target_sentences: Optional[int] = 2
+    job_id: int
+    chapter: str
+    company_name: str
+    hashtags: List[str]
+
+class HashtagNewsResult(BaseModel):
+    hashtag: str
+    news_count: int
+    news_summaries: List[str]
 
 class NewsSummarizeResponse(BaseModel):
-    mapping_id: int
-    chapter: int
-    news_summary: str
+    job_id: int
+    chapter: str
+    company_name: str
+    total_news_found: int
+    hashtag_results: List[HashtagNewsResult]
     status: str = "completed"
+
+async def _save_and_get_hashtag_id(job_id: int, chapter: str, hashtag: str) -> int:
+    """해시태그를 DB에 저장하고 ID 반환"""
+    try:
+        from .database import database
+
+        # 이미 존재하는 해시태그인지 확인
+        query_check = """
+        SELECT hashtag_id FROM summary_hashtags
+        WHERE mapping_id = %s AND chapter = %s AND hashtag = %s
+        """
+
+        async with database.get_connection() as cursor:
+            await cursor.execute(query_check, (job_id, chapter, hashtag))
+            result = await cursor.fetchone()
+
+            if result:
+                return result[0]
+
+            # 새로운 해시태그 저장 (summary_id는 0으로 설정)
+            query_insert = """
+            INSERT INTO summary_hashtags (mapping_id, summary_id, chapter, hashtag)
+            VALUES (%s, %s, %s, %s)
+            """
+
+            await cursor.execute(query_insert, (job_id, 0, chapter, hashtag))
+            hashtag_id = cursor.lastrowid
+
+            logger.info(f"Saved hashtag: {hashtag} with ID: {hashtag_id}")
+            return hashtag_id
+
+    except Exception as e:
+        logger.error(f"Error saving hashtag {hashtag}: {e}")
+        # 에러 시 해시태그 이름으로 고유 ID 생성
+        return abs(hash(f"{job_id}_{chapter}_{hashtag}")) % 1000000
+
+async def _get_news_summaries(job_id: int, hashtag_id: int) -> List[str]:
+    """해당 해시태그의 뉴스 요약 내용들을 가져오기"""
+    try:
+        from .database import database
+
+        query = """
+        SELECT news_content
+        FROM news_summaries
+        WHERE mapping_id = %s AND hashtag_id = %s AND status = 'completed'
+        AND news_content IS NOT NULL AND news_content != ''
+        ORDER BY news_id DESC
+        """
+
+        async with database.get_connection() as cursor:
+            await cursor.execute(query, (job_id, hashtag_id))
+            results = await cursor.fetchall()
+
+            summaries = []
+            for row in results:
+                content = row[0]
+                if content and len(content.strip()) > 0:
+                    # 간단한 정제 (HTML 태그나 불필요한 내용 제거)
+                    clean_content = content.strip()
+                    if len(clean_content) > 500:  # 너무 길면 잘라내기
+                        clean_content = clean_content[:500] + "..."
+                    summaries.append(clean_content)
+
+            return summaries
+
+    except Exception as e:
+        logger.error(f"Error getting news summaries for job_id={job_id}, hashtag_id={hashtag_id}: {e}")
+        return []
 
 async def news_search_callback(job_id: str, category: str, hashtags: list):
     """해시태그 기반 뉴스 검색 콜백"""
@@ -49,7 +123,7 @@ async def news_search_callback(job_id: str, category: str, hashtags: list):
     # TODO: 실제 뉴스 API 호출 로직 구현
     # 예: news_api.search(hashtags)
     # 결과를 파일이나 DB에 저장
-    
+
     # 임시 처리
     for hashtag in hashtags:
         logger.info(f"Searching news with hashtag: {hashtag}")
@@ -122,47 +196,79 @@ max_workers = int(os.getenv('MAX_WORKERS', '2'))
 
 @app.post("/news-summarize", response_model=NewsSummarizeResponse)
 async def news_summarize_content(request: NewsSummarizeRequest) -> NewsSummarizeResponse:
-    """뉴스 스타일 요약 처리 (동시성 제한 포함)"""
-    
+    """해시태그 기반 뉴스 검색 및 요약 처리"""
+
     # 서버 종료 중이면 요청 거부
     if shutdown_event.is_set():
         raise HTTPException(status_code=503, detail="Server is shutting down")
-    
+
     # 세마포어로 동시 요청 수 제한
     if not request_semaphore:
         raise HTTPException(status_code=503, detail="Request semaphore not initialized")
 
     async with request_semaphore:
         try:
-            logger.info(f"Processing news summary: mapping_id={request.mapping_id}, chapter={request.chapter}")
-            
-            # CPU 부하를 줄이기 위해 비동기 처리
-            loop = asyncio.get_event_loop()
-            news_summary = await loop.run_in_executor(
-                executor,
-                qwen_summarize,
-                ollama_client,
-                MODEL_NAME,
-                request.summary,
-                request.target_sentences or 2
-            )
-            
-            # 짧은 대기로 CPU 부하 분산
-            await asyncio.sleep(0.1)
-            
-            logger.info(f"News summary completed: mapping_id={request.mapping_id}")
-            
+            logger.info(f"Processing hashtag-based news summary: job_id={request.job_id}, chapter={request.chapter}, company={request.company_name}, hashtags={request.hashtags}")
+
+            # news_service import
+            from .services.news_service import NewsService
+            news_service = NewsService()
+
+            total_news_found = 0
+            hashtag_results = []
+
+            # 각 해시태그별로 뉴스 검색 및 요약 수행
+            for hashtag in request.hashtags:
+                try:
+                    # 해시태그를 DB에 저장하고 ID 가져오기
+                    hashtag_id = await _save_and_get_hashtag_id(request.job_id, request.chapter, hashtag)
+
+                    # 뉴스 검색 및 처리
+                    news_count = await news_service.search_and_process_news(
+                        mapping_id=request.job_id,
+                        hashtag_id=hashtag_id,
+                        summary_id=0,  # 임시
+                        hashtag=hashtag,
+                        company_name=request.company_name
+                    )
+
+                    # 처리된 뉴스 요약 내용 가져오기
+                    news_summaries = await _get_news_summaries(request.job_id, hashtag_id)
+
+                    hashtag_results.append(HashtagNewsResult(
+                        hashtag=hashtag,
+                        news_count=news_count,
+                        news_summaries=news_summaries
+                    ))
+
+                    total_news_found += news_count
+
+                    logger.info(f"Found {news_count} news for hashtag: {hashtag}")
+
+                except Exception as e:
+                    logger.error(f"Error processing hashtag {hashtag}: {e}")
+                    # 에러 발생시에도 빈 결과라도 추가
+                    hashtag_results.append(HashtagNewsResult(
+                        hashtag=hashtag,
+                        news_count=0,
+                        news_summaries=[]
+                    ))
+
+            logger.info(f"News summary completed: job_id={request.job_id}, total_news={total_news_found}")
+
             return NewsSummarizeResponse(
-                mapping_id=request.mapping_id,
+                job_id=request.job_id,
                 chapter=request.chapter,
-                news_summary=news_summary
+                company_name=request.company_name,
+                total_news_found=total_news_found,
+                hashtag_results=hashtag_results
             )
-            
+
         except asyncio.CancelledError:
-            logger.warning(f"Request cancelled: mapping_id={request.mapping_id}")
+            logger.warning(f"Request cancelled: job_id={request.job_id}")
             raise HTTPException(status_code=503, detail="Request cancelled")
         except Exception as e:
-            logger.error(f"News summary failed for mapping_id={request.mapping_id}: {e}")
+            logger.error(f"News summary failed for job_id={request.job_id}: {e}")
             # 실패 시 간단한 fallback 처리
             if "timeout" in str(e).lower():
                 raise HTTPException(status_code=504, detail="Processing timeout")
