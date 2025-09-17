@@ -165,27 +165,35 @@ class HashtagExtractor:
                 if redis_publisher:
                     redis_publisher.publish_single_hashtag(job_id, category, [])
 
-        # 완료되는 대로 처리 (asyncio.as_completed 사용)
-        remaining_tasks = {task: category for category, task in tasks}
+        # 더 안전한 방식: asyncio.wait() 사용
+        pending_tasks = {task: category for category, task in tasks}
 
-        for completed_task in asyncio.as_completed([task for task in remaining_tasks.keys()]):
-            try:
-                result = await completed_task
-                category = remaining_tasks[completed_task]
-                hashtags[category] = result
+        while pending_tasks:
+            done, pending = await asyncio.wait(
+                pending_tasks.keys(),
+                return_when=asyncio.FIRST_COMPLETED
+            )
 
-                # 완료되는 즉시 Redis로 전송
-                if redis_publisher and result:
-                    message_id = redis_publisher.publish_single_hashtag(job_id, category, result)
-                    if message_id:
-                        published_count += 1
-                        logger.info(f"Hashtags for {category} published immediately: {result}")
+            for completed_task in done:
+                category = pending_tasks.get(completed_task, "unknown")
+                try:
+                    result = await completed_task
+                    hashtags[category] = result
 
-            except Exception as e:
-                # 실패한 태스크의 카테고리 찾기
-                category = remaining_tasks[completed_task]
-                logger.error(f"Failed to extract hashtags for {category}: {e}")
-                hashtags[category] = []
+                    # 완료되는 즉시 Redis로 전송
+                    if redis_publisher and result:
+                        message_id = redis_publisher.publish_single_hashtag(job_id, category, result)
+                        if message_id:
+                            published_count += 1
+                            logger.info(f"Hashtags for {category} published immediately: {result}")
+
+                except Exception as e:
+                    logger.error(f"Failed to extract hashtags for {category}: {e}")
+                    hashtags[category] = []
+
+                # 완료된 태스크를 딕셔너리에서 제거
+                if completed_task in pending_tasks:
+                    del pending_tasks[completed_task]
 
         # 완료 신호 전송
         if redis_publisher and published_count > 0:
