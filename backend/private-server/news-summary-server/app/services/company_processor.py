@@ -1,0 +1,111 @@
+"""
+기업 분석 데이터 처리 서비스
+Redis에서 해시태그 수신 시 EC2 로컬 파일을 읽어서 DB에 저장 + S3 업로드
+"""
+import logging
+from typing import Dict, Any, Optional
+from ..file_manager import FileManager
+from ..database import database
+from .s3_service import s3_service
+from .report_generator import report_generator
+
+logger = logging.getLogger(__name__)
+
+class CompanyProcessor:
+    """기업 분석 데이터 처리 클래스"""
+    
+    async def process_hashtag_completion(self, job_id: int, category: str, hashtags: list) -> bool:
+        """
+        해시태그 추출 완료 시 기업 분석 데이터 처리
+        
+        Args:
+            job_id: 작업 ID (mapping_id와 동일)
+            category: 카테고리 
+            hashtags: 해시태그 목록
+            
+        Returns:
+            처리 성공 여부
+        """
+        try:
+            logger.info(f"Processing company analysis for job_id={job_id}, category={category}")
+            
+            # FileManager로 해당 job_id의 파일 읽기
+            file_manager = FileManager(mapping_id=job_id)
+            
+            # 기업 분석 데이터 추출
+            analysis_data = file_manager.get_company_analysis_data()
+            
+            if not analysis_data:
+                logger.warning(f"No analysis data found for job_id={job_id}")
+                return False
+            
+            # DB에 저장
+            summary_id = await database.save_company_analysis(job_id, analysis_data)
+            
+            if summary_id:
+                logger.info(f"Successfully saved company analysis for job_id={job_id}, summary_id={summary_id}")
+                
+                # 해시태그의 summary_id 업데이트
+                updated_count = await database.update_hashtags_summary_id(job_id, summary_id)
+                logger.info(f"Updated {updated_count} hashtags with summary_id={summary_id}")
+                
+                # 최종 리포트 생성 및 S3 업로드
+                await self._generate_and_upload_report(job_id)
+                
+                return True
+            else:
+                logger.error(f"Failed to save company analysis for job_id={job_id}")
+                return False
+                
+        except Exception as e:
+            logger.error(f"Error processing company analysis for job_id={job_id}: {e}")
+            return False
+    
+    async def get_company_analysis(self, mapping_id: int) -> Optional[Dict[str, Any]]:
+        """기업 분석 데이터 조회"""
+        try:
+            return await database.get_company_analysis(mapping_id)
+        except Exception as e:
+            logger.error(f"Error getting company analysis for mapping_id={mapping_id}: {e}")
+            return None
+    
+    async def _generate_and_upload_report(self, mapping_id: int):
+        """최종 리포트 생성 및 S3 업로드"""
+        try:
+            logger.info(f"Generating final report for mapping_id={mapping_id}")
+            
+            # 1. 최종 리포트 생성
+            report_data = await report_generator.generate_final_report(mapping_id)
+            
+            if not report_data:
+                logger.error(f"Failed to generate report for mapping_id={mapping_id}")
+                return
+            
+            # 2. S3에 업로드
+            s3_key = await s3_service.upload_news_report(mapping_id, report_data)
+            
+            if s3_key:
+                logger.info(f"Successfully uploaded report to S3: {s3_key}")
+                
+                # 3. 업로드 정보를 DB에 기록 (선택사항)
+                # await self._save_upload_info(mapping_id, s3_key)
+                
+            else:
+                logger.error(f"Failed to upload report to S3 for mapping_id={mapping_id}")
+                
+        except Exception as e:
+            logger.error(f"Error generating and uploading report for mapping_id={mapping_id}: {e}")
+    
+    async def _save_upload_info(self, mapping_id: int, s3_key: str):
+        """S3 업로드 정보를 DB에 기록 (선택사항)"""
+        # TODO: 필요하다면 업로드 이력 테이블에 기록
+        # upload_info = {
+        #     'mapping_id': mapping_id,
+        #     's3_key': s3_key,
+        #     'uploaded_at': datetime.now(),
+        #     'status': 'completed'
+        # }
+        pass
+
+# 전역 인스턴스
+company_processor = CompanyProcessor()

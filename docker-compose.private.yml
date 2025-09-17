@@ -1,70 +1,6 @@
 version: '3.8'
 
 services:
-  # Redis 서버 (기존 Redis Streams 통신)
-  redis:
-    image: redis:7-alpine
-    container_name: private-redis
-    ports:
-      - "6379:6379"
-    volumes:
-      - redis-data:/data
-    command: redis-server --appendonly yes
-    networks:
-      - app-net
-    healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
-      interval: 5s
-      timeout: 3s
-      retries: 5
-
-  # 중앙 Ollama 서버 (모든 LLM 모델 서빙)
-  ollama:
-    image: ollama/ollama:latest
-    container_name: private-ollama
-    ports:
-      - "11434:11434"
-    volumes:
-      - ollama-models:/root/.ollama
-    environment:
-      - OLLAMA_NUM_PARALLEL=3
-      - OLLAMA_MAX_LOADED_MODELS=3
-      - OLLAMA_KEEP_ALIVE=5m
-    networks:
-      - app-net
-    deploy:
-      resources:
-        limits:
-          cpus: '3.0'
-          memory: 12G
-    healthcheck:
-      test: ["CMD", "ollama", "list"]
-      interval: 15s
-      timeout: 10s
-      retries: 10
-      start_period: 30s
-
-  # 모델 초기화 서비스 (최초 1회)
-  model-init:
-    image: ollama/ollama:latest
-    container_name: model-initializer
-    volumes:
-      - ollama-models:/root/.ollama
-    networks:
-      - app-net
-    depends_on:
-      ollama:
-        condition: service_healthy
-    entrypoint: |
-      sh -c "
-      echo 'Waiting for Ollama server...'
-      sleep 5
-      echo 'Pulling models...'
-      OLLAMA_HOST=http://ollama:11434 ollama pull qwen2.5:1.8b-instruct-q4_0
-      OLLAMA_HOST=http://ollama:11434 ollama pull qwen2.5:0.5b-instruct-fp16
-      echo 'Model initialization complete!'
-      "
-
   mysql:
     image: mysql:8.0.42
     container_name: private-mysql
@@ -76,6 +12,12 @@ services:
     ]
     env_file:
       - .env.private
+    environment:
+      - MYSQL_DATABASE=${MYSQL_DATABASE}
+      - MYSQL_USER=${MYSQL_USER}
+      - MYSQL_PASSWORD=${MYSQL_PASSWORD}
+      - MYSQL_ROOT_PASSWORD=${MYSQL_ROOT_PASSWORD}
+      - TZ=Asia/Seoul
     volumes:
       - private-db-data:/var/lib/mysql
       # 필요 시 설정/초기화 스크립트 활성화
@@ -100,20 +42,20 @@ services:
       - .env.private
     environment:
       - TZ=Asia/Seoul
-      - OLLAMA_HOST=ollama:11434
-      - REDIS_HOST=redis
-      - REDIS_PORT=6379
+      - DATABASE_URL=mysql+pymysql://${MYSQL_USER}:${MYSQL_PASSWORD}@mysql:3306/${MYSQL_DATABASE}
+      - ENABLE_CRAWLER_SCHEDULER=${ENABLE_CRAWLER_SCHEDULER:-false}
+      - DISPLAY=:99
+    # 리버스 프록시 뒤에 둘 때는 포트 매핑 비활성화 가능
     ports:
-      - "8000:8000"
+      - "${STANDARDIZER_PORT:-8000}:8000"
     depends_on:
       mysql:
         condition: service_healthy
-      redis:
-        condition: service_healthy
-      ollama:
-        condition: service_healthy
-      model-init:
-        condition: service_completed_successfully
+    # 크롤러를 위한 추가 권한
+    cap_add:
+      - SYS_ADMIN
+    security_opt:
+      - seccomp:unconfined
     # (권장) 헬스체크가 있다면 추가
     # healthcheck:
     #   test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
@@ -121,6 +63,10 @@ services:
     #   timeout: 10s
     #   retries: 3
     #   start_period: 30s
+    volumes:
+      - shared-data:/app/data
+      - crawler-data:/app/output
+      - /dev/shm:/dev/shm  # Chrome 성능 향상을 위한 공유 메모리
     networks:
       - app-net
     restart: unless-stopped
@@ -135,20 +81,13 @@ services:
       - .env.private
     environment:
       - TZ=Asia/Seoul
-      - OLLAMA_HOST=ollama:11434
-      - REDIS_HOST=redis
-      - REDIS_PORT=6379
     ports:
-      - "8100:8100"
+      - "${SUMMARY_PORT:-8100}:8100"
     depends_on:
       mysql:
         condition: service_healthy
-      redis:
-        condition: service_healthy
-      ollama:
-        condition: service_healthy
-      model-init:
-        condition: service_completed_successfully
+    volumes:
+      - shared-data:/app/data
     networks:
       - app-net
     restart: unless-stopped
@@ -163,28 +102,21 @@ services:
       - .env.private
     environment:
       - TZ=Asia/Seoul
-      - OLLAMA_HOST=ollama:11434
-      - REDIS_HOST=redis
-      - REDIS_PORT=6379
     ports:
-      - "8200:8200"
+      - "${NEWS_SUMMARY_PORT:-8200}:8200"
     depends_on:
       mysql:
         condition: service_healthy
-      redis:
-        condition: service_healthy
-      ollama:
-        condition: service_healthy
-      model-init:
-        condition: service_completed_successfully
+    volumes:
+      - shared-data:/app/data
     networks:
       - app-net
     restart: unless-stopped
 
 volumes:
   private-db-data:
-  redis-data:
-  ollama-models:
+  shared-data:
+  crawler-data:
 
 networks:
   app-net:

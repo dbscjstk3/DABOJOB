@@ -1,6 +1,20 @@
 fastapi==0.111.0
 uvicorn[standard]==0.30.1
 ollama==0.3.3
-redis==5.0.8
-pydantic==2.10.0
+pydantic==2.8.2
+redis==5.0.1
+aiomysql==0.2.0
+aiohttp==3.9.1
+beautifulsoup4==4.12.2
+
+# AWS SDK (S3 업로드용)
+boto3==1.34.0
+botocore==1.34.0
+
+# 환경 변수 관리
 python-dotenv==1.0.0
+
+# 추가 웹 크롤링 도구
+newspaper3k==0.2.8
+lxml==4.9.3
+requests==2.31.0
