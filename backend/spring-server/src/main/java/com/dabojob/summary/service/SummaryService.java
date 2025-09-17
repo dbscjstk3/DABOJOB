@@ -55,4 +55,31 @@ public class SummaryService {
         //TODO: 엘라스틱 서치 도입 후 서치 로직 도입
         return Page.empty();
     }
+
+    public SummaryResponse getFirstSummaryByCompanyId(String companyId) {
+        try {
+            Long parsedCompanyId = Long.parseLong(companyId);
+
+            CompanyAnalysisSummary summary = summaryRepository.findFirstByCompany_CompanyIdOrderByCreatedAtDesc(parsedCompanyId)
+                    .orElseThrow(() -> new EntityNotFoundException("Summary not found with companyId: " + companyId));
+
+            List<SummaryHashtag> allSummaryHashtags = summaryHashtagRepository.findBySummary_SummaryId(summary.getSummaryId());
+
+            Map<ChapterType, List<String>> chapterHashtags = allSummaryHashtags.stream()
+                    .collect(Collectors.groupingBy(
+                            SummaryHashtag::getChapterType,
+                            Collectors.mapping(sh -> sh.getHashtag().getHashtagName(), Collectors.toList())
+                    ));
+
+            // 빈 챕터들을 위해 모든 ChapterType 초기화
+            for (ChapterType chapterType : ChapterType.values()) {
+                chapterHashtags.putIfAbsent(chapterType, new ArrayList<>());
+            }
+
+            return SummaryResponse.of(summary, chapterHashtags);
+
+        } catch (NumberFormatException e) {
+            throw new IllegalArgumentException("Invalid company ID format: " + companyId);
+        }
+    }
 }
