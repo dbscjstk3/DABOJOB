@@ -1,5 +1,7 @@
 import { Button } from '../components/common/atoms/Button';
 import { Typography } from '../components/common/atoms/Typography';
+import { LoginVisual } from '../components/common/molecules/LoginVisual';
+import { BackgroundDecorations } from '../components/common/molecules/BackgroundDecorations';
 import { API_ENDPOINTS } from '../lib/api';
 import DABOJOB_logo from '../assets/logo/DABOJOB_logo.svg';
 import SSAFY_logo from '../assets/logo/ssafyLogo.png';
