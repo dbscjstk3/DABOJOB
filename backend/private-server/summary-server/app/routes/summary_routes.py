@@ -144,23 +144,21 @@ async def re_summarize_standardized(job_id: str, max_length: int = 800, extract_
             k: v for k, v in summaries.items() if v is not None
         })
         
-        # 해시태그 추출 및 Redis 발행
+        # 해시태그 추출 및 실시간 Redis 발행
         hashtags = {}
         if extract_hashtags and summaries:
             try:
-                # 해시태그 추출
+                # Redis Publisher 초기화
+                publisher = RedisPublisher()
+
+                # 해시태그 스트리밍 추출 (완료되는 대로 즉시 전솨)
                 extractor = HashtagExtractor(client, model_name)
-                hashtags = await extractor.extract_hashtags(summaries)
+                hashtags = await extractor.extract_hashtags_streaming(job_id, summaries, publisher)
                 extractor.cleanup()
-                
-                # Redis Streams로 발행
-                if hashtags:
-                    publisher = RedisPublisher()
-                    success = publisher.publish_hashtags(job_id, hashtags)
-                    if success:
-                        logger.info(f"Published hashtags to Redis for job {job_id}")
-                    publisher.cleanup()
-                    
+                publisher.cleanup()
+
+                logger.info(f"Hashtag streaming completed for job {job_id}")
+
             except Exception as e:
                 logger.error(f"Failed to extract/publish hashtags: {e}")
                 # 해시태그 실패해도 요약은 성공으로 처리
