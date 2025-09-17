@@ -15,8 +15,9 @@ import json
 from .base_crawler import BaseCrawler
 from ..models.crawler_models import (
     Company, JobPosting, JobSector, Region,
-    JobPostingSector, JobPostingRegion, CrawlingLog
+    JobPostingSector, JobPostingRegion, CrawlingLog, CompanyDartMapping, MappingStatus
 )
+from ..services.company_mapper import CompanyMappingService
 from sqlalchemy.orm import Session
 from sqlalchemy.exc import IntegrityError
 
@@ -284,6 +285,12 @@ class SaraminCrawler(BaseCrawler):
         self.base_url = base_url
         self.db_session = db_session
         self.crawl_log_id = None
+
+        # 매핑 서비스 초기화
+        self.mapping_service = CompanyMappingService() if db_session else None
+
+        # 매핑 캐시 (한 번 확인한 회사는 재확인 방지)
+        self.mapping_cache = {}  # {company_name: is_mappable}
 
     def crawl(self, max_pages: int = 5) -> Dict[str, Any]:
         """
@@ -586,6 +593,11 @@ class SaraminCrawler(BaseCrawler):
                     self.logger.warning(f"회사명이 없어 건너뜁니다: job_title={job_data.get('job_title')}")
                     continue
 
+                # 실시간 매핑 확인 (매핑 불가능한 회사는 저장하지 않음)
+                if not self._is_company_mappable(job_data['company_name']):
+                    self.logger.info(f"DART 매핑 불가능으로 저장 생략: {job_data['company_name']}")
+                    continue
+
                 company_id = self._save_or_update_company(job_data)
                 if not company_id:
                     continue
@@ -643,6 +655,105 @@ class SaraminCrawler(BaseCrawler):
         except Exception as e:
             self.logger.error(f"회사 정보 저장 실패: {e}")
             raise
+
+    def _is_company_mappable(self, company_name: str) -> bool:
+        """
+        회사가 DART 매핑 가능한지 실시간 확인
+
+        Args:
+            company_name: 회사명
+
+        Returns:
+            bool: 매핑 가능 여부
+        """
+        if not self.mapping_service or not company_name:
+            return False
+
+        # 캐시에서 먼저 확인
+        if company_name in self.mapping_cache:
+            return self.mapping_cache[company_name]
+
+        try:
+            # 1. 이미 매핑된 회사인지 확인
+            existing_mapping = self.db_session.query(CompanyDartMapping)\
+                .join(Company)\
+                .filter(Company.company_name == company_name)\
+                .first()
+
+            if existing_mapping:
+                # 이미 검증된 매핑이 있으면 OK
+                if existing_mapping.mapping_status == MappingStatus.verified:
+                    self.mapping_cache[company_name] = True
+                    return True
+                # 제안된 매핑이 있으면 OK (검증 대기 중)
+                elif existing_mapping.mapping_status == MappingStatus.suggested:
+                    self.mapping_cache[company_name] = True
+                    return True
+                # 실패한 매핑이면 NO
+                elif existing_mapping.mapping_status == MappingStatus.failed:
+                    self.mapping_cache[company_name] = False
+                    return False
+
+            # 2. 새로운 회사라면 간단한 휴리스틱 검사
+            is_mappable = self._quick_mapping_check(company_name)
+            self.mapping_cache[company_name] = is_mappable
+
+            if is_mappable:
+                self.logger.info(f"새 회사 매핑 가능 예상: {company_name}")
+            else:
+                self.logger.info(f"새 회사 매핑 불가능 예상: {company_name}")
+
+            return is_mappable
+
+        except Exception as e:
+            self.logger.error(f"매핑 확인 실패 {company_name}: {e}")
+            self.mapping_cache[company_name] = False
+            return False
+
+    def _quick_mapping_check(self, company_name: str) -> bool:
+        """
+        간단한 휴리스틱으로 매핑 가능성 예측
+        """
+        # 너무 짧은 회사명은 매핑 어려움
+        if len(company_name) < 2:
+            return False
+
+        # 숫자만 있는 회사명은 매핑 어려움
+        if company_name.isdigit():
+            return False
+
+        # 특수문자만 있는 경우
+        import re
+        if not re.search(r'[가-힣A-Za-z]', company_name):
+            return False
+
+        # 일반적인 대기업, 중견기업 키워드
+        big_company_keywords = [
+            '삼성', 'LG', '현대', '기아', 'SK', 'KT', '롯데', '포스코',
+            '한화', 'GS', 'CJ', '아모레', '카카오', '네이버', '쿠팡',
+            '주식회사', '(주)', '㈜', '그룹', '홀딩스'
+        ]
+
+        for keyword in big_company_keywords:
+            if keyword in company_name:
+                return True
+
+        # 기본적으로 시도해볼 가치가 있다고 판단
+        return True
+
+    def get_mapping_stats(self) -> Dict[str, int]:
+        """
+        크롤링 중 매핑 통계 반환
+        """
+        mappable_count = sum(1 for is_mappable in self.mapping_cache.values() if is_mappable)
+        unmappable_count = len(self.mapping_cache) - mappable_count
+
+        return {
+            "total_companies_checked": len(self.mapping_cache),
+            "mappable_companies": mappable_count,
+            "unmappable_companies": unmappable_count,
+            "mapping_rate": round(mappable_count / len(self.mapping_cache) * 100, 2) if self.mapping_cache else 0
+        }
 
     def _save_job_posting(self, company_id: int, job_data: Dict[str, Any]) -> Optional[int]:
         try:
