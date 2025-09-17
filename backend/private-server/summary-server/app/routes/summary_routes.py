@@ -52,7 +52,7 @@ async def summarize_content(request: SummarizeRequest) -> SummarizeResponse:
         logger.info(f"Processing summary: mapping_id={request.mapping_id}, chapter={request.chapter}")
         
         client = get_ollama_client()
-        model_name = os.getenv('SUMMARY_MODEL', 'qwen2.5:0.5b-instruct-fp16')
+        model_name = os.getenv('SUMMARY_MODEL', 'llama3.2:1b-instruct-fp16')
         
         # 개선된 Qwen 모델을 사용한 긴 텍스트 요약 (async 함수 호출)
         summary = await qwen_summarize_long(
@@ -119,7 +119,7 @@ async def re_summarize_standardized(job_id: str, max_length: int = 800, extract_
             raise HTTPException(status_code=404, detail=f"No standardized files found for job {job_id}")
         
         client = get_ollama_client()
-        model_name = os.getenv('SUMMARY_MODEL', 'qwen2.5:0.5b-instruct-fp16')
+        model_name = os.getenv('SUMMARY_MODEL', 'llama3.2:1b-instruct-fp16')
         
         summaries = {}
         
