@@ -1,133 +1,96 @@
-import { useEffect, useState } from 'react';
 import { Button } from '../components/common/atoms/Button';
-import { cn } from '../lib/utils';
+import { Typography } from '../components/common/atoms/Typography';
 import { API_ENDPOINTS } from '../lib/api';
-import DABOJOBLogo from '../assets/logo/DABOJOB_logo.svg';
-import GoogleLogo from '../assets/logo/googleLogo.svg';
-import SSAFYLogo from '../assets/logo/ssafyLogo.png';
-import Cactus from '../assets/img/cactus.svg';
-import Woman from '../assets/img/woman.svg';
+import DABOJOB_logo from '../assets/logo/DABOJOB_logo.svg';
+import SSAFY_logo from '../assets/logo/ssafyLogo.png';
+import GOOGLE_logo from '../assets/logo/googleLogo.svg';
 
-type LoginPageProps = {
-  redirectTo?: string;
-};
-
-export default function LoginPage({ redirectTo: _redirectTo }: LoginPageProps) {
-  // 디자인 기준 사이즈(카드): 1366 x 849
-  const BASE_WIDTH = 1366;
-  const BASE_HEIGHT = 849;
-  const [scale, setScale] = useState(1);
-
-  useEffect(() => {
-    const computeScale = () => {
-      const margin = 24; // 좌우/상하 여백
-      const availableW = window.innerWidth - margin * 2;
-      const availableH = window.innerHeight - margin * 2;
-      const scaleW = availableW / BASE_WIDTH;
-      const scaleH = availableH / BASE_HEIGHT;
-      const next = Math.min(scaleW, scaleH, 1); // 1배 초과로 커지지 않도록 제한
-      setScale(next);
-    };
-    computeScale();
-    window.addEventListener('resize', computeScale);
-    return () => window.removeEventListener('resize', computeScale);
-  }, []);
-  const handleSSAFYLogin = () => {
-    console.log('🚀 SSAFY 로그인 시도');
-    console.log('📡 OAuth URL:', API_ENDPOINTS.AUTH.LOGIN('ssafy'));
-    console.log('🔄 리다이렉트 대상:', _redirectTo || '/');
-
-    // 실제 로그인 로직 (현재는 시뮬레이션)
-    // 실제 구현 시 아래 코드 사용
-    if (_redirectTo) {
-      sessionStorage.setItem('post_login_redirect', _redirectTo);
-      console.log('💾 리다이렉트 URL 저장:', _redirectTo);
-    }
-
-    console.log('🌐 OAuth 페이지로 리다이렉트 중...');
-    window.location.href = API_ENDPOINTS.AUTH.LOGIN('ssafy');
-  };
-
-  const handleGoogleLogin = () => {
-    console.log('🚀 Google 로그인 시도');
-    console.log('📡 OAuth URL:', API_ENDPOINTS.AUTH.LOGIN('google'));
-    console.log('🔄 리다이렉트 대상:', _redirectTo || '/');
-
-    // 실제 로그인 로직 (현재는 시뮬레이션)
-    // 실제 구현 시 아래 코드 사용
-    if (_redirectTo) {
-      sessionStorage.setItem('post_login_redirect', _redirectTo);
-      console.log('💾 리다이렉트 URL 저장:', _redirectTo);
-    }
-
-    console.log('🌐 OAuth 페이지로 리다이렉트 중...');
-    window.location.href = API_ENDPOINTS.AUTH.LOGIN('google');
-  };
-
+export default function LoginPage() {
   return (
-    <div className={cn('min-h-screen w-full flex items-center justify-center p-4', 'bg-white')}>
-      {/* 스케일 래퍼: 스케일 적용 후도 가운데 정렬 유지 */}
-      <div style={{ width: BASE_WIDTH * scale, height: BASE_HEIGHT * scale }}>
-        {/* 메인 카드 */}
-        <div
-          className="relative w-[1366px] h-[849px] rounded-[40px] bg-white shadow-[4px_4px_70px_rgba(0,0,0,0.1)] overflow-hidden"
-          style={{ transform: `scale(${scale})`, transformOrigin: 'top left' }}
-        >
-          {/* 우측 컬러 패널 */}
-          <div className="absolute top-0 right-0 h-full w-[489px] bg-[#C0DBEA] rounded-[40px]" />
+    <div className="min-h-screen w-full bg-gradient-to-br from-blue-50 via-slate-50 to-indigo-100 flex items-center justify-center px-4 py-16 relative overflow-hidden">
+      {/* 배경 장식 요소들 */}
+      <div className="absolute top-20 left-10 w-20 h-20 bg-blue-200/30 rounded-full blur-xl"></div>
+      <div className="absolute bottom-20 right-10 w-32 h-32 bg-indigo-200/30 rounded-full blur-xl"></div>
+      <div className="absolute top-1/2 left-1/4 w-16 h-16 bg-purple-200/30 rounded-full blur-lg"></div>
 
-          {/* 상단 로고 */}
-          <div className="absolute left-[100px] top-[100px] z-10">
-            <img src={DABOJOBLogo} alt="DABOJOB" className="h-[74px] w-auto" />
-          </div>
-
-          {/* 일러스트 - woman */}
+      <div className="mx-auto grid max-w-5xl grid-cols-1 overflow-hidden rounded-3xl bg-white shadow-2xl border border-slate-200 md:grid-cols-2 h-auto md:h-[600px] w-full animate-in fade-in slide-in-from-bottom-3 duration-300 relative z-10">
+        {/* 모바일용 상단 비주얼 영역 */}
+        <div className="relative block md:hidden h-56">
           <img
-            src={Woman}
-            alt="woman"
-            className="absolute left-[600px] top-[279px] h-[703px] w-auto pointer-events-none select-none z-10"
+            alt="login visual"
+            src="https://images.unsplash.com/photo-1521737604893-d14cc237f11d?q=80&w=1470&auto=format&fit=crop"
+            className="h-full w-full object-cover"
           />
+          <div className="absolute inset-0 bg-slate-900/20" />
+          <div className="absolute bottom-4 left-4 right-4 text-white text-center">
+            <Typography as="div" variant="subtitle" weight="semibold" color="white">
+              모든 채용 공고를 한 눈에
+            </Typography>
+            <Typography variant="default" color="white" className="text-white/80 mt-1">
+              AI 기반 기업 분석 서비스
+            </Typography>
+          </div>
+        </div>
 
-          {/* 싸피 로그인 버튼 */}
-          <div className="absolute left-[130px] top-[400px] w-[472px] h-[100px] z-10">
+        {/* 좌측 비주얼 영역 (데스크톱) */}
+        <div className="relative hidden md:block">
+          <img
+            alt="login visual"
+            src="https://images.unsplash.com/photo-1521737604893-d14cc237f11d?q=80&w=1470&auto=format&fit=crop"
+            className="h-full w-full object-cover"
+          />
+          <div className="absolute inset-0 bg-slate-900/20" />
+          <div className="absolute bottom-6 left-6 right-6 text-white">
+            <Typography as="div" variant="subtitle" weight="semibold" color="white">
+              모든 채용 공고를 한 눈에
+            </Typography>
+            <Typography variant="default" color="white" className="text-white/80 mt-1">
+              AI 기반 기업 분석 서비스
+            </Typography>
+          </div>
+        </div>
+
+        {/* 우측 액션 영역 */}
+        <div className="p-8 md:p-12">
+          <div className="flex items-center gap-3">
+            <img
+              src={DABOJOB_logo}
+              alt="DABOJOB : ) 다보자"
+              className="h-12 md:h-10 lg:h-12 w-auto"
+            />
+          </div>
+          <Typography as="h2" variant="title" weight="bold" className="mt-8 text-slate-900">
+            로그인
+          </Typography>
+          <Typography variant="default" color="gray" className="mt-2">
+            소셜 계정으로 간편하게 로그인하세요.
+          </Typography>
+
+          <div className="mt-8 md:mt-28 grid gap-5">
             <Button
-              onClick={handleSSAFYLogin}
-              startIcon={
-                <img src={SSAFYLogo} alt="SSAFY" className="h-[47px] w-[66px] object-contain" />
-              }
-              className={cn(
-                'w-full h-full rounded-[21px] bg-white shadow-[0_38.49px_71.48px_rgba(0,0,0,0.07)]',
-                'flex items-center gap-[31.5px] pl-[31.5px] pr-[31.5px] justify-center border border-gray-200',
-              )}
+              variant="outlined"
+              size="lg"
+              startIcon={<img src={GOOGLE_logo} alt="GOOGLE" className="h-6 w-6" />}
+              onClick={() => (window.location.href = API_ENDPOINTS.AUTH.LOGIN('google'))}
+              className="w-full justify-center h-12 border-gray-300 shadow-md hover:shadow-lg transition-all duration-200 hover:scale-[1.02]"
             >
-              <span className="text-[32px] leading-[38px] font-medium text-black/60">
-                싸피 로그인
-              </span>
+              <Typography variant="default" weight="semibold" className="text-base">
+                Google 로그인
+              </Typography>
+            </Button>
+
+            <Button
+              variant="outlined"
+              size="lg"
+              startIcon={<img src={SSAFY_logo} alt="SSAFY" className="h-6 w-6" />}
+              onClick={() => (window.location.href = API_ENDPOINTS.AUTH.LOGIN('ssafy'))}
+              className="w-full justify-center h-12 border-gray-300 shadow-md hover:shadow-lg transition-all duration-200 hover:scale-[1.02]"
+            >
+              <Typography variant="default" weight="semibold" className="text-base">
+                SSAFY 로그인
+              </Typography>
             </Button>
           </div>
-
-          {/* 구글 로그인 버튼 */}
-          <div className="absolute left-[130px] top-[530px] w-[472px] h-[100px] z-10">
-            <Button
-              onClick={handleGoogleLogin}
-              startIcon={<img src={GoogleLogo} alt="Google" className="h-[50px] w-[50px]" />}
-              className={cn(
-                'w-full h-full rounded-[21px] bg-white shadow-[0_38.49px_71.48px_rgba(0,0,0,0.07)]',
-                'flex items-center gap-[31.5px] pl-[31.5px] pr-[31.5px] justify-center border border-gray-200',
-              )}
-            >
-              <span className="text-[32px] leading-[38px] font-medium text-black/60">
-                구글 로그인
-              </span>
-            </Button>
-          </div>
-
-          {/* 선인장 일러스트 */}
-          <img
-            src={Cactus}
-            alt="cactus"
-            className="absolute right-[60px] bottom-0 h-[550px] w-auto pointer-events-none select-none z-0"
-          />
         </div>
       </div>
     </div>
