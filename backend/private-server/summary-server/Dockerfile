@@ -23,7 +23,7 @@ COPY requirements.txt ./
 RUN pip install --upgrade pip \
     && pip install -r requirements.txt
 
-# Copy only app directory contents to /app (avoiding nested app/app structure)
+# Copy app directory with proper structure
 COPY app/ ./app/
 
 # Hugging Face 캐시 디렉토리 생성

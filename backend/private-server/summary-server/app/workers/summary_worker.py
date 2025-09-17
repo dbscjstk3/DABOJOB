@@ -20,7 +20,7 @@ class SummaryWorker:
         self.redis_client = RedisClient()
         self.file_manager = FileManager()
         self.ollama_client = None
-        self.model_name = os.getenv('SUMMARY_MODEL', 'qwen2.5:0.5b-instruct-fp16')
+        self.model_name = os.getenv('SUMMARY_MODEL', 'llama3.2:1b-instruct-fp16')
         self.running = False
         
         # 카테고리별 요약 설정

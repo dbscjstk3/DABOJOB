@@ -71,7 +71,7 @@ def health_check() -> dict:
     return {
         "status": "ok",
         "service": "summary",
-        "model": os.getenv('SUMMARY_MODEL', 'qwen2.5:0.5b-instruct-fp16'),
+        "model": os.getenv('SUMMARY_MODEL', 'llama3.2:1b-instruct-fp16'),
         "ollama_host": os.getenv('OLLAMA_HOST', 'ollama:11434'),
         "worker_running": summary_worker.running
     }

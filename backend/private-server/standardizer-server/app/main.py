@@ -8,9 +8,11 @@ import asyncio
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from .routes import job_routes, dart_routes
+from .routes import job_routes, dart_routes, crawler_routes, mapping_routes
 from .workers.background_worker import BackgroundWorker
 from .services.standardizer import StandardizerService
+from .database import init_db
+from .crawlers.crawler_scheduler import CrawlerScheduler
 
 # 로깅 설정
 logging.basicConfig(level=logging.INFO)
@@ -35,12 +37,24 @@ app.add_middleware(
 # 서비스 인스턴스
 standardizer_service = StandardizerService()
 background_worker = BackgroundWorker()
+crawler_scheduler = None  # 스케줄러는 옵션으로 실행
 
 
 @app.on_event("startup")
 async def startup_event():
     """서버 시작 시 초기화"""
     try:
+        # 데이터베이스 초기화 (크롤러 테이블 포함)
+        from .models import crawler_models
+        from .database import engine
+        
+        # 크롤러 테이블 생성
+        crawler_models.Base.metadata.create_all(bind=engine)
+        logger.info("Crawler database tables created")
+        
+        init_db()
+        logger.info("Database initialized")
+        
         # 표준화 서비스 초기화
         await standardizer_service.initialize()
         logger.info("Standardizer service initialized")
@@ -49,6 +63,15 @@ async def startup_event():
         await background_worker.initialize()
         asyncio.create_task(background_worker.start())
         logger.info("Background worker started")
+        
+        # 크롤러 스케줄러 시작 (환경변수로 제어)
+        if os.getenv("ENABLE_CRAWLER_SCHEDULER", "false").lower() == "true":
+            global crawler_scheduler
+            from .database import SessionLocal
+            db = SessionLocal()
+            crawler_scheduler = CrawlerScheduler(db_session=db)
+            crawler_scheduler.start()
+            logger.info("Crawler scheduler started")
         
     except Exception as e:
         logger.error(f"Failed to initialize services: {e}")
@@ -61,6 +84,11 @@ async def shutdown_event():
     try:
         await background_worker.stop()
         logger.info("Background worker stopped")
+        
+        # 크롤러 스케줄러 중지
+        if crawler_scheduler:
+            crawler_scheduler.stop()
+            logger.info("Crawler scheduler stopped")
         
         # StandardizerService 정리
         await standardizer_service.shutdown()
@@ -93,6 +121,8 @@ def health_check() -> dict:
 # 라우터 등록
 app.include_router(job_routes.router)
 app.include_router(dart_routes.router)
+app.include_router(crawler_routes.router)
+app.include_router(mapping_routes.router)
 
 
 if __name__ == "__main__":
