@@ -88,7 +88,7 @@ class RedisConsumer:
         try:
             # 해시태그 메시지 처리
             job_id_raw = message.get('job_id')
-            chapter_raw = message.get('category')
+            chapter = message.get('category')
             hashtags_json = message.get('hashtags', '[]')
 
             # 타입 검증 및 변환
@@ -97,10 +97,10 @@ class RedisConsumer:
                 return False
             job_id = int(job_id_raw)
 
-            if not chapter_raw:
+            # chapter 검증
+            if not chapter:
                 logger.error("chapter is missing in message")
                 return False
-            chapter = int(chapter_raw)
 
             # JSON 파싱
             if isinstance(hashtags_json, str):
@@ -108,10 +108,15 @@ class RedisConsumer:
             else:
                 hashtags = hashtags_json
 
+            # hashtags 검증
+            if not hashtags or not isinstance(hashtags, list):
+                logger.warning(f"No valid hashtags found for job {job_id}, chapter {chapter}")
+                return True  # 해시태그가 없어도 성공으로 처리
+
             logger.info(f"Processing hashtags for job {job_id}, chapter {chapter}: {hashtags}")
 
             # 해시태그를 DB에 저장 (summary_id는 임시로 0 사용)
-            await database.save_hashtags(job_id, 0, str(chapter), hashtags)
+            await database.save_hashtags(job_id, 0, chapter, hashtags)
             
             # 뉴스 검색 실행
             total_news_count = 0
@@ -142,7 +147,7 @@ class RedisConsumer:
             await self._increment_counter_and_check_completion(job_id)
             
             # 처리 결과를 Redis에 저장 (옵션)
-            if self.client:
+            if self.client and chapter:
                 result_key = f"news:result:{job_id}:{chapter}"
                 result_data: Dict[str, str] = {
                     'job_id': str(job_id),
@@ -160,7 +165,7 @@ class RedisConsumer:
             logger.error(f"Failed to process message: {e}")
             return False
 
-    async def _save_and_get_hashtag_id(self, job_id: int, chapter: int, hashtag: str) -> int:
+    async def _save_and_get_hashtag_id(self, job_id: int, chapter: str, hashtag: str) -> int:
         """해시태그를 DB에 저장하고 ID 반환"""
         try:
             # 이미 존재하는 해시태그인지 확인
@@ -242,7 +247,7 @@ class RedisConsumer:
                     await asyncio.sleep(1)
                     continue
 
-                # 메시지 읽기 (블로킹, 타임아웃 1초)
+                # 새로운 메시지만 읽기 (pending 메시지 처리 제거)
                 messages = self.client.xreadgroup(
                     self.consumer_group,
                     self.consumer_name,
