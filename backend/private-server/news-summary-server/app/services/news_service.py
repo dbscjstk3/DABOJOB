@@ -374,19 +374,238 @@ class NewsService:
             return None
     
     def _extract_text_from_html(self, html: str) -> str:
-        """HTML에서 텍스트 추출 (간단한 버전)"""
-        # HTML 태그 제거
-        text = re.sub('<[^<]+?>', '', html)
-        # 공백 정리
-        text = re.sub(r'\s+', ' ', text).strip()
-        return text
+        """BeautifulSoup를 사용한 고품질 HTML 텍스트 추출"""
+        try:
+            from bs4 import BeautifulSoup
+
+            # BeautifulSoup로 HTML 파싱
+            soup = BeautifulSoup(html, 'html.parser')
+
+            # 불필요한 태그들 완전 제거
+            unwanted_tags = [
+                'script', 'style', 'meta', 'link', 'noscript', 'iframe',
+                'embed', 'object', 'head', 'header', 'footer', 'nav',
+                'aside', 'form', 'input', 'button', 'select', 'textarea'
+            ]
+
+            for tag in unwanted_tags:
+                for element in soup.find_all(tag):
+                    element.decompose()
+
+            # 광고나 불필요한 클래스/ID 제거
+            unwanted_classes = [
+                'advertisement', 'ad', 'ads', 'banner', 'popup', 'modal',
+                'sidebar', 'menu', 'navigation', 'footer', 'header',
+                'social', 'share', 'comment', 'related', 'recommend'
+            ]
+
+            for class_name in unwanted_classes:
+                for element in soup.find_all(attrs={'class': re.compile(class_name, re.I)}):
+                    element.decompose()
+                for element in soup.find_all(attrs={'id': re.compile(class_name, re.I)}):
+                    element.decompose()
+
+            # 본문 텍스트만 추출 (우선순위: article > main > div.content > p)
+            main_content = None
+
+            # 1. article 태그 찾기
+            article = soup.find('article')
+            if article:
+                main_content = article.get_text()
+
+            # 2. main 태그 찾기
+            if not main_content:
+                main = soup.find('main')
+                if main:
+                    main_content = main.get_text()
+
+            # 3. content 관련 div 찾기
+            if not main_content:
+                content_div = soup.find('div', attrs={'class': re.compile(r'content|article|body', re.I)})
+                if content_div:
+                    main_content = content_div.get_text()
+
+            # 4. 전체에서 텍스트 추출
+            if not main_content:
+                main_content = soup.get_text()
+
+            # 텍스트 정제
+            text = main_content
+
+            # 연속된 공백과 줄바꿈 정리
+            text = re.sub(r'\s+', ' ', text)
+            text = re.sub(r'\n\s*\n', '\n', text)
+
+            # 불필요한 패턴 제거
+            unwanted_patterns = [
+                r'function\s*\([^)]*\)\s*\{.*?\}',  # JavaScript 함수
+                r'var\s+\w+\s*=.*?;',  # JavaScript 변수
+                r'\$\([^)]*\)',  # jQuery 선택자
+                r'document\.\w+.*?;',  # DOM 조작
+                r'window\.\w+.*?;',  # Window 객체
+                r'console\.\w+.*?;',  # Console 로그
+                r'gtm\.|gtag\(|ga\(',  # Google Analytics
+                r'facebook|twitter|instagram|youtube',  # SNS 관련
+                r'저작권|copyright|©|\(c\)',  # 저작권 표시
+                r'구독|좋아요|공유|댓글',  # 소셜 액션
+                r'더보기|펼치기|접기|토글',  # UI 요소
+                r'로그인|회원가입|마이페이지',  # 계정 관련
+            ]
+
+            for pattern in unwanted_patterns:
+                text = re.sub(pattern, '', text, flags=re.IGNORECASE)
+
+            # HTML 엔티티 정리
+            text = text.replace('&nbsp;', ' ').replace('&lt;', '<').replace('&gt;', '>')
+            text = text.replace('&amp;', '&').replace('&quot;', '"').replace('&#39;', "'")
+            text = text.replace('&hellip;', '...').replace('&middot;', '·')
+
+            # 최종 정리
+            text = text.strip()
+
+            # 너무 짧으면 원본 반환
+            if len(text) < 50:
+                # fallback: 정규식으로 간단 정제
+                text = re.sub(r'<[^>]+>', '', html)
+                text = re.sub(r'\s+', ' ', text).strip()
+
+            return text
+
+        except Exception as e:
+            logger.warning(f"BeautifulSoup 파싱 실패, fallback 사용: {e}")
+            # BeautifulSoup 실패 시 기존 방식 사용
+            text = re.sub(r'<script[^>]*>.*?</script>', '', html, flags=re.DOTALL | re.IGNORECASE)
+            text = re.sub(r'<style[^>]*>.*?</style>', '', html, flags=re.DOTALL | re.IGNORECASE)
+            text = re.sub(r'<[^>]+>', '', text)
+            text = re.sub(r'\s+', ' ', text).strip()
+            return text
     
     async def _summarize_content(self, content: str, hashtag: str) -> str:
         """AI로 뉴스 내용 요약"""
-        # TODO: 실제 AI 요약 로직 구현 (OpenAI, Ollama 등)
-        summary = f"{hashtag} 관련 뉴스 요약: {content[:200]}..."
-        logger.info(f"Summarizing content for hashtag: {hashtag}")
-        return summary
+        try:
+            # utils.py의 clean_text 함수 사용
+            from ..utils import clean_text
+
+            # 텍스트 정제
+            cleaned_content = clean_text(content)
+
+            # 텍스트가 너무 짧으면 그대로 반환
+            if len(cleaned_content.strip()) < 50:
+                return cleaned_content.strip() or "관련 뉴스입니다."
+
+            # Ollama 클라이언트 가져오기
+            from ..main import ollama_client, MODEL_NAME
+
+            if not ollama_client:
+                logger.warning("Ollama client not available, using fallback summary")
+                return cleaned_content[:150] + ("..." if len(cleaned_content) > 150 else "")
+
+            # AI 요약 프롬프트
+            prompt = f"""다음 뉴스 기사를 {hashtag} 해시태그와 관련된 핵심 내용 중심으로 정확히 2개의 완전한 한국어 문장으로 요약하세요.
+
+필수 조건:
+1. 반드시 150자 이내로 작성한다.
+2. 정확히 2개의 완전한 한국어 문장으로만 구성한다.
+3. {hashtag}와 관련된 핵심 내용만 포함한다.
+4. 중국어, 영어 등 다른 언어 사용 금지한다.
+5. 사진이나 이미지 관련 내용은 제외한다.
+6. "..."과 ":" 같은 생략 표시는 사용하지 않는다.
+7. 순수한 뉴스 내용만 요약해서 응답한다. 
+
+기사 내용:
+{cleaned_content[:1500]}
+
+150자 이내 2문장 요약:"""
+
+            response = ollama_client.chat(
+                model=MODEL_NAME,
+                messages=[{"role": "user", "content": prompt}],
+                options={
+                    "temperature": 0.1,
+                    "top_p": 0.9,
+                    "num_predict": 150
+                }
+            )
+
+            summary = response['message']['content'].strip()
+
+            # 후처리 1: 강력한 prefix 제거 (정규식 사용)
+            import re
+
+            # 다양한 패턴의 prefix 제거 (더 포괄적)
+            prefix_patterns = [
+                rf"^{re.escape(hashtag)}\s*관련\s*뉴스\s*요약\s*[:：]?\s*",
+                rf"^{re.escape(hashtag)}\s*관련\s*뉴스\s*[:：]?\s*",
+                r"^[가-힣a-zA-Z0-9\s]+관련\s*뉴스\s*요약\s*[:：]?\s*",
+                r"^[가-힣a-zA-Z0-9\s]+관련\s*뉴스\s*[:：]?\s*",
+                r"^뉴스\s*요약\s*[:：]?\s*",
+                r"^요약\s*[:：]?\s*",
+                r"^기사\s*요약\s*[:：]?\s*",
+                r"^내용\s*요약\s*[:：]?\s*",
+                r"^순수\s*뉴스\s*요약\s*[:：]?\s*",
+                r"^한국어\s*\d*자?\s*요약\s*[:：]?\s*",
+                # 특정 단어들로 시작하는 패턴도 제거
+                r"^VR\s*관련\s*뉴스\s*요약\s*[:：]?\s*",
+                r"^AI\s*관련\s*뉴스\s*요약\s*[:：]?\s*",
+                r"^IoT\s*관련\s*뉴스\s*요약\s*[:：]?\s*",
+                r"^5G\s*관련\s*뉴스\s*요약\s*[:：]?\s*",
+                r"^메타버스\s*관련\s*뉴스\s*요약\s*[:：]?\s*",
+                r"^블록체인\s*관련\s*뉴스\s*요약\s*[:：]?\s*",
+                r"^스마트시티\s*관련\s*뉴스\s*요약\s*[:：]?\s*",
+                r"^신기술\s*관련\s*뉴스\s*요약\s*[:：]?\s*",
+            ]
+
+            # 모든 패턴을 순차적으로 적용
+            for pattern in prefix_patterns:
+                summary = re.sub(pattern, "", summary, flags=re.IGNORECASE).strip()
+
+            # 추가: 더 간단한 방법으로 "XXX 관련 뉴스 요약:" 패턴 제거
+            summary = re.sub(r'^.*?관련\s*뉴스\s*요약\s*[:：]?\s*', '', summary, flags=re.IGNORECASE)
+            summary = re.sub(r'^.*?뉴스\s*요약\s*[:：]?\s*', '', summary, flags=re.IGNORECASE)
+
+            # 최종: 강력한 prefix 제거 - 어떤 패턴이든 제거
+            # 1. 콜론 기준 분할
+            if ':' in summary:
+                parts = summary.split(':', 1)
+                if len(parts) > 1 and len(parts[1].strip()) > 10:  # 콜론 뒤에 의미있는 내용이 있으면
+                    summary = parts[1].strip()
+            elif '：' in summary:
+                parts = summary.split('：', 1)
+                if len(parts) > 1 and len(parts[1].strip()) > 10:
+                    summary = parts[1].strip()
+
+            # 2. 강력한 정규식으로 모든 종류의 prefix 제거
+            summary = re.sub(r'^[^가-힣]*[가-힣]*\s*관련.*?[:：]?\s*', '', summary)
+            summary = re.sub(r'^.*?요약.*?[:：]?\s*', '', summary)
+            summary = re.sub(r'^.*?뉴스.*?[:：]?\s*', '', summary)
+
+            # 3. HTML 및 JavaScript 코드 제거
+            summary = summary.replace('&quot;', '"').replace('&amp;', '&').replace('&lt;', '<').replace('&gt;', '>')
+            summary = re.sub(r'<[^>]+>', '', summary)
+            summary = re.sub(r'//.*?$', '', summary, flags=re.MULTILINE)
+            summary = re.sub(r'var\s+\w+.*?;', '', summary)
+            summary = re.sub(r'function\s*\([^)]*\)', '', summary)
+            summary = re.sub(r'\{[^}]*\}', '', summary)  # JSON 객체 제거
+            summary = re.sub(r'<!--.*?-->', '', summary)  # HTML 주석 제거
+
+            summary = summary.strip()
+
+            # 후처리 2: 150자 제한 확인
+            if len(summary) > 150:
+                summary = summary[:147] + "..."
+
+            # 후처리 3: 빈 문자열 체크
+            if not summary:
+                summary = cleaned_content[:150] + ("..." if len(cleaned_content) > 150 else "")
+
+            logger.info(f"Summarizing content for hashtag: {hashtag}")
+            return summary
+
+        except Exception as e:
+            logger.error(f"Error in AI summarization: {e}")
+            # 실패 시 fallback
+            cleaned_content = content[:150].strip()
+            return cleaned_content + ("..." if len(content) > 150 else "")
     
     def _extract_company_name(self, content: str) -> str:
         """본문에서 기업명 추출"""
