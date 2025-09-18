@@ -60,9 +60,5 @@ class Config:
     def redis_url(self) -> str:
         return f"redis://{self.REDIS_HOST}:{self.REDIS_PORT}/{self.REDIS_DB}"
 
-    @property
-    def ollama_url(self) -> str:
-        return f"http://{self.OLLAMA_HOST}:{self.OLLAMA_PORT}"
-
 # 전역 config 인스턴스 생성
 config = Config()
