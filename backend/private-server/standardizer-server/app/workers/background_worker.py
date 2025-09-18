@@ -7,6 +7,7 @@ from typing import Dict, Any, Optional
 from datetime import datetime
 import logging
 
+from .. import config
 from ..services.dart_extractor import DartDocumentExtractor
 from ..services.standardizer import StandardizerService
 from ..services.file_manager import FileManager
