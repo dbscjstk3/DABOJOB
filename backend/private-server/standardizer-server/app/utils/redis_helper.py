@@ -44,22 +44,31 @@ class RedisHelper:
         if not self.redis_client:
             await self.connect()
 
-        try:
-            # Jobs stream consumer group
-            await asyncio.to_thread(
-                self.redis_client.xgroup_create,
-                config.JOBS_STREAM,
-                config.CONSUMER_GROUP,
-                id='0',
-                mkstream=True
-            )
-            logger.info(f"Created consumer group: {config.CONSUMER_GROUP}")
+        # 설정할 스트림들
+        streams = [
+            "crawler_stream",
+            "mapping_stream",
+            "dart_extract_stream",
+            "standardize_stream",
+            config.JOBS_STREAM
+        ]
 
-        except redis.ResponseError as e:
-            if "BUSYGROUP" in str(e):
-                logger.info(f"Consumer group already exists: {config.CONSUMER_GROUP}")
-            else:
-                raise RedisError(f"Failed to create consumer group: {e}")
+        for stream_name in streams:
+            try:
+                await asyncio.to_thread(
+                    self.redis_client.xgroup_create,
+                    stream_name,
+                    config.CONSUMER_GROUP,
+                    id='0',
+                    mkstream=True
+                )
+                logger.info(f"Created consumer group for stream {stream_name}: {config.CONSUMER_GROUP}")
+
+            except redis.ResponseError as e:
+                if "BUSYGROUP" in str(e):
+                    logger.info(f"Consumer group already exists for {stream_name}: {config.CONSUMER_GROUP}")
+                else:
+                    raise RedisError(f"Failed to create consumer group for {stream_name}: {e}")
 
     async def add_job(self, stream: str, data: Dict[str, Any]) -> str:
         """

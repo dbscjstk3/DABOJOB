@@ -52,6 +52,9 @@ class BackgroundWorker:
             self.crawler_service = CrawlerService()
             await self.crawler_service.initialize()
 
+            # Redis 스트림 및 Consumer Group 설정
+            await redis_helper.setup_streams()
+
             logger.info("Background worker services initialized")
 
         except Exception as e:
