@@ -281,6 +281,22 @@ class BackgroundWorker(BaseService):
 
             await redis_helper.update_job_status(job_id, "completed", result)
 
+            # DART 추출 성공 시 자동으로 표준화 작업 시작
+            if result.get("status") == "extracted" and result.get("content"):
+                self.logger.info(f"📄 DART extraction completed for {job_data.get('company_name')}. Starting standardization...")
+
+                # 표준화 작업을 Redis 스트림에 추가
+                standardize_job_data = {
+                    "job_id": f"standardize_{job_data.get('mapping_id')}_{datetime.now().strftime('%Y%m%d_%H%M%S')}",
+                    "mapping_id": job_data.get("mapping_id"),
+                    "company_name": job_data.get("company_name"),
+                    "dart_content": result.get("content"),
+                    "submitted_at": datetime.now().isoformat()
+                }
+
+                await redis_helper.add_job("standardize_stream", standardize_job_data)
+                self.logger.info(f"📝 Standardization job queued for {job_data.get('company_name')}")
+
         except Exception as e:
             self.logger.error(f"Failed to process DART extract job {job_id}: {e}")
             await redis_helper.update_job_status(job_id, "failed", {"error": str(e)})
