@@ -126,17 +126,24 @@ async def start_auto_mapping(
     background_tasks: BackgroundTasks,
     request: BatchMappingRequest = BatchMappingRequest()
 ):
-    """자동 매핑 배치 작업 시작"""
+    """자동 매핑 배치 작업 시작 (파이프라인 포함)"""
     try:
-        async def run_batch_mapping():
-            stats = await mapping_service.batch_process_mappings(request.limit)
-            return stats
+        from ...utils.redis_helper import redis_helper
 
-        background_tasks.add_task(run_batch_mapping)
+        # Redis 스트림에 매핑 작업 추가 (Background Worker가 처리하여 파이프라인 연결)
+        job_data = {
+            "job_id": f"manual_mapping_{datetime.now().strftime('%Y%m%d_%H%M%S')}",
+            "trigger": "manual_auto_mapping",
+            "limit": request.limit,
+            "submitted_at": datetime.now().isoformat()
+        }
+
+        await redis_helper.add_job("mapping_stream", job_data)
 
         return {
-            "status": "started",
-            "message": f"자동 매핑 작업이 시작되었습니다. (최대 {request.limit}개 회사)",
+            "status": "queued",
+            "job_id": job_data['job_id'],
+            "message": f"자동 매핑 작업이 큐에 추가되었습니다. (최대 {request.limit}개 회사) - 매핑 완료 후 DART 추출 및 표준화 자동 실행",
             "timestamp": datetime.now().isoformat()
         }
     except Exception as e:
