@@ -27,8 +27,7 @@ public interface JobPostingSearchRepository extends ElasticsearchRepository<JobP
                 "job_sector_name^#{@searchConfig.weights.jobSectorName}",
                 "job_sector_category^#{@searchConfig.weights.jobSectorCategory}"
               ],
-              "type": "best_fields",
-              "fuzziness": "#{@searchConfig.fuzziness.autoThreshold}",
+              "type": "most_fields",
               "tie_breaker": #{@searchConfig.scoring.tieBreaker}
             }
           }
