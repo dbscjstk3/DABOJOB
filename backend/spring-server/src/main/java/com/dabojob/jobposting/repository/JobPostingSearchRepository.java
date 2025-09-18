@@ -86,6 +86,19 @@ public interface JobPostingSearchRepository extends ElasticsearchRepository<JobP
             Pageable pageable
     );
 
+
+    @Query("""
+    {
+        "match_phrase_prefix": {
+            "title": {
+            "query": "?0",
+            "max_expansions": 10
+            }
+        }
+    }
+    """)
+    Page<JobPostingDocument> findTitleAutocomplete(String prefix, Pageable pageable);
+
     // 간단한 검색들
     Page<JobPostingDocument> findByCompanyNameContaining(String companyName, Pageable pageable);
     Page<JobPostingDocument> findByJobSectorName(String sectorName, Pageable pageable);

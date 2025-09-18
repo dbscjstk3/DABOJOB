@@ -53,5 +53,12 @@ public class JobPostingController {
         return ResponseEntity.ok(jobPostingResponses);
     }
 
+    @GetMapping("/search/autocomplete")
+    public ResponseEntity<Page<JobPostingResponse>> autocompleteTitles(@RequestParam String prefix,
+                                                                       @RequestParam(defaultValue = "10") int size) {
+        Page<JobPostingResponse> suggestions = jobPostingSearchService.autocompleteTitles(prefix, size);
+        return ResponseEntity.ok(suggestions);
+    }
+
 
 }

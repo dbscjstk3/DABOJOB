@@ -25,6 +25,21 @@ public class JobPostingSearchService {
     private final JobPostingSearchRepository jobPostingSearchRepository;
     private final SearchConfig searchConfig;
 
+    // 기존 메서드들 아래에 추가
+    public Page<JobPostingResponse> autocompleteTitles(String prefix, int size) {
+        log.info("Title autocomplete with prefix: '{}'", prefix);
+
+        if (!StringUtils.hasText(prefix) || prefix.length() < 2) {
+            return Page.empty();
+        }
+
+        int adjustedSize = Math.min(size <= 0 ? 10 : size, 20);
+        Pageable pageable = PageRequest.of(0, adjustedSize);
+
+        return jobPostingSearchRepository.findTitleAutocomplete(prefix, pageable)
+                .map(JobPostingDocument::toResponse);
+    }
+
     public Page<JobPostingResponse> search(String searchString, int page, int size) {
         log.info("Searching with keyword: '{}', page: {}, size: {}", searchString, page, size);
 
