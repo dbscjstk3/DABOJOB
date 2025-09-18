@@ -22,13 +22,22 @@ async def start_crawling(
 ):
     """크롤링 시작"""
     try:
-        # TODO: 서비스 레이어에서 크롤링 처리
-        # crawler_service = CrawlerService()
-        # background_tasks.add_task(crawler_service.start_crawling, max_pages)
+        from utils.redis_helper import redis_helper
+
+        # Redis 스트림에 크롤링 작업 추가
+        job_data = {
+            "job_id": f"crawling_{datetime.now().strftime('%Y%m%d_%H%M%S')}",
+            "max_pages": max_pages,
+            "submitted_at": datetime.now().isoformat()
+        }
+
+        await redis_helper.add_job("crawler_stream", job_data)
+        logger.info(f"Crawling job queued: {job_data['job_id']}")
 
         return {
-            "status": "started",
-            "message": f"크롤링이 시작되었습니다. (최대 {max_pages}페이지)",
+            "status": "queued",
+            "job_id": job_data['job_id'],
+            "message": f"크롤링 작업이 큐에 추가되었습니다. (최대 {max_pages}페이지)",
             "timestamp": datetime.now().isoformat()
         }
     except Exception as e:
