@@ -4,16 +4,7 @@ import { mockNewsData } from './data/news';
 import type { NewsResponse, JobPostingResponse } from '@/lib/api';
 
 export const handlers = [
-  // Auth API 목 핸들러
-  http.get('/api/auth/me', () => {
-    console.log('🎭 MSW: Auth Me API 호출됨');
-
-    // 로그인되지 않은 상태로 응답 (또는 로그인된 사용자 정보 반환 가능)
-    return new HttpResponse(null, {
-      status: 401,
-      statusText: 'Unauthorized',
-    });
-  }),
+  // Auth API는 실제 백엔드로 보내기 위해 MSW에서 제외
 
   // Summary Detail API 목 핸들러
   http.get('/api/summary/:summaryId', ({ params }) => {
