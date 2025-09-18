@@ -87,7 +87,7 @@ async def _save_and_get_hashtag_id(job_id: int, chapter: str, hashtag: str) -> i
         # 이미 존재하는 해시태그인지 확인
         query_check = """
         SELECT hashtag_id FROM summary_hashtags
-        WHERE mapping_id = %s AND chapter = %s AND hashtag = %s
+        WHERE job_id = %s AND chapter = %s AND hashtag = %s
         """
 
         async with database.get_connection() as cursor:
@@ -99,7 +99,7 @@ async def _save_and_get_hashtag_id(job_id: int, chapter: str, hashtag: str) -> i
 
             # 새로운 해시태그 저장 (summary_id는 0으로 설정)
             query_insert = """
-            INSERT INTO summary_hashtags (mapping_id, summary_id, chapter, hashtag)
+            INSERT INTO summary_hashtags (job_id, summary_id, chapter, hashtag)
             VALUES (%s, %s, %s, %s)
             """
 
@@ -122,7 +122,7 @@ async def _get_news_summaries(job_id: int, hashtag_id: int) -> List[str]:
         query = """
         SELECT news_content
         FROM news_summaries
-        WHERE mapping_id = %s AND hashtag_id = %s AND status = 'completed'
+        WHERE job_id = %s AND hashtag_id = %s AND status = 'completed'
         AND news_content IS NOT NULL AND news_content != ''
         ORDER BY news_id DESC
         """
@@ -268,7 +268,7 @@ async def news_summarize_content(request: NewsSummarizeRequest) -> NewsSummarize
 
                     # 뉴스 검색 및 처리
                     news_count = await news_service.search_and_process_news(
-                        mapping_id=request.job_id,
+                        job_id=request.job_id,
                         hashtag_id=hashtag_id,
                         summary_id=0,  # 임시
                         hashtag=hashtag,
@@ -347,7 +347,7 @@ async def get_job_hashtags(job_id: int):
         query = """
         SELECT DISTINCT sh.chapter, sh.hashtag, sh.hashtag_id
         FROM summary_hashtags sh
-        WHERE sh.mapping_id = %s
+        WHERE sh.job_id = %s
         ORDER BY sh.chapter, sh.hashtag
         """
 
@@ -400,8 +400,8 @@ async def get_job_news(job_id: int, hashtag_id: Optional[int] = None, category: 
         FROM raw_news rn
         LEFT JOIN summary_hashtags sh ON rn.hashtag_id = sh.hashtag_id
         LEFT JOIN news_summaries ns ON rn.news_id = ns.news_id
-            AND ns.mapping_id = %s
-        WHERE rn.mapping_id = %s
+            AND ns.job_id = %s
+        WHERE rn.job_id = %s
         """
 
         params = [job_id, job_id]
@@ -481,7 +481,7 @@ async def get_job_summary(job_id: int):
         hashtag_query = """
         SELECT chapter, COUNT(*) as hashtag_count
         FROM summary_hashtags
-        WHERE mapping_id = %s
+        WHERE job_id = %s
         GROUP BY chapter
         """
 
@@ -489,8 +489,8 @@ async def get_job_summary(job_id: int):
         news_query = """
         SELECT sh.chapter, COUNT(rn.news_id) as news_count
         FROM summary_hashtags sh
-        LEFT JOIN raw_news rn ON sh.hashtag_id = rn.hashtag_id AND rn.mapping_id = %s
-        WHERE sh.mapping_id = %s
+        LEFT JOIN raw_news rn ON sh.hashtag_id = rn.hashtag_id AND rn.job_id = %s
+        WHERE sh.job_id = %s
         GROUP BY sh.chapter
         """
 
