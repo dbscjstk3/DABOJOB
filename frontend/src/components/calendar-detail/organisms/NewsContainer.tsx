@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { useSwipeable } from 'react-swipeable';
 import Typography from '@/components/common/atoms/Typography';
 import { Button } from '@/components/common/atoms/Button';
@@ -42,7 +42,7 @@ export default function NewsContainer({
   }, [news, currentPage, itemsPerPage]);
 
   // 태그 변경 시 첫 페이지로 리셋
-  useMemo(() => {
+  useEffect(() => {
     setCurrentPage(0);
   }, [filterTag]);
 
