@@ -1,5 +1,6 @@
 package com.dabojob.sync.dto;
 
+import java.util.List;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
