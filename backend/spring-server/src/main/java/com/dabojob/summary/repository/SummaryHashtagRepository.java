@@ -12,6 +12,6 @@ public interface SummaryHashtagRepository extends JpaRepository<SummaryHashtag,L
 
     boolean existsBySummaryAndHashtag(CompanyAnalysisSummary summary, Hashtag hashtag);
 
-    List<SummaryHashtag> findBySummary_SummaryId(Long summaryId);
+    List<SummaryHashtag> findBySummary_Id(Long summaryId);
     SummaryHashtag findBySummaryAndHashtag(CompanyAnalysisSummary summary, Hashtag hashtag);
 }

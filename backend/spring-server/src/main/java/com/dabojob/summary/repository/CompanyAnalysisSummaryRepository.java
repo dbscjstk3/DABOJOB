@@ -7,5 +7,5 @@ import org.springframework.stereotype.Repository;
 
 @Repository
 public interface CompanyAnalysisSummaryRepository extends JpaRepository<CompanyAnalysisSummary, Long> {
-    Optional<CompanyAnalysisSummary> findFirstByCompany_CompanyIdOrderByCreatedAtDesc(Long companyCompanyId);
+    Optional<CompanyAnalysisSummary> findFirstByCompany_IdOrderByCreatedAtDesc(Long companyCompanyId);
 }

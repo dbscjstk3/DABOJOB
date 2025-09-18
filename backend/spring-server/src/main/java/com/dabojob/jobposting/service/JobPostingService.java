@@ -2,11 +2,11 @@ package com.dabojob.jobposting.service;
 
 import com.dabojob.jobposting.dto.JobPostingResponse;
 import com.dabojob.jobposting.entity.JobPosting;
+import com.dabojob.jobposting.repository.JobPostingDocumentRepository;
 import com.dabojob.jobposting.repository.JobPostingRepository;
 import jakarta.persistence.EntityNotFoundException;
 
 import java.time.LocalDate;
-import java.time.ZoneId;
 import java.util.List;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
@@ -20,12 +20,13 @@ import org.springframework.stereotype.Service;
 public class JobPostingService {
 
     private final JobPostingRepository jobPostingRepository;
+    private final JobPostingDocumentRepository jobPostingDocumentRepository;
 
     public JobPostingResponse getJobPosting(String jobPostingId) {
         try {
-            Long parsedJobPostingId = Long.parseLong(jobPostingId);
+            Long parsedId = Long.parseLong(jobPostingId);
 
-            JobPosting jobPosting = jobPostingRepository.findByJobPostingId(parsedJobPostingId)
+            JobPosting jobPosting = jobPostingRepository.findById(parsedId)
                     .orElseThrow(() -> new EntityNotFoundException("JobPosting not found with JobPostingId: " + jobPostingId));
 
             return JobPostingResponse.of(jobPosting);
@@ -50,10 +51,7 @@ public class JobPostingService {
     }
 
     public List<JobPostingResponse> getJobPostingsByDate(LocalDate startDate, LocalDate endDate) {
-        long startTimestamp = startDate.atStartOfDay(ZoneId.systemDefault()).toEpochSecond();
-        long endTimestamp = endDate.atTime(23, 59, 59).atZone(ZoneId.systemDefault()).toEpochSecond();
-
-        List<JobPosting> jobPostings = jobPostingRepository.findByDateRange(startTimestamp, endTimestamp);
+        List<JobPosting> jobPostings = jobPostingRepository.findByDateRange(startDate, endDate);
 
         return jobPostings.stream()
                 .map(JobPostingResponse::of)

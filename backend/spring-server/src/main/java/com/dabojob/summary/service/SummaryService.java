@@ -31,12 +31,12 @@ public class SummaryService {
             CompanyAnalysisSummary summary = summaryRepository.findById(id)
                     .orElseThrow(() -> new EntityNotFoundException("Summary not found with id: " + summaryId));
 
-            List<SummaryHashtag> allSummaryHashtags = summaryHashtagRepository.findBySummary_SummaryId(id);
+            List<SummaryHashtag> allSummaryHashtags = summaryHashtagRepository.findBySummary_Id(id);
 
             Map<ChapterType, List<String>> chapterHashtags = allSummaryHashtags.stream()
                     .collect(Collectors.groupingBy(
                             SummaryHashtag::getChapterType,
-                            Collectors.mapping(sh -> sh.getHashtag().getHashtagName(), Collectors.toList())
+                            Collectors.mapping(sh -> sh.getHashtag().getName(), Collectors.toList())
                     ));
 
             // 빈 챕터들을 위해 모든 ChapterType 초기화
@@ -60,15 +60,15 @@ public class SummaryService {
         try {
             Long parsedCompanyId = Long.parseLong(companyId);
 
-            CompanyAnalysisSummary summary = summaryRepository.findFirstByCompany_CompanyIdOrderByCreatedAtDesc(parsedCompanyId)
+            CompanyAnalysisSummary summary = summaryRepository.findFirstByCompany_IdOrderByCreatedAtDesc(parsedCompanyId)
                     .orElseThrow(() -> new EntityNotFoundException("Summary not found with companyId: " + companyId));
 
-            List<SummaryHashtag> allSummaryHashtags = summaryHashtagRepository.findBySummary_SummaryId(summary.getSummaryId());
+            List<SummaryHashtag> allSummaryHashtags = summaryHashtagRepository.findBySummary_Id(summary.getId());
 
             Map<ChapterType, List<String>> chapterHashtags = allSummaryHashtags.stream()
                     .collect(Collectors.groupingBy(
                             SummaryHashtag::getChapterType,
-                            Collectors.mapping(sh -> sh.getHashtag().getHashtagName(), Collectors.toList())
+                            Collectors.mapping(sh -> sh.getHashtag().getName(), Collectors.toList())
                     ));
 
             // 빈 챕터들을 위해 모든 ChapterType 초기화

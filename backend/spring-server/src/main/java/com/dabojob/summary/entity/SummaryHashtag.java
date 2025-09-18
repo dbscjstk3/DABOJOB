@@ -1,7 +1,7 @@
 package com.dabojob.summary.entity;
 
 
-import com.dabojob.company.entity.Company;
+import com.dabojob.global.entity.BaseTimeEntity;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
@@ -26,7 +26,7 @@ import lombok.Setter;
 @AllArgsConstructor
 @Builder
 @Table(name = "summary_hashtags")
-public class SummaryHashtag {
+public class SummaryHashtag extends BaseTimeEntity {
 
     @Id
     @Column(name="id")
