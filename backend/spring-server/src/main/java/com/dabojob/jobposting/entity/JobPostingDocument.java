@@ -1,5 +1,6 @@
 package com.dabojob.jobposting.entity;
 
+import com.dabojob.jobposting.dto.JobPostingResponse;
 import java.time.LocalDate;
 import java.util.List;
 import lombok.AllArgsConstructor;
@@ -52,8 +53,8 @@ public class JobPostingDocument {
     @CompletionField(maxInputLength = 100)
     private String titleCompletion;
 
-    @Field(type = FieldType.Integer, name="company_scale")
-    private Integer companyScale;
+    @Field(type = FieldType.Keyword, name="company_scale")
+    private String companyScale;
 
     @Field(type = FieldType.Keyword, index = false)
     private String url;
@@ -61,8 +62,8 @@ public class JobPostingDocument {
     @Field(type = FieldType.Keyword, name = "career_info")
     private CareerInfo careerInfo;
 
-    @Field(type = FieldType.Integer, name = "job_sector_code", index = false)
-    private Integer jobSectorCode;
+    @Field(type = FieldType.Long, name = "job_sector_code", index = false)
+    private Long jobSectorCode;
 
     @Field(type = FieldType.Keyword, name ="job_sector_name" )
     private String jobSectorName;
@@ -78,5 +79,21 @@ public class JobPostingDocument {
 
     @Field(type = FieldType.Date, pattern = "yyyy-MM-dd", name = "deadline_date")
     private LocalDate deadlineDate;
+
+    public static JobPostingResponse toResponse(JobPostingDocument document) {
+        return JobPostingResponse.builder()
+                .jobPostingId(document.getJobPostingId())
+                .companyId(document.getCompanyId())
+                .companyName(document.getCompanyName())
+                .title(document.getTitle())
+                .url(document.getUrl())
+                .jobSectorId(document.getJobSectorCode())
+                .jobSectorName(document.getJobSectorName())
+                .jobSectorCategory(document.getJobSectorCategory())
+                .careerInfo(document.getCareerInfo().name())
+                .postingDate(document.getPostingDate())
+                .deadlineDate(document.getDeadlineDate())
+                .build();
+    }
 
 }
