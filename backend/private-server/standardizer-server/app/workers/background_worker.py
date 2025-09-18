@@ -8,6 +8,8 @@ from datetime import datetime
 import logging
 
 from .. import config
+from ..database import SessionLocal
+from ..models.crawler_models import CompanyDartMapping, MappingStatus
 from ..services.dart_extractor import DartDocumentExtractor
 from ..services.standardizer import StandardizerService
 from ..services.file_manager import FileManager
@@ -237,9 +239,6 @@ class BackgroundWorker:
                 logger.info(f"🎯 {result.get('suggested')} companies mapped successfully. Starting DART extraction...")
 
                 # 성공적으로 매핑된 회사들 가져오기
-                from ..database import SessionLocal
-                from ..models.crawler_models import CompanyDartMapping, MappingStatus
-
                 db = SessionLocal()
                 try:
                     # 신뢰도 95% 이상만 자동 추출
