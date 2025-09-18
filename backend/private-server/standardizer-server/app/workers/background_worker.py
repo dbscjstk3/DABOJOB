@@ -378,15 +378,15 @@ class BackgroundWorker:
         try:
             summary_job_data = {
                 "job_id": f"summary_{job_data.get('mapping_id')}_{datetime.now().strftime('%Y%m%d_%H%M%S')}",
-                "mapping_id": job_data.get("mapping_id"),
                 "company_name": job_data.get("company_name"),
-                "standardized_content": standardization_result.get("standardized_content"),
+                "content": standardization_result.get("standardized_content"),  # Summary 서버 형식에 맞춤
                 "category": standardization_result.get("category"),
+                "mapping_id": job_data.get("mapping_id"),
                 "submitted_at": datetime.now().isoformat()
             }
 
             # Summary 서버의 Redis 스트림에 작업 추가
-            await redis_helper.add_job(config.STREAM_SUMMARY, summary_job_data)
+            await redis_helper.add_job("stream:summary", summary_job_data)
 
             logger.info(f"📊 Summary job queued for {job_data.get('company_name')}")
             logger.info(f"🎉 Complete pipeline finished: Crawling → Mapping → DART → Standardization → Summary")
