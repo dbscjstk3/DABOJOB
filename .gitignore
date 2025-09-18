@@ -9,6 +9,7 @@ Thumbs.db
 
 #Frontend
 !frontend/.env.development
+!frontend/.env.production
 # Logs
 logs
 *.log
