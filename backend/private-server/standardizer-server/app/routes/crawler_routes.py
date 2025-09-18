@@ -7,6 +7,7 @@ from ..models.crawler_models import JobPosting, Company, CrawlingLog, JobSector,
 from ..database import get_db
 import asyncio
 from concurrent.futures import ThreadPoolExecutor
+from ..utils.redis_helper import redis_helper
 
 router = APIRouter(prefix="/api/crawler", tags=["Crawler"])
 
@@ -27,7 +28,6 @@ async def start_saramin_crawl(
     """
     try:
         async def run_crawler_and_trigger_mapping():
-            from ...utils.redis_helper import redis_helper
 
             # 크롤링 실행
             crawler = SaraminCrawler(db_session=db)

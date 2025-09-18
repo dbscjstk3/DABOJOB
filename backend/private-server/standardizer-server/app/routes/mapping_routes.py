@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session
 from typing import Optional, Dict, Any, List
 from datetime import datetime
 from pydantic import BaseModel, Field
+from ..utils.redis_helper import redis_helper
 
 from ..database import get_db
 from ..services.company_mapper import CompanyMappingService
@@ -128,7 +129,6 @@ async def start_auto_mapping(
 ):
     """자동 매핑 배치 작업 시작 (파이프라인 포함)"""
     try:
-        from ...utils.redis_helper import redis_helper
 
         # Redis 스트림에 매핑 작업 추가 (Background Worker가 처리하여 파이프라인 연결)
         job_data = {
