@@ -5,6 +5,7 @@ DART 문서 추출 및 텍스트 표준화 서비스
 import os
 import logging
 import asyncio
+from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
@@ -18,11 +19,81 @@ from .crawlers.crawler_scheduler import CrawlerScheduler
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-# FastAPI 앱 생성
+# 서비스 인스턴스
+standardizer_service = StandardizerService()
+background_worker = BackgroundWorker()
+crawler_scheduler = None  # 스케줄러는 옵션으로 실행
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """애플리케이션 생명주기 관리"""
+    global crawler_scheduler
+
+    # 시작 시 초기화
+    try:
+        # 데이터베이스 초기화 (크롤러 테이블 포함)
+        from .models import crawler_models
+        from .database import engine
+
+        # 크롤러 테이블 생성
+        crawler_models.Base.metadata.create_all(bind=engine)
+        logger.info("Crawler database tables created")
+
+        init_db()
+        logger.info("Database initialized")
+
+        # 표준화 서비스 초기화
+        await standardizer_service.initialize()
+        logger.info("Standardizer service initialized")
+
+        # 백그라운드 워커 시작
+        await background_worker.initialize()
+        asyncio.create_task(background_worker.start())
+        logger.info("Background worker started")
+
+        # 크롤러 스케줄러 시작 (환경변수로 제어)
+        if os.getenv("ENABLE_CRAWLER_SCHEDULER", "false").lower() == "true":
+            from .database import SessionLocal
+            db = SessionLocal()
+            crawler_scheduler = CrawlerScheduler(db_session=db)
+            crawler_scheduler.start()
+            logger.info("Crawler scheduler started")
+
+        logger.info("Application startup completed")
+
+    except Exception as e:
+        logger.error(f"Failed to initialize services: {e}")
+        raise
+
+    yield  # 애플리케이션 실행
+
+    # 종료 시 정리
+    try:
+        await background_worker.stop()
+        logger.info("Background worker stopped")
+
+        # 크롤러 스케줄러 중지
+        if crawler_scheduler is not None:
+            crawler_scheduler.stop()
+            logger.info("Crawler scheduler stopped")
+
+        # StandardizerService 정리
+        await standardizer_service.shutdown()
+        logger.info("Standardizer service shutdown completed")
+
+        logger.info("Application shutdown completed")
+
+    except Exception as e:
+        logger.error(f"Error during shutdown: {e}")
+
+
+# FastAPI 앱 생성 (lifespan 이벤트 핸들러 적용)
 app = FastAPI(
     title="Standardizer Server",
     description="DART 문서 추출 및 텍스트 표준화 서비스",
-    version="1.0.0"
+    version="1.0.0",
+    lifespan=lifespan
 )
 
 # CORS 설정
@@ -33,68 +104,6 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
-
-# 서비스 인스턴스
-standardizer_service = StandardizerService()
-background_worker = BackgroundWorker()
-crawler_scheduler = None  # 스케줄러는 옵션으로 실행
-
-
-@app.on_event("startup")
-async def startup_event():
-    """서버 시작 시 초기화"""
-    try:
-        # 데이터베이스 초기화 (크롤러 테이블 포함)
-        from .models import crawler_models
-        from .database import engine
-        
-        # 크롤러 테이블 생성
-        crawler_models.Base.metadata.create_all(bind=engine)
-        logger.info("Crawler database tables created")
-        
-        init_db()
-        logger.info("Database initialized")
-        
-        # 표준화 서비스 초기화
-        await standardizer_service.initialize()
-        logger.info("Standardizer service initialized")
-        
-        # 백그라운드 워커 시작
-        await background_worker.initialize()
-        asyncio.create_task(background_worker.start())
-        logger.info("Background worker started")
-        
-        # 크롤러 스케줄러 시작 (환경변수로 제어)
-        if os.getenv("ENABLE_CRAWLER_SCHEDULER", "false").lower() == "true":
-            global crawler_scheduler
-            from .database import SessionLocal
-            db = SessionLocal()
-            crawler_scheduler = CrawlerScheduler(db_session=db)
-            crawler_scheduler.start()
-            logger.info("Crawler scheduler started")
-        
-    except Exception as e:
-        logger.error(f"Failed to initialize services: {e}")
-        raise
-
-
-@app.on_event("shutdown")
-async def shutdown_event():
-    """서버 종료 시 정리"""
-    try:
-        await background_worker.stop()
-        logger.info("Background worker stopped")
-        
-        # 크롤러 스케줄러 중지
-        if crawler_scheduler:
-            crawler_scheduler.stop()
-            logger.info("Crawler scheduler stopped")
-        
-        # StandardizerService 정리
-        await standardizer_service.shutdown()
-        logger.info("Standardizer service shutdown completed")
-    except Exception as e:
-        logger.error(f"Error during shutdown: {e}")
 
 
 @app.get("/")
