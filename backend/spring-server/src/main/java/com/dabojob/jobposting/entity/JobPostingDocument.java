@@ -2,8 +2,6 @@ package com.dabojob.jobposting.entity;
 
 import com.dabojob.company.entity.Company;
 import com.dabojob.jobposting.dto.JobPostingResponse;
-import com.dabojob.summary.entity.Hashtag;
-import com.dabojob.summary.entity.SummaryHashtag;
 import java.time.LocalDate;
 import java.util.List;
 import lombok.AllArgsConstructor;

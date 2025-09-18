@@ -5,6 +5,7 @@ import com.dabojob.company.entity.CompanyScale;
 import com.dabojob.company.repository.CompanyRepository;
 import com.dabojob.jobposting.entity.CareerInfo;
 import com.dabojob.jobposting.entity.JobPosting;
+import com.dabojob.jobposting.entity.JobPostingDocument;
 import com.dabojob.jobposting.entity.JobSector;
 import com.dabojob.jobposting.repository.JobPostingRepository;
 import com.dabojob.jobposting.repository.JobPostingSearchRepository;
@@ -33,6 +34,7 @@ import com.dabojob.sync.dto.NewsItemDto;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.time.LocalDate;
+import java.util.List;
 import java.util.Optional;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -109,6 +111,12 @@ public class FileProcessingService {
 
             jobPostingRepository.save(jobPosting);
             log.info("Saved JobPosting: {}", dto.getSaraminJobTitle());
+
+
+            List<String> hashtagNames = summaryHashtagRepository.findHashtagNamesByMostRecentSummary(company.getId());
+            JobPostingDocument jobPostingDocument = JobPostingDocument.of(jobPosting, jobSector, company, hashtagNames);
+            jobPostingSearchRepository.save(jobPostingDocument);
+            log.info("Saved JobPostingDocument: {}", jobPostingDocument.getJobPostingId());
 
         } catch (Exception e) {
             log.error("Failed to process JobPosting file {}: {}", fileName, e.getMessage(), e);
