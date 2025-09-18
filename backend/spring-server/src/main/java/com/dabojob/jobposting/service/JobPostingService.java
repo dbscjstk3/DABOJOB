@@ -2,7 +2,6 @@ package com.dabojob.jobposting.service;
 
 import com.dabojob.jobposting.dto.JobPostingResponse;
 import com.dabojob.jobposting.entity.JobPosting;
-import com.dabojob.jobposting.repository.JobPostingDocumentRepository;
 import com.dabojob.jobposting.repository.JobPostingRepository;
 import jakarta.persistence.EntityNotFoundException;
 
@@ -20,7 +19,6 @@ import org.springframework.stereotype.Service;
 public class JobPostingService {
 
     private final JobPostingRepository jobPostingRepository;
-    private final JobPostingDocumentRepository jobPostingDocumentRepository;
 
     public JobPostingResponse getJobPosting(String jobPostingId) {
         try {
@@ -57,10 +55,4 @@ public class JobPostingService {
                 .map(JobPostingResponse::of)
                 .collect(Collectors.toList());
     }
-//
-//    public Page<JobPostingResponse> searchJobPosting(String searchString, int page, int size) {
-//        Pageable pageable = PageRequest.of(page, size);
-//        return jobPostingDocumentRepository.searchIntegrated(searchString,pageable)
-//                .map(JobPostingDocument::toResponse);
-//    }
 }
