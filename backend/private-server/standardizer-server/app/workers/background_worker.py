@@ -1,264 +1,345 @@
 """
-백그라운드 작업 처리 워커
+백그라운드 워커 시스템 - 완전한 파이프라인
+크롤링 → 매핑 → DART 추출 → 표준화
 """
-import os
-import logging
 import asyncio
+from typing import Dict, Any, Optional
 from datetime import datetime
-from bs4 import BeautifulSoup
+import logging
+
 from ..services.dart_extractor import DartDocumentExtractor
 from ..services.standardizer import StandardizerService
 from ..services.file_manager import FileManager
-from ..services.redis_client import RedisClient
+from ..utils.redis_helper import redis_helper
 
 logger = logging.getLogger(__name__)
 
 
 class BackgroundWorker:
+    """백그라운드 작업 처리 워커"""
+
     def __init__(self):
         self.standardizer_service = StandardizerService()
         self.file_manager = FileManager()
-        self.redis_client = RedisClient()
-        self.dart_extractor = None
+        self.dart_extractor: Optional[DartDocumentExtractor] = None
+        self.company_mapper = None  # 나중에 초기화
+        self.crawler_service = None  # 나중에 초기화
+        self.worker_tasks: Dict[str, asyncio.Task] = {}
         self.running = False
-        
+
     async def initialize(self):
-        """워커 초기화"""
+        """워커 서비스들 초기화"""
         try:
-            # 표준화 서비스 초기화
+            # 기본 서비스들 초기화
             await self.standardizer_service.initialize()
-            
-            # Redis 클라이언트 초기화
-            await self.redis_client.initialize()
-            
-            # DART 추출기 초기화 (API 키가 있을 때만)
+
+            # DART 추출기 초기화
+            import os
             dart_api_key = os.getenv('DART_API_KEY')
             if dart_api_key:
                 self.dart_extractor = DartDocumentExtractor(dart_api_key)
-                logger.info("DART extractor initialized in worker")
+                logger.info("DART extractor initialized")
             else:
-                logger.warning("DART_API_KEY not found in worker")
-                
-            self.running = True
-            logger.info("Background worker initialized successfully")
-            
+                logger.warning("DART_API_KEY not found")
+
+            # Company Mapper 초기화
+            from ..services.company_mapper import CompanyMappingService
+            self.company_mapper = CompanyMappingService()
+            await self.company_mapper.initialize()
+
+            # Crawler Service 초기화
+            from ..services.crawler_service import CrawlerService
+            self.crawler_service = CrawlerService()
+            await self.crawler_service.initialize()
+
+            logger.info("Background worker services initialized")
+
         except Exception as e:
-            logger.error(f"Failed to initialize worker: {e}")
+            logger.error(f"Failed to initialize background worker: {e}")
             raise
-    
+
     async def start(self):
-        """워커 시작"""
-        if not self.running:
+        """모든 워커 시작"""
+        if self.running:
+            logger.warning("Workers already running")
+            return
+
+        try:
             await self.initialize()
-        
-        logger.info("Starting background job worker")
+            self.running = True
+
+            # 각 스트림별 워커 시작
+            self.worker_tasks["crawler"] = asyncio.create_task(
+                self._process_crawler_jobs()
+            )
+            self.worker_tasks["mapping"] = asyncio.create_task(
+                self._process_mapping_jobs()
+            )
+            self.worker_tasks["dart_extract"] = asyncio.create_task(
+                self._process_dart_extract_jobs()
+            )
+            self.worker_tasks["standardize"] = asyncio.create_task(
+                self._process_standardize_jobs()
+            )
+
+            logger.info("All background workers started")
+
+        except Exception as e:
+            self.running = False
+            raise Exception(f"Failed to start workers: {e}")
+
+    async def stop(self):
+        """모든 워커 중지"""
+        if not self.running:
+            return
+
+        try:
+            self.running = False
+
+            # 모든 태스크 취소
+            for worker_name, task in self.worker_tasks.items():
+                if not task.done():
+                    task.cancel()
+                    try:
+                        await task
+                    except asyncio.CancelledError:
+                        logger.info(f"Worker {worker_name} cancelled")
+
+            self.worker_tasks.clear()
+            logger.info("All workers stopped")
+
+        except Exception as e:
+            logger.error(f"Error stopping workers: {e}")
+
+    async def _process_crawler_jobs(self) -> None:
+        """크롤링 작업 처리"""
         while self.running:
             try:
-                # Redis에서 대기 중인 작업 가져오기
-                jobs = await self.redis_client.get_pending_jobs(count=1)
-                
-                if jobs:
-                    for job in jobs:
-                        await self.process_single_job(job['stream_id'], job['data'])
-                else:
-                    # 작업이 없으면 1초 대기
-                    await asyncio.sleep(1)
-                    
+                jobs = await redis_helper.get_pending_jobs("crawler_stream", count=1)
+
+                for job_data in jobs:
+                    await self._handle_crawler_job(job_data)
+
+                await asyncio.sleep(5)  # 5초 대기
+
+            except asyncio.CancelledError:
+                break
             except Exception as e:
-                logger.error(f"Worker error: {e}")
-                await asyncio.sleep(5)  # 에러 시 5초 대기
-    
-    async def stop(self):
-        """워커 중지"""
-        self.running = False
-        logger.info("Background worker stopped")
-    
-    async def process_single_job(self, stream_id: str, job_data: dict):
-        """개별 작업 처리"""
-        job_id = job_data.get('job_id')
-        
+                logger.error(f"Error in crawler worker: {e}")
+                await asyncio.sleep(10)
+
+    async def _process_mapping_jobs(self) -> None:
+        """매핑 작업 처리"""
+        while self.running:
+            try:
+                jobs = await redis_helper.get_pending_jobs("mapping_stream", count=1)
+
+                for job_data in jobs:
+                    await self._handle_mapping_job(job_data)
+
+                await asyncio.sleep(5)
+
+            except asyncio.CancelledError:
+                break
+            except Exception as e:
+                logger.error(f"Error in mapping worker: {e}")
+                await asyncio.sleep(10)
+
+    async def _process_dart_extract_jobs(self) -> None:
+        """DART 추출 작업 처리"""
+        while self.running:
+            try:
+                jobs = await redis_helper.get_pending_jobs("dart_extract_stream", count=1)
+
+                for job_data in jobs:
+                    await self._handle_dart_extract_job(job_data)
+
+                await asyncio.sleep(5)
+
+            except asyncio.CancelledError:
+                break
+            except Exception as e:
+                logger.error(f"Error in DART extract worker: {e}")
+                await asyncio.sleep(10)
+
+    async def _process_standardize_jobs(self) -> None:
+        """표준화 작업 처리"""
+        while self.running:
+            try:
+                jobs = await redis_helper.get_pending_jobs("standardize_stream", count=1)
+
+                for job_data in jobs:
+                    await self._handle_standardize_job(job_data)
+
+                await asyncio.sleep(5)
+
+            except asyncio.CancelledError:
+                break
+            except Exception as e:
+                logger.error(f"Error in standardize worker: {e}")
+                await asyncio.sleep(10)
+
+    async def _handle_crawler_job(self, job_data: Dict[str, Any]) -> None:
+        """크롤링 작업 처리"""
+        job_id = job_data.get("job_id")
         try:
-            logger.info(f"Processing job: {job_id}")
-            
-            # 1. 작업 상태를 진행 중으로 변경
-            await self.redis_client.update_job_status(
-                job_id, 
-                "in_progress", 
-                {
-                    "stage": "dart_extraction",
-                    "current_step": 0,
-                    "total_steps": 8
+            logger.info(f"Processing crawler job: {job_id}")
+
+            max_pages = job_data.get("max_pages", 5)
+            result = await self.crawler_service.start_saramin_crawling(max_pages)
+
+            # 결과 저장
+            await redis_helper.update_job_status(job_id, "completed", result)
+
+            # 크롤링 성공 시 자동으로 매핑 작업 시작
+            if result.get("status") == "completed" and result.get("companies_found", 0) > 0:
+                logger.info(f"🔗 Crawling completed with {result.get('companies_found')} companies. Starting auto-mapping...")
+
+                # 매핑 작업을 Redis 스트림에 추가
+                mapping_job_data = {
+                    "job_id": f"auto_mapping_{job_id}",
+                    "trigger": "post_crawling",
+                    "limit": 20,
+                    "submitted_at": datetime.now().isoformat()
                 }
-            )
-            
-            # 2. DART 문서 추출
-            company_name = job_data.get('company_name')
-            report_type = job_data.get('report_type', 'A')
-            
+
+                await redis_helper.add_job("mapping_stream", mapping_job_data)
+                logger.info(f"✅ Auto-mapping job queued: auto_mapping_{job_id}")
+
+        except Exception as e:
+            logger.error(f"Failed to process crawler job {job_id}: {e}")
+            await redis_helper.update_job_status(job_id, "failed", {"error": str(e)})
+
+    async def _handle_mapping_job(self, job_data: Dict[str, Any]) -> None:
+        """매핑 작업 처리"""
+        job_id = job_data.get("job_id")
+        try:
+            logger.info(f"Processing mapping job: {job_id}")
+
+            limit = job_data.get("limit", 10)
+            result = await self.company_mapper.batch_process_mappings(limit)
+
+            await redis_helper.update_job_status(job_id, "completed", result)
+
+            # 매핑 성공한 회사들에 대해 자동으로 DART 문서 추출 시작
+            if result.get("suggested", 0) > 0:
+                logger.info(f"🎯 {result.get('suggested')} companies mapped successfully. Starting DART extraction...")
+
+                # 성공적으로 매핑된 회사들 가져오기
+                from ..database import SessionLocal
+                from ..models.crawler_models import CompanyDartMapping, MappingStatus
+
+                db = SessionLocal()
+                try:
+                    # 신뢰도 95% 이상만 자동 추출
+                    high_confidence_mappings = db.query(CompanyDartMapping).filter(
+                        CompanyDartMapping.mapping_status == MappingStatus.suggested,
+                        CompanyDartMapping.confidence_score >= 95,
+                        CompanyDartMapping.dart_corp_code.isnot(None)
+                    ).all()
+
+                    for mapping in high_confidence_mappings:
+                        # DART 추출 작업 큐에 추가
+                        dart_job_data = {
+                            "job_id": f"dart_extract_{mapping.mapping_id}_{datetime.now().strftime('%Y%m%d_%H%M%S')}",
+                            "mapping_id": mapping.mapping_id,
+                            "company_name": mapping.crawled_company_name,
+                            "corp_code": mapping.dart_corp_code,
+                            "report_type": "annual",
+                            "submitted_at": datetime.now().isoformat()
+                        }
+
+                        await redis_helper.add_job("dart_extract_stream", dart_job_data)
+                        logger.info(f"📄 DART extraction queued for {mapping.crawled_company_name} (Code: {mapping.dart_corp_code})")
+
+                finally:
+                    db.close()
+
+        except Exception as e:
+            logger.error(f"Failed to process mapping job {job_id}: {e}")
+            await redis_helper.update_job_status(job_id, "failed", {"error": str(e)})
+
+    async def _handle_dart_extract_job(self, job_data: Dict[str, Any]) -> None:
+        """DART 추출 작업 처리"""
+        job_id = job_data.get("job_id")
+        try:
+            logger.info(f"Processing DART extract job: {job_id}")
+
+            corp_code = job_data.get("corp_code")
+            year = job_data.get("year")
+
             if not self.dart_extractor:
                 raise Exception("DART extractor not available")
-            
-            rcp_no, report_nm, rcept_dt = self.dart_extractor.get_latest_report(
-                company_name, report_type
+
+            result = await self.dart_extractor.extract_company_annual_report(
+                corp_code=corp_code,
+                year=year
             )
-            
-            if not rcp_no:
-                raise Exception(f"No reports found for {company_name}")
-            
-            xml_text = self.dart_extractor.dart.document(rcp_no)
-            if not xml_text:
-                raise Exception("Failed to download document")
-            
-            soup = BeautifulSoup(xml_text, 'xml')
-            subsections = self.dart_extractor.extract_business_subsections(soup)
-            
-            if not subsections:
-                raise Exception("Failed to extract subsections")
-            
-            # 3. 메타데이터 및 원본 파일 저장
-            metadata = {
-                "job_id": job_id,
-                "company_name": company_name,
-                "report_name": report_nm,
-                "report_date": rcept_dt,
-                "receipt_no": rcp_no,
-                "created_at": datetime.now().isoformat()
-            }
-            self.file_manager.save_metadata(job_id, metadata)
-            
-            raw_files = {}
-            for i, (title, content) in enumerate(subsections.items(), 1):
-                raw_files[f"개요{i}_{title.replace(' ', '_').replace('.', '')}.txt"] = content
-            self.file_manager.save_raw_files(job_id, raw_files)
-            
-            # 4. 표준화 시작
-            await self.redis_client.update_job_status(
-                job_id, 
-                "in_progress", 
-                {
-                    "stage": "standardization",
-                    "current_step": 1,
-                    "total_steps": 8,
-                    "message": "DART extraction completed, starting standardization"
+
+            await redis_helper.update_job_status(job_id, "completed", result)
+
+            # DART 추출 성공 시 자동으로 표준화 작업 시작
+            if result.get("status") == "extracted" and result.get("content"):
+                logger.info(f"📄 DART extraction completed for {job_data.get('company_name')}. Starting standardization...")
+
+                # 표준화 작업을 Redis 스트림에 추가
+                standardize_job_data = {
+                    "job_id": f"standardize_{job_data.get('mapping_id')}_{datetime.now().strftime('%Y%m%d_%H%M%S')}",
+                    "mapping_id": job_data.get("mapping_id"),
+                    "company_name": job_data.get("company_name"),
+                    "dart_content": result.get("content"),
+                    "submitted_at": datetime.now().isoformat()
                 }
-            )
-            
-            # 5. 각 챕터별 분류 및 표준화
-            total_chapters = len(subsections)
-            
-            for i, (title, content) in enumerate(subsections.items(), 1):
-                logger.info(f"Classifying and standardizing chapter {i}/{total_chapters}: {title}")
-                
-                # 분류와 표준화를 동시에 수행
-                category, standardized_content = await self.standardizer_service.classify_and_standardize(title, content)
-                
-                # 카테고리별 파일에 append
-                self.file_manager.append_to_category_file(job_id, category, title, standardized_content)
-                
-                await self.redis_client.update_job_status(
-                    job_id, 
-                    "in_progress", 
-                    {
-                        "stage": "standardization",
-                        "current_step": i + 1,
-                        "total_steps": 8,
-                        "current_chapter": title,
-                        "category": category,
-                        "message": f"Completed {i}/{total_chapters} chapters - {title} -> {category}"
-                    }
-                )
-            
-            # 6. 작업 완료 메타데이터 업데이트
-            self.file_manager.update_job_stage(job_id, "categorization", "completed")
-            
-            # 7. Summary Server로 요약 요청 전송
-            await self._send_summarization_request(job_id, company_name)
-            
-            # 8. 작업 완료
-            await self.redis_client.update_job_status(
-                job_id, 
-                "completed", 
-                {
-                    "stage": "standardization_completed",
-                    "current_step": 8,
-                    "total_steps": 10,  # 요약 단계 추가
-                    "message": "Standardization completed, summarization request sent",
-                    "completed_at": datetime.now().isoformat()
-                }
-            )
-            
-            await self.redis_client.ack_job(stream_id)
-            logger.info(f"Standardization job completed, summarization request sent: {job_id}")
-            
+
+                await redis_helper.add_job("standardize_stream", standardize_job_data)
+                logger.info(f"📝 Standardization job queued for {job_data.get('company_name')}")
+
         except Exception as e:
-            logger.error(f"Job failed: {job_id}, error: {e}")
-            
-            await self.redis_client.update_job_status(
-                job_id, 
-                "failed", 
-                {
-                    "stage": "failed",
-                    "error": str(e),
-                    "failed_at": datetime.now().isoformat()
-                }
-            )
-            
-            await self.redis_client.ack_job(stream_id)
-    
-    async def _send_summarization_request(self, job_id: str, company_name: str):
-        """
-        Summary Server로 요약 요청 메시지 전송
-        
-        Args:
-            job_id (str): 작업 ID
-            company_name (str): 회사명
-        """
+            logger.error(f"Failed to process DART extract job {job_id}: {e}")
+            await redis_helper.update_job_status(job_id, "failed", {"error": str(e)})
+
+    async def _handle_standardize_job(self, job_data: Dict[str, Any]) -> None:
+        """표준화 작업 처리"""
+        job_id = job_data.get("job_id")
         try:
-            # 카테고리별 파일 경로 생성
-            job_path = self.file_manager.get_job_path(job_id)
-            standardized_path = job_path / "standardized"
-            
-            categories = {
-                "business_overview": str(standardized_path / "business_overview.txt"),
-                "products_services": str(standardized_path / "products_services.txt"),
-                "revenue_orders": str(standardized_path / "revenue_orders.txt"),
-                "contracts_rnd": str(standardized_path / "contracts_rnd.txt"),
-                "other_references": str(standardized_path / "other_references.txt")
-            }
-            
-            # 각 카테고리별로 개별 요약 요청 메시지 전송
-            summary_stream_ids = []
-            for category, file_path in categories.items():
-                category_request = {
-                    "job_id": job_id,
-                    "stage": "category_summarization_request", 
-                    "company_name": company_name,
+            logger.info(f"Processing standardize job: {job_id}")
+
+            content = job_data.get("dart_content", "")
+            title = job_data.get("company_name", "")
+
+            if content:
+                # 분류 및 표준화 수행
+                category, standardized_content = await self.standardizer_service.classify_and_standardize(
+                    title=title,
+                    content=content
+                )
+
+                result = {
+                    "mapping_id": job_data.get("mapping_id"),
                     "category": category,
-                    "file_path": file_path,
-                    "requested_at": datetime.now().isoformat(),
-                    "source_service": "standardizer"
+                    "standardized_content": standardized_content,
+                    "processing_time": datetime.now().isoformat()
                 }
-                
-                # Summary Server용 Redis Stream에 카테고리별 메시지 전송
-                stream_id = await self.redis_client.submit_summarization_job(category_request)
-                summary_stream_ids.append(stream_id)
-                logger.info(f"Category summarization request sent: job_id={job_id}, category={category}, stream_id={stream_id}")
-            
-            logger.info(f"All category summarization requests sent: job_id={job_id}, total_categories={len(summary_stream_ids)}")
-            
-            # 메타데이터 업데이트
-            metadata_update = {
-                "summarization_requests": {
-                    "sent_at": datetime.now().isoformat(),
-                    "stream_ids": summary_stream_ids,
-                    "categories": list(categories.keys()),
-                    "total_categories": len(categories),
-                    "status": "sent"
-                }
-            }
-            self.file_manager.save_metadata(job_id, metadata_update)
-            
+
+                await redis_helper.update_job_status(job_id, "completed", result)
+                logger.info(f"✅ Standardization completed for {title}")
+            else:
+                await redis_helper.update_job_status(job_id, "failed", {"error": "No content provided"})
+
         except Exception as e:
-            logger.error(f"Failed to send summarization request for job {job_id}: {e}")
-            # 실패해도 전체 작업은 성공으로 처리 (요약은 선택사항)
-            pass
+            logger.error(f"Failed to process standardize job {job_id}: {e}")
+            await redis_helper.update_job_status(job_id, "failed", {"error": str(e)})
+
+    def get_status(self) -> Dict[str, Any]:
+        """워커 상태 반환"""
+        return {
+            "running": self.running,
+            "active_workers": list(self.worker_tasks.keys()),
+            "worker_count": len(self.worker_tasks),
+            "services": {
+                "standardizer": "initialized" if self.standardizer_service else "not_initialized",
+                "dart_extractor": "initialized" if self.dart_extractor else "not_initialized",
+                "company_mapper": "initialized" if self.company_mapper else "not_initialized",
+                "crawler_service": "initialized" if self.crawler_service else "not_initialized"
+            }
+        }
