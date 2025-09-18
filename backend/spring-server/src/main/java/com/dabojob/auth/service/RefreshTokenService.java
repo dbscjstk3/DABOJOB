@@ -42,7 +42,7 @@ public class RefreshTokenService {
         );
 
         RefreshToken savedToken = refreshTokenRepository.save(refreshToken);
-        log.info("새 Refresh Token 생성: userId={}, tokenId={}", userId, savedToken.getRefreshTokenId());
+        log.info("새 Refresh Token 생성: userId={}, tokenId={}", userId, savedToken.getId());
 
         return savedToken;
     }
