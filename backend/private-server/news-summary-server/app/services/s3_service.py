@@ -1,20 +1,31 @@
 """
 S3 업로드 서비스
-reports/ 경로에 뉴스 리포트 업로드
+reports/ 경로에 뉴스/분석 리포트 업로드
+- companies.json: flat 단일 객체
+- job_postings.json: flat 단일 객체
+- job_sectors.json: flat 단일 객체
+- Dart.json: 요약 파일 + 뉴스(요약/해시태그 정합) + 해시태그
 """
 import boto3
 import json
 import logging
 import os
-from typing import Dict, Any, Optional, List
+from typing import Dict, Any, Optional, List, Tuple
 from datetime import datetime
-from botocore.exceptions import ClientError, NoCredentialsError
 from ..config import config
 
 logger = logging.getLogger(__name__)
 
 class S3Service:
     """S3 업로드 서비스 (A2 프라이빗 EC2용)"""
+    
+    CHAPTER_MAP: Dict[str, Tuple[str, str]] = {
+        "business_overview": ("1", "사업의 개요"),
+        "products_services": ("2", "주요 제품 및 서비스"),
+        "revenue_orders": ("3", "매출 및 수주 상황"),
+        "contracts_rnd": ("4", "주요 계약 및 연구 개발 활동"),
+        "others": ("5", "기타 참고사항"),
+    }
     
     def __init__(self):
         self.bucket_name = config.S3_BUCKET
@@ -46,15 +57,16 @@ class S3Service:
             logger.warning(f"Failed to initialize S3 client: {e}")
             self.s3_client = None  # S3 기능 비활성화
     
+    # ----------------------------------------------------------------------
+    # 메인: 기존처럼 4개의 JSON 업로드 (companies/job_postings/job_sectors/Dart)
+    # ----------------------------------------------------------------------
     async def upload_job_completion_data(self, job_id: int) -> Dict[str, str]:
         """
         job_id 완료 시 4개 JSON 파일을 S3에 업로드
-
-        Args:
-            job_id: 작업 ID
-
-        Returns:
-            업로드된 파일들의 S3 키 딕셔너리
+        - companies: 평평한(flat) 단일 객체 (배열 아님)
+        - job_postings: 공고 목록
+        - job_sectors: 직무/분야 목록
+        - Dart: 파일 요약 + 뉴스 + 해시태그
         """
         try:
             if not self.s3_client:
@@ -94,59 +106,85 @@ class S3Service:
             logger.error(f"Failed to upload job completion data for {job_id}: {e}")
             return {}
     
+    # ----------------------------------------------------------------------
+    # 개별 데이터 수집 함수들
+    # ----------------------------------------------------------------------
     async def _get_companies_data(self, job_id: int) -> Dict[str, Any]:
-        """회사 정보 조회 (job_postings → companies)"""
+        """
+        회사 정보 조회 (job_postings → companies)
+        - 과거 배열 구조 대신 flat 단일 객체 반환
+        {
+          "job_id": 1,
+          "company_id": 1,
+          "company_name": "...",
+          "company_scale": "대기업"
+        }
+        """
         try:
             from ..database import database
 
             query = """
-            SELECT DISTINCT c.company_id, c.company_name, c.company_code
+            SELECT DISTINCT c.company_id,
+                            c.company_name,
+                            COALESCE(c.company_scale, '') AS company_scale
             FROM companies c
             JOIN job_postings jp ON c.company_id = jp.company_id
             WHERE jp.job_id = %s
+            LIMIT 1
             """
 
             async with database.get_connection() as cursor:
                 await cursor.execute(query, (job_id,))
-                results = await cursor.fetchall()
+                row = await cursor.fetchone()
 
-                companies = []
-                for row in results:
-                    companies.append({
+                if row:
+                    return {
+                        "job_id": job_id,
                         "company_id": row[0],
                         "company_name": row[1],
-                        "company_code": row[2]
-                    })
+                        "company_scale": row[2]
+                    }
 
                 return {
                     "job_id": job_id,
-                    "companies": companies,
-                    "total_count": len(companies)
+                    "company_id": None,
+                    "company_name": "",
+                    "company_scale": "",
                 }
 
         except Exception as e:
             logger.error(f"Error getting companies data for job {job_id}: {e}")
-            return {"job_id": job_id, "companies": [], "total_count": 0}
+            return {
+                "job_id": job_id,
+                "company_id": None,
+                "company_name": "",
+                "company_scale": "",
+            }
+
 
     async def _get_job_postings_data(self, job_id: int) -> Dict[str, Any]:
         """채용공고 정보 조회"""
         try:
             from ..database import database
 
+            # sector_id가 job_postings에 직접 없을 수 있어 안전하게 NULL 허용
             query = """
-            SELECT job_id, company_id, sector_id, saramin_job_title, saramin_job_url,
-                   career_info, posting_date, application_deadline
-            FROM job_postings
+            SELECT job_id, company_id,
+                IFNULL((SELECT sector_id FROM job_posting_sectors jps
+                        WHERE jps.job_id = jp.job_id LIMIT 1), NULL) AS sector_id,
+                saramin_job_title, saramin_job_url,
+                career_info, posting_date, application_deadline
+            FROM job_postings jp
             WHERE job_id = %s
+            LIMIT 1
             """
 
             async with database.get_connection() as cursor:
                 await cursor.execute(query, (job_id,))
-                results = await cursor.fetchall()
+                row = await cursor.fetchone()
 
-                postings = []
-                for row in results:
-                    postings.append({
+                if row:
+                    return {
                         "job_id": row[0],
                         "company_id": row[1],
                         "sector_id": row[2],
@@ -154,18 +192,33 @@ class S3Service:
                         "saramin_job_url": row[4],
                         "career_info": row[5],
                         "posting_date": row[6].isoformat() if row[6] else None,
-                        "application_deadline": row[7].isoformat() if row[7] else None
-                    })
+                        "application_deadline": row[7].isoformat() if row[7] else None,
+                    }
 
+                # 결과가 없으면 빈 값 반환
                 return {
                     "job_id": job_id,
-                    "postings": postings,
-                    "total_count": len(postings)
+                    "company_id": None,
+                    "sector_id": None,
+                    "saramin_job_title": "",
+                    "saramin_job_url": "",
+                    "career_info": "",
+                    "posting_date": None,
+                    "application_deadline": None,
                 }
 
         except Exception as e:
             logger.error(f"Error getting job_postings data for job {job_id}: {e}")
-            return {"job_id": job_id, "postings": [], "total_count": 0}
+            return {
+                "job_id": job_id,
+                "company_id": None,
+                "sector_id": None,
+                "saramin_job_title": "",
+                "saramin_job_url": "",
+                "career_info": "",
+                "posting_date": None,
+                "application_deadline": None,
+            }
 
     async def _get_job_sectors_data(self, job_id: int) -> Dict[str, Any]:
         """직무 분야 정보 조회"""
@@ -175,31 +228,39 @@ class S3Service:
             query = """
             SELECT DISTINCT js.sector_id, js.sector_name, js.sector_category
             FROM job_sectors js
-            JOIN job_postings jp ON js.sector_id = jp.sector_id
-            WHERE jp.job_id = %s
+            JOIN job_posting_sectors jps ON js.sector_id = jps.sector_id
+            WHERE jps.job_id = %s
+            LIMIT 1
             """
 
             async with database.get_connection() as cursor:
                 await cursor.execute(query, (job_id,))
-                results = await cursor.fetchall()
+                row = await cursor.fetchone()
 
-                sectors = []
-                for row in results:
-                    sectors.append({
-                        "sector_id": row[0],
-                        "sector_name": row[1],
-                        "sector_category": row[2]
-                    })
-
+            if row:
                 return {
                     "job_id": job_id,
-                    "sectors": sectors,
-                    "total_count": len(sectors)
+                    "sector_id": row[0],
+                    "sector_name": row[1],
+                    "sector_category": row[2]
                 }
+
+            # 결과 없을 때 기본 값
+            return {
+                "job_id": job_id,
+                "sector_id": None,
+                "sector_name": "",
+                "sector_category": ""
+            }
 
         except Exception as e:
             logger.error(f"Error getting job_sectors data for job {job_id}: {e}")
-            return {"job_id": job_id, "sectors": [], "total_count": 0}
+            return {
+                "job_id": job_id,
+                "sector_id": None,
+                "sector_name": "",
+                "sector_category": ""
+            }
 
     async def _get_dart_data(self, job_id: int) -> Dict[str, Any]:
         """DART 보고서 요약 + 뉴스 + 해시태그 데이터 조회"""
@@ -208,15 +269,16 @@ class S3Service:
             summaries = await self._read_summary_files(job_id)
 
             # 2. 뉴스 데이터 조회
-            news_data = await self._get_news_data(job_id)
+            news_data = await self._get_news_data_integrated(job_id)
 
             # 3. 해시태그 데이터 조회
             hashtags_data = await self._get_hashtags_data(job_id)
 
             return {
                 "job_id": job_id,
+                "company_id": news_data.get("company_id"),
                 "dart_summaries": summaries,
-                "news": news_data,
+                "news": news_data["news"],
                 "hashtags": hashtags_data,
                 "generated_at": datetime.now().isoformat()
             }
@@ -225,101 +287,148 @@ class S3Service:
             logger.error(f"Error getting DART data for job {job_id}: {e}")
             return {
                 "job_id": job_id,
+                "company_id": None,
                 "dart_summaries": {},
-                "news": {"items": [], "total_count": 0},
+                "news": {"items": [], "total_count": 0, "completed_count": 0, "by_hashtag": {}},
                 "hashtags": {"categories": [], "total_categories": 0},
-                "generated_at": datetime.now().isoformat()
+                "generated_at": datetime.now().isoformat(),
             }
-
+    
+    # ----------------------------------------------------------------------
+    # 내부 헬퍼: 파일/뉴스/해시태그
+    # ----------------------------------------------------------------------        
     async def _read_summary_files(self, job_id: int) -> Dict[str, str]:
         """로컬 파일시스템에서 요약 파일들 읽기"""
-        summaries = {}
+        summaries: Dict[str, str] = {}
         summary_files = [
             "business_overview_summary.txt",
             "products_services_summary.txt",
             "revenue_orders_summary.txt",
             "contracts_rnd_summary.txt",
-            "others_summary.txt"
+            "others_summary.txt",
         ]
 
         for filename in summary_files:
             try:
                 file_path = f"/app/data/jobs/{job_id}/summaries/{filename}"
+                chapter_name = filename.replace("_summary.txt", "")
                 if os.path.exists(file_path):
-                    with open(file_path, 'r', encoding='utf-8') as f:
-                        content = f.read()
-                        chapter_name = filename.replace('_summary.txt', '')
-                        summaries[chapter_name] = content
+                    with open(file_path, "r", encoding="utf-8") as f:
+                        summaries[chapter_name] = f.read()
                 else:
                     logger.warning(f"Summary file not found: {file_path}")
-                    chapter_name = filename.replace('_summary.txt', '')
                     summaries[chapter_name] = "Summary file not found"
             except Exception as e:
                 logger.error(f"Error reading summary file {filename}: {e}")
-                chapter_name = filename.replace('_summary.txt', '')
                 summaries[chapter_name] = f"Error reading file: {e}"
 
         return summaries
 
-    async def _get_news_data(self, job_id: int) -> Dict[str, Any]:
-        """뉴스 데이터 조회"""
-        try:
-            from ..database import database
+    async def _get_news_data_integrated(self, job_id: int) -> Dict[str, Any]:
+        """
+        raw_news 없이 news_summaries만으로 뉴스/요약/카운트/태그별 묶기 생성
+        반환:
+        {
+          "company_id": 1 or None,
+          "news": {
+            "items": [...],
+            "total_count": N,
+            "completed_count": M,
+            "by_hashtag": {
+              "#태그": { "hashtag_id": x, "total_count": n, "completed_count": m, "articles": [...] }
+            }
+          }
+        }
+        """
+        from ..database import database
 
-            # 원본 뉴스 조회
-            news_query = """
-            SELECT rn.news_id, rn.hashtag_id, rn.title, rn.url, rn.published_date,
-                   sh.chapter, sh.hashtag
-            FROM raw_news rn
-            JOIN summary_hashtags sh ON rn.hashtag_id = sh.hashtag_id
-            WHERE rn.job_id = %s
-            ORDER BY rn.published_date DESC
-            """
+        # company_id 추출
+        company_q = """
+        SELECT c.company_id
+        FROM companies c
+        JOIN job_postings jp ON c.company_id = jp.company_id
+        WHERE jp.job_id = %s
+        LIMIT 1
+        """
+        company_id = None
+        async with database.get_connection() as cur:
+            await cur.execute(company_q, (job_id,))
+            r = await cur.fetchone()
+            if r:
+                company_id = r[0]
 
-            # 뉴스 요약 조회
-            summary_query = """
-            SELECT news_id, summary_content
-            FROM news_summaries
-            WHERE job_id = %s
-            """
+        # 뉴스 본문/요약/상태
+        news_q = """
+        SELECT
+        n.news_id, n.hashtag_id, n.news_title, n.news_url, n.news_created_at,
+        n.news_content, n.company_name, n.status,
+        sh.hashtag, sh.chapter
+        FROM news_summaries n
+        JOIN summary_hashtags sh
+        ON sh.hashtag_id = n.hashtag_id
+        AND sh.job_id     = n.job_id    -- ✅ 같은 job 범위 보장
+        WHERE n.job_id = %s
+        ORDER BY FIELD(sh.chapter,'business_overview','products_services','revenue_orders','contracts_rnd','others'),
+                sh.hashtag_id,
+                n.news_created_at DESC, n.news_id DESC
+        """
 
-            async with database.get_connection() as cursor:
-                # 뉴스 데이터 조회
-                await cursor.execute(news_query, (job_id,))
-                news_results = await cursor.fetchall()
+        items: List[Dict[str, Any]] = []
+        total_count = 0
+        completed_count = 0
+        by_hashtag: Dict[str, Dict[str, Any]] = {}
 
-                # 요약 데이터 조회
-                await cursor.execute(summary_query, (job_id,))
-                summary_results = await cursor.fetchall()
+        async with database.get_connection() as cur:
+            await cur.execute(news_q, (job_id,))
+            rows = await cur.fetchall()
+            for (news_id, hid, title, url, created_at,
+                 content, comp_name, status, hash_text, chapter) in rows:
+                total_count += 1
+                if status == "completed":
+                    completed_count += 1
 
-                # 요약 데이터를 딕셔너리로 변환
-                summaries = {news_id: summary for news_id, summary in summary_results}
+                # 정규화된 태그 키 (# 접두사 보장)
+                tag_key = hash_text if hash_text.startswith("#") else f"#{hash_text}"
 
-                # 뉴스 아이템 생성
-                items = []
-                for news_id, hashtag_id, title, url, published_date, chapter, hashtag in news_results:
-                    items.append({
-                        "news_id": news_id,
-                        "hashtag_id": hashtag_id,
-                        "title": title,
-                        "url": url,
-                        "published_date": published_date.isoformat() if published_date else None,
-                        "chapter": chapter,
-                        "hashtag": hashtag,
-                        "summary": summaries.get(news_id, None)
-                    })
+                if tag_key not in by_hashtag:
+                    by_hashtag[tag_key] = {
+                        "hashtag_id": int(hid),
+                        "total_count": 0,
+                        "completed_count": 0,
+                        "articles": [],
+                    }
 
-                return {
-                    "items": items,
-                    "total_count": len(items)
+                by_hashtag[tag_key]["total_count"] += 1
+                if status == "completed":
+                    by_hashtag[tag_key]["completed_count"] += 1
+
+                item = {
+                    "news_id": int(news_id),
+                    "hashtag_id": int(hid),
+                    "title": title,
+                    "url": url,
+                    "published_date": created_at.isoformat() if created_at else None,
+                    "chapter": chapter,
+                    "hashtag": hash_text,
+                    "summary": content,            # news_content를 요약으로 사용
+                    "company_name": comp_name,
+                    "status": status,
                 }
+                items.append(item)
 
-        except Exception as e:
-            logger.error(f"Error getting news data for job {job_id}: {e}")
-            return {"items": [], "total_count": 0}
-
+        news_block = {
+            "items": items,
+            "total_count": total_count,
+            "completed_count": completed_count,
+            "by_hashtag": by_hashtag,
+        }
+        
+        return {"company_id": company_id, "news": news_block}
+    
+    
+    
     async def _get_hashtags_data(self, job_id: int) -> Dict[str, Any]:
-        """해시태그 데이터 조회"""
+        """해시태그 데이터 조회 (카테고리=chapter별 그룹)"""
         try:
             from ..database import database
 
@@ -327,7 +436,8 @@ class S3Service:
             SELECT hashtag_id, chapter, hashtag
             FROM summary_hashtags
             WHERE job_id = %s
-            ORDER BY chapter, hashtag_id
+            ORDER BY FIELD(chapter,'business_overview','products_services','revenue_orders','contracts_rnd','others'),
+         hashtag_id
             """
 
             async with database.get_connection() as cursor:
