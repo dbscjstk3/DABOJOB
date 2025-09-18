@@ -4,6 +4,8 @@ package com.dabojob.company.entity;
 import com.dabojob.global.entity.BaseTimeEntity;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
@@ -24,14 +26,14 @@ import lombok.Setter;
 public class Company extends BaseTimeEntity {
 
     @Id
-    @Column(name="company_id")
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long companyId;
+    private Long id;
 
-    @Column(name="dart_company_code")
-    private String dartCompanyCode;
-    @Column(name="company_name")
-    private String companyName;
+    @Column(name="name")
+    private String name;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name="scale",nullable = false)
+    private CompanyScale scale;
 
 
 
