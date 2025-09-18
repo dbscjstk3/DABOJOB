@@ -172,7 +172,7 @@ export default function CalendarDetailPage() {
       {jobData && (
         <div className="rounded-xl border border-slate-200 bg-white p-4 md:p-6">
           <div className="flex flex-col md:flex-row md:justify-between gap-3">
-            <div className="flex items-center gap-4">
+            <div className="flex items-center justify-center md:justify-start gap-4">
               {/* 상태 */}
               <Typography
                 variant="default"
@@ -211,10 +211,11 @@ export default function CalendarDetailPage() {
               </Typography> */}
             </div>
 
-            <div className="flex justify-start md:justify-end">
+            <div className="w-full md:w-auto md:flex md:justify-end">
               {/* 버튼 */}
               <Button
                 size="md"
+                className="w-full md:w-auto"
                 onClick={() => window.open(jobData.url, '_blank')}
                 endIcon={<SquareArrowOutUpRight className="h-4 w-4" />}
               >
