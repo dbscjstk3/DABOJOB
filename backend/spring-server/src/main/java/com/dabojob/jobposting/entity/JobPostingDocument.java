@@ -83,8 +83,7 @@ public class JobPostingDocument {
     @Field(type = FieldType.Date, pattern = "yyyy-MM-dd", name = "deadline_date")
     private LocalDate deadlineDate;
 
-    public static JobPostingDocument of (JobPosting jobPosting, JobSector jobSector, Company company, List<SummaryHashtag> hashtags) {
-        List<String> hashtagIds = hashtags.stream().map(SummaryHashtag::getHashtag).map(Hashtag::getName).toList();
+    public static JobPostingDocument of (JobPosting jobPosting, JobSector jobSector, Company company, List<String> hashtagNames) {
 
         return JobPostingDocument.builder()
                 .jobPostingId(jobPosting.getId())
@@ -99,7 +98,7 @@ public class JobPostingDocument {
                 .jobSectorCode(jobSector.getId())
                 .jobSectorName(jobSector.getName())
                 .jobSectorCategory(jobSector.getCategory())
-                .summaryHashtags(hashtagIds)
+                .summaryHashtags(hashtagNames)
                 .postingDate(jobPosting.getPostingDate())
                 .deadlineDate(jobPosting.getDeadlineDate())
                 .build();
