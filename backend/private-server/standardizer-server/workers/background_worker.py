@@ -197,6 +197,21 @@ class BackgroundWorker(BaseService):
             # 결과 저장
             await redis_helper.update_job_status(job_id, "completed", result)
 
+            # 크롤링 성공 시 자동으로 매핑 작업 시작
+            if result.get("status") == "completed" and result.get("companies_found", 0) > 0:
+                self.logger.info(f"🔗 Crawling completed with {result.get('companies_found')} companies. Starting auto-mapping...")
+
+                # 매핑 작업을 Redis 스트림에 추가
+                mapping_job_data = {
+                    "job_id": f"auto_mapping_{job_id}",
+                    "trigger": "post_crawling",
+                    "limit": 20,  # 모든 회사 매핑
+                    "submitted_at": datetime.now().isoformat()
+                }
+
+                await redis_helper.add_job("mapping_stream", mapping_job_data)
+                self.logger.info(f"✅ Auto-mapping job queued: auto_mapping_{job_id}")
+
         except Exception as e:
             self.logger.error(f"Failed to process crawler job {job_id}: {e}")
             await redis_helper.update_job_status(job_id, "failed", {"error": str(e)})
