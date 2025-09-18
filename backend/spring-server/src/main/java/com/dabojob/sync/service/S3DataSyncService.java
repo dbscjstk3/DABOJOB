@@ -57,17 +57,13 @@ public class S3DataSyncService {
     }
 
     private List<S3ObjectSummary> getNewJsonFiles() {
-        // 오늘과 어제 폴더 모두 확인
         LocalDateTime now = LocalDateTime.now();
         LocalDateTime yesterday = now.minusDays(1);
 
         String todayPrefix = "reports/" + now.format(DateTimeFormatter.ofPattern("yyyy-MM-dd")) + "/";
-
         String yesterdayPrefix = "reports/" + yesterday.format(DateTimeFormatter.ofPattern("yyyy-MM-dd")) + "/";
 
         List<S3ObjectSummary> allFiles = new ArrayList<>();
-
-        // 오늘 & 어제 폴더
         allFiles.addAll(getFilesFromPrefix(todayPrefix));
         allFiles.addAll(getFilesFromPrefix(yesterdayPrefix));
 
@@ -101,13 +97,17 @@ public class S3DataSyncService {
             S3Object s3Object = amazonS3Client.getObject(bucketName, fileSummary.getKey());
             JsonNode jsonData = objectMapper.readTree(s3Object.getObjectContent());
 
-            // 파일명으로 데이터 타입 판단 및 처리
             String fileName = fileSummary.getKey();
 
-            if (isJobPostingFile(fileName)) {
-                fileProcessingService.parseAndSaveJobPostingData(jsonData, fileName);
-            } else if (isSummaryFile(fileName)) {
-                fileProcessingService.parseAndSaveSummaryData(jsonData, fileName); // 이제 구현됨
+            // 파일명으로 타입 구분
+            if (fileName.contains("job_sectors")) {
+                fileProcessingService.processJobSectorFile(jsonData, fileName);
+            } else if (fileName.contains("job_postings")) {
+                fileProcessingService.processJobPostingFile(jsonData, fileName);
+            } else if (fileName.contains("companies")) {
+                fileProcessingService.processCompanyFile(jsonData, fileName);
+            } else if (fileName.contains("Dart")) {
+                fileProcessingService.processDartFile(jsonData, fileName);
             } else {
                 log.warn("Unknown file type: {}", fileName);
             }
@@ -118,18 +118,4 @@ public class S3DataSyncService {
             log.error("Failed to process JSON file {}: {}", fileSummary.getKey(), e.getMessage(), e);
         }
     }
-
-    private boolean isJobPostingFile(String fileName) {
-        String lowerFileName = fileName.toLowerCase();
-        return lowerFileName.contains("job") ||
-                lowerFileName.contains("posting");
-    }
-
-    private boolean isSummaryFile(String fileName) {
-        String lowerFileName = fileName.toLowerCase();
-        return lowerFileName.contains("summary") ||
-                lowerFileName.contains("report");
-    }
-
-
 }
