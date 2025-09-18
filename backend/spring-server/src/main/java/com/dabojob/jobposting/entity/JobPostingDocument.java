@@ -31,24 +31,22 @@ public class JobPostingDocument {
 
     // 메인 검색용
     @MultiField(
-            mainField = @Field(type = FieldType.Text, analyzer = "korean", searchAnalyzer = "korean_search"),
+            mainField = @Field(type = FieldType.Text, analyzer = "korean", searchAnalyzer = "korean_search", name = "company_name"),
             otherFields = {
                     @InnerField(suffix = "autocomplete", type = FieldType.Search_As_You_Type)
             }
     )
-    @Field(name = "company_name")
     private String companyName;
 
     @CompletionField(maxInputLength = 100)
     private String companyNameCompletion;
 
     @MultiField(
-            mainField = @Field(type = FieldType.Text, analyzer = "korean", searchAnalyzer = "korean_search"),
+            mainField = @Field(type = FieldType.Text, analyzer = "korean", searchAnalyzer = "korean_search", name = "title"),
             otherFields = {
                     @InnerField(suffix = "autocomplete", type = FieldType.Search_As_You_Type)
             }
     )
-    @Field(name = "title")
     private String title;
 
     @CompletionField(maxInputLength = 100)
