@@ -4,6 +4,7 @@
 import asyncio
 from typing import List, Dict, Any, Optional
 from sqlalchemy.orm import Session
+from datetime import datetime
 
 from services.base import BaseService
 from models.crawler import Company, CompanyDartMapping, MappingStatus
@@ -67,12 +68,15 @@ class CompanyMappingService(BaseService):
             raise StandardizerException(f"Failed to get mapping stats: {e}")
 
     def get_unmapped_companies(self, db: Session, limit: int = 50) -> List[Company]:
-        """매핑되지 않은 회사 목록 조회"""
+        """매핑되지 않은 회사 및 실패한 매핑 회사 목록 조회"""
         try:
+            # 성공적으로 매핑된 회사들 (verified, suggested 상태)만 제외
+            successfully_mapped_ids = db.query(CompanyDartMapping.company_id).filter(
+                CompanyDartMapping.mapping_status.in_([MappingStatus.verified, MappingStatus.suggested])
+            )
+
             return db.query(Company).filter(
-                ~Company.company_id.in_(
-                    db.query(CompanyDartMapping.company_id)
-                )
+                ~Company.company_id.in_(successfully_mapped_ids)
             ).limit(limit).all()
         except Exception as e:
             self.logger.error(f"Failed to get unmapped companies: {e}")
@@ -151,31 +155,54 @@ DART 기업 정보를 JSON 형태로 제공해주세요:
                     try:
                         suggestion = await self.suggest_dart_mapping(company)
 
+                        # 기존 매핑이 있는지 확인 (실패한 매핑 재시도)
+                        existing_mapping = db.query(CompanyDartMapping).filter(
+                            CompanyDartMapping.company_id == company.company_id
+                        ).first()
+
                         if suggestion:
-                            # 매핑 제안 생성
-                            mapping = CompanyDartMapping(
-                                company_id=company.company_id,
-                                crawled_company_name=company.company_name,
-                                crawled_company_url=company.company_url,
-                                dart_corp_name=suggestion.get("dart_corp_name"),
-                                dart_corp_code=suggestion.get("dart_corp_code"),
-                                dart_stock_code=suggestion.get("dart_stock_code"),
-                                mapping_status=MappingStatus.suggested,
-                                confidence_score=suggestion.get("confidence", 0),
-                                gpt_response=str(suggestion)
-                            )
-                            db.add(mapping)
+                            if existing_mapping:
+                                # 기존 실패한 매핑 업데이트
+                                existing_mapping.dart_corp_name = suggestion.get("dart_corp_name")
+                                existing_mapping.dart_corp_code = suggestion.get("dart_corp_code")
+                                existing_mapping.dart_stock_code = suggestion.get("dart_stock_code")
+                                existing_mapping.mapping_status = MappingStatus.suggested
+                                existing_mapping.confidence_score = suggestion.get("confidence", 0)
+                                existing_mapping.gpt_response = str(suggestion)
+                                existing_mapping.processed_at = datetime.utcnow()
+                            else:
+                                # 새 매핑 생성
+                                mapping = CompanyDartMapping(
+                                    company_id=company.company_id,
+                                    crawled_company_name=company.company_name,
+                                    crawled_company_url=company.company_url,
+                                    dart_corp_name=suggestion.get("dart_corp_name"),
+                                    dart_corp_code=suggestion.get("dart_corp_code"),
+                                    dart_stock_code=suggestion.get("dart_stock_code"),
+                                    mapping_status=MappingStatus.suggested,
+                                    confidence_score=suggestion.get("confidence", 0),
+                                    gpt_response=str(suggestion)
+                                )
+                                db.add(mapping)
                             stats["suggested"] += 1
                         else:
-                            # 매핑 실패 기록
-                            mapping = CompanyDartMapping(
-                                company_id=company.company_id,
-                                crawled_company_name=company.company_name,
-                                crawled_company_url=company.company_url,
-                                mapping_status=MappingStatus.failed,
-                                confidence_score=0
-                            )
-                            db.add(mapping)
+                            if existing_mapping:
+                                # 기존 매핑을 다시 실패로 업데이트
+                                existing_mapping.mapping_status = MappingStatus.failed
+                                existing_mapping.confidence_score = 0
+                                existing_mapping.gpt_response = "No mapping found"
+                                existing_mapping.processed_at = datetime.utcnow()
+                            else:
+                                # 새 실패 매핑 생성
+                                mapping = CompanyDartMapping(
+                                    company_id=company.company_id,
+                                    crawled_company_name=company.company_name,
+                                    crawled_company_url=company.company_url,
+                                    mapping_status=MappingStatus.failed,
+                                    confidence_score=0,
+                                    gpt_response="No mapping found"
+                                )
+                                db.add(mapping)
                             stats["failed"] += 1
 
                         stats["processed"] += 1
