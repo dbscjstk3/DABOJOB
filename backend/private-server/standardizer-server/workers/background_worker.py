@@ -227,6 +227,40 @@ class BackgroundWorker(BaseService):
 
             await redis_helper.update_job_status(job_id, "completed", result)
 
+            # 매핑 성공한 회사들에 대해 자동으로 DART 문서 추출 시작
+            if result.get("suggested", 0) > 0:
+                self.logger.info(f"🎯 {result.get('suggested')} companies mapped successfully. Starting DART extraction...")
+
+                # 성공적으로 매핑된 회사들 가져오기
+                from models.database import SessionLocal
+                from models.crawler import CompanyDartMapping, MappingStatus
+
+                db = SessionLocal()
+                try:
+                    # 신뢰도 95% 이상만 자동 추출
+                    high_confidence_mappings = db.query(CompanyDartMapping).filter(
+                        CompanyDartMapping.mapping_status == MappingStatus.suggested,
+                        CompanyDartMapping.confidence_score >= 95,
+                        CompanyDartMapping.dart_corp_code.isnot(None)
+                    ).all()
+
+                    for mapping in high_confidence_mappings:
+                        # DART 추출 작업 큐에 추가
+                        dart_job_data = {
+                            "job_id": f"dart_extract_{mapping.mapping_id}_{datetime.now().strftime('%Y%m%d_%H%M%S')}",
+                            "mapping_id": mapping.mapping_id,
+                            "company_name": mapping.crawled_company_name,
+                            "corp_code": mapping.dart_corp_code,
+                            "report_type": "annual",
+                            "submitted_at": datetime.now().isoformat()
+                        }
+
+                        await redis_helper.add_job("dart_extract_stream", dart_job_data)
+                        self.logger.info(f"📄 DART extraction queued for {mapping.crawled_company_name} (Code: {mapping.dart_corp_code})")
+
+                finally:
+                    db.close()
+
         except Exception as e:
             self.logger.error(f"Failed to process mapping job {job_id}: {e}")
             await redis_helper.update_job_status(job_id, "failed", {"error": str(e)})
