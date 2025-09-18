@@ -115,6 +115,10 @@ class RedisConsumer:
 
             logger.info(f"Processing hashtags for job {job_id}, chapter {chapter}: {hashtags}")
 
+            # job_id로 company_name 조회
+            company_name = await self._get_company_name(job_id)
+            logger.info(f"Found company_name for job {job_id}: {company_name or 'None - will search without company filter'}")
+
             # 해시태그를 DB에 저장 (summary_id는 임시로 0 사용)
             await database.save_hashtags(job_id, 0, chapter, hashtags)
             
@@ -126,11 +130,11 @@ class RedisConsumer:
                     hashtag_id = await self._save_and_get_hashtag_id(job_id, chapter, hashtag)
 
                     news_count = await news_service.search_and_process_news(
-                        mapping_id=job_id,
+                        job_id=job_id,
                         hashtag_id=hashtag_id,
                         summary_id=0,  # 임시
                         hashtag=hashtag,
-                        company_name=""  # 기업명은 별도로 추출 필요
+                        company_name=company_name or ""  # MySQL에서 조회한 회사명 사용
                     )
                     total_news_count += news_count
                     logger.info(f"Found {news_count} news for hashtag: {hashtag} (hashtag_id: {hashtag_id})")
@@ -165,13 +169,41 @@ class RedisConsumer:
             logger.error(f"Failed to process message: {e}")
             return False
 
+    async def _get_company_name(self, job_id: int) -> Optional[str]:
+        """job_id로 company_name 조회"""
+        try:
+            # job_postings에서 company_id 조회 후 companies에서 company_name 조회
+            query = """
+            SELECT c.company_name
+            FROM job_postings jp
+            JOIN companies c ON jp.company_id = c.company_id
+            WHERE jp.job_id = %s
+            LIMIT 1
+            """
+
+            async with database.get_connection() as cursor:
+                await cursor.execute(query, (job_id,))
+                result = await cursor.fetchone()
+
+                if result:
+                    company_name = result[0]
+                    logger.info(f"Found company_name for job {job_id}: {company_name}")
+                    return company_name
+                else:
+                    logger.warning(f"No company_name found for job {job_id} in job_postings/companies tables")
+                    return None
+
+        except Exception as e:
+            logger.error(f"Error getting company_name for job {job_id}: {e}")
+            return None
+
     async def _save_and_get_hashtag_id(self, job_id: int, chapter: str, hashtag: str) -> int:
         """해시태그를 DB에 저장하고 ID 반환"""
         try:
             # 이미 존재하는 해시태그인지 확인
             query_check = """
             SELECT hashtag_id FROM summary_hashtags
-            WHERE mapping_id = %s AND chapter = %s AND hashtag = %s
+            WHERE job_id = %s AND chapter = %s AND hashtag = %s
             """
 
             async with database.get_connection() as cursor:
@@ -183,7 +215,7 @@ class RedisConsumer:
 
                 # 새로운 해시태그 저장 (summary_id는 0으로 설정, 나중에 업데이트)
                 query_insert = """
-                INSERT INTO summary_hashtags (mapping_id, summary_id, chapter, hashtag)
+                INSERT INTO summary_hashtags (job_id, summary_id, chapter, hashtag)
                 VALUES (%s, %s, %s, %s)
                 """
 
@@ -212,10 +244,23 @@ class RedisConsumer:
 
         logger.info(f"Job {job_id} progress: {current_count}/5")
 
-        # 5개 챕터 모두 완료 시 기업 분석 데이터 처리
+        # 5개 챕터 모두 완료 시 기업 분석 데이터 처리 및 S3 업로드
         if current_count >= 5:
-            logger.info(f"All chapters completed for job {job_id}, processing company analysis")
+            logger.info(f"All chapters completed for job {job_id}, processing company analysis and S3 upload")
+
+            # 기업 분석 데이터 처리
             await company_processor.process_hashtag_completion(job_id, 'all', [])
+
+            # S3에 자동 업로드
+            try:
+                from .s3_service import s3_service
+                uploaded_files = await s3_service.upload_job_completion_data(job_id)
+                if uploaded_files:
+                    logger.info(f"Successfully uploaded {len(uploaded_files)} files to S3 for job {job_id}: {list(uploaded_files.keys())}")
+                else:
+                    logger.warning(f"No files were uploaded to S3 for job {job_id}")
+            except Exception as e:
+                logger.error(f"Failed to upload job completion data to S3 for job {job_id}: {e}")
 
             # Counter 삭제 (선택사항)
             self.client.delete(counter_key)
