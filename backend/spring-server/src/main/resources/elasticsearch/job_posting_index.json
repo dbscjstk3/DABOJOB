@@ -1,0 +1,112 @@
+{
+  "settings": {
+    "number_of_shards": 1,
+    "number_of_replicas": 0,
+    "analysis": {
+      "tokenizer": {
+        "nori_tokenizer": {
+          "type": "nori_tokenizer",
+          "decompound_mode": "mixed"
+        }
+      },
+      "analyzer": {
+        "korean": {
+          "type": "custom",
+          "tokenizer": "nori_tokenizer",
+          "filter": ["lowercase", "nori_part_of_speech"]
+        },
+        "korean_search": {
+          "type": "custom",
+          "tokenizer": "nori_tokenizer",
+          "filter": ["lowercase", "nori_part_of_speech"]
+        }
+      },
+      "filter": {
+        "nori_part_of_speech": {
+          "type": "nori_part_of_speech",
+          "stoptags": [
+            "E", "IC", "J", "MAG", "MAJ", "MM", "SP", 
+            "SSC", "SSO", "SC", "SE", "XPN", "XSA", 
+            "XSN", "XSV", "UNA", "NA", "VCP"
+          ]
+        }
+      }
+    }
+  },
+  "mappings": {
+    "properties": {
+      "job_posting_id": {
+        "type": "long",
+        "index": false
+      },
+      "company_id": {
+        "type": "long",
+        "index": false
+      },
+      "company_name": {
+        "type": "text",
+        "analyzer": "korean",
+        "search_analyzer": "korean_search",
+        "fields": {
+          "keyword": { "type": "keyword" },
+          "autocomplete": { "type": "search_as_you_type" }
+        }
+      },
+      "company_name_completion": {
+        "type": "completion",
+        "max_input_length": 100
+      },
+      "title": {
+        "type": "text",
+        "analyzer": "korean",
+        "search_analyzer": "korean_search",
+        "fields": {
+          "keyword": { "type": "keyword" },
+          "autocomplete": { "type": "search_as_you_type" }
+        }
+      },
+      "title_completion": {
+        "type": "completion",
+        "max_input_length": 100
+      },
+      "company_scale": {
+        "type": "integer"
+      },
+      "url": {
+        "type": "keyword",
+        "index": false
+      },
+      "career_info": {
+        "type": "keyword"
+      },
+      "job_sector_code": {
+        "type": "integer",
+        "index": false
+      },
+      "job_sector_name": {
+        "type": "keyword"
+      },
+      "job_sector_category": {
+        "type": "text",
+        "analyzer": "korean",
+        "search_analyzer": "korean_search"
+      },
+      "summary_hashtags": {
+        "type": "text",
+        "analyzer": "korean",
+        "search_analyzer": "korean_search",
+        "fields": {
+          "keyword": { "type": "keyword" }
+        }
+      },
+      "posting_date": {
+        "type": "date",
+        "format": "yyyy-MM-dd"
+      },
+      "deadline_date": {
+        "type": "date",
+        "format": "yyyy-MM-dd"
+      }
+    }
+  }
+}
