@@ -247,13 +247,14 @@ class BackgroundWorker:
                             "job_id": f"dart_extract_{mapping.mapping_id}_{datetime.now().strftime('%Y%m%d_%H%M%S')}",
                             "mapping_id": mapping.mapping_id,
                             "company_name": mapping.crawled_company_name,
-                            "corp_code": mapping.dart_corp_code,
+                            "dart_corp_name": mapping.dart_corp_name,  # DART 정식 기업명 사용
+                            "dart_corp_code": mapping.dart_corp_code,
                             "report_type": "annual",
                             "submitted_at": datetime.now().isoformat()
                         }
 
                         await redis_helper.add_job("dart_extract_stream", dart_job_data)
-                        logger.info(f"📄 DART extraction queued for {mapping.crawled_company_name} (Code: {mapping.dart_corp_code})")
+                        logger.info(f"📄 DART extraction queued for {mapping.crawled_company_name} → {mapping.dart_corp_name} (Code: {mapping.dart_corp_code})")
 
                 finally:
                     db.close()
@@ -268,34 +269,50 @@ class BackgroundWorker:
         try:
             logger.info(f"Processing DART extract job: {job_id}")
 
-            corp_code = job_data.get("corp_code")
-            year = job_data.get("year")
+            dart_corp_name = job_data.get("dart_corp_name")
+            company_name = job_data.get("company_name")
 
             if not self.dart_extractor:
                 raise Exception("DART extractor not available")
 
-            result = await self.dart_extractor.extract_company_annual_report(
-                corp_code=corp_code,
-                year=year
+            if not dart_corp_name:
+                raise Exception(f"No DART corp name provided for {company_name}")
+
+            logger.info(f"🔍 Extracting DART report for: {dart_corp_name}")
+
+            # DART extractor는 sync 메서드이므로 asyncio.to_thread 사용
+            extracted_content = await asyncio.to_thread(
+                self.dart_extractor.extract_company_report_to_text,
+                dart_corp_name
             )
+
+            result = {
+                "status": "extracted" if extracted_content else "failed",
+                "content": extracted_content,
+                "dart_corp_name": dart_corp_name,
+                "dart_corp_code": job_data.get("dart_corp_code"),
+                "extracted_at": datetime.now().isoformat()
+            }
 
             await redis_helper.update_job_status(job_id, "completed", result)
 
             # DART 추출 성공 시 자동으로 표준화 작업 시작
-            if result.get("status") == "extracted" and result.get("content"):
-                logger.info(f"📄 DART extraction completed for {job_data.get('company_name')}. Starting standardization...")
+            if extracted_content:
+                logger.info(f"📄 DART extraction completed for {job_data.get('company_name')} ({len(extracted_content):,} chars). Starting standardization...")
 
                 # 표준화 작업을 Redis 스트림에 추가
                 standardize_job_data = {
                     "job_id": f"standardize_{job_data.get('mapping_id')}_{datetime.now().strftime('%Y%m%d_%H%M%S')}",
                     "mapping_id": job_data.get("mapping_id"),
                     "company_name": job_data.get("company_name"),
-                    "dart_content": result.get("content"),
+                    "dart_content": extracted_content,
                     "submitted_at": datetime.now().isoformat()
                 }
 
                 await redis_helper.add_job("standardize_stream", standardize_job_data)
                 logger.info(f"📝 Standardization job queued for {job_data.get('company_name')}")
+            else:
+                logger.warning(f"❌ DART extraction failed for {job_data.get('company_name')} - no content extracted")
 
         except Exception as e:
             logger.error(f"Failed to process DART extract job {job_id}: {e}")
