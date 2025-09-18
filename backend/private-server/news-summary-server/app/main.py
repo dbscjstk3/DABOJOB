@@ -2,9 +2,12 @@ import os
 import logging
 import asyncio
 import time
-from typing import Optional, List
+import json
+import boto3
+from typing import Optional, List, Dict, Any
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
+from datetime import datetime
 import ollama
 from concurrent.futures import ThreadPoolExecutor
 import threading
@@ -30,6 +33,9 @@ shutdown_event = threading.Event()
 redis_consumer = None
 consumer_thread = None
 
+# S3 클라이언트
+s3_client = None
+
 class NewsSummarizeRequest(BaseModel):
     job_id: int
     chapter: str
@@ -48,6 +54,30 @@ class NewsSummarizeResponse(BaseModel):
     total_news_found: int
     hashtag_results: List[HashtagNewsResult]
     status: str = "completed"
+
+class NewsItem(BaseModel):
+    news_id: int
+    title: str
+    url: str
+    published_date: Optional[str]
+    summary: Optional[str]
+
+class HashtagDetail(BaseModel):
+    hashtag: str
+    news_items: List[NewsItem]
+
+class CategoryResult(BaseModel):
+    category: str
+    hashtags: List[HashtagDetail]
+    total_news_count: int
+
+class JobResult(BaseModel):
+    job_id: int
+    company_name: str
+    categories: List[CategoryResult]
+    total_hashtags: int
+    total_news: int
+    status: str
 
 async def _save_and_get_hashtag_id(job_id: int, chapter: str, hashtag: str) -> int:
     """해시태그를 DB에 저장하고 ID 반환"""
@@ -131,7 +161,7 @@ async def news_search_callback(job_id: str, category: str, hashtags: list):
 @app.on_event("startup")
 async def startup_event():
     """서버 시작 시 초기화"""
-    global ollama_client, executor, request_semaphore, redis_consumer, consumer_thread
+    global ollama_client, executor, request_semaphore, redis_consumer, consumer_thread, s3_client
     
     try:
         host = OLLAMA_HOST if OLLAMA_HOST.startswith('http') else f'http://{OLLAMA_HOST}'
@@ -159,7 +189,20 @@ async def startup_event():
         logger.info(f"Available models: {[m['name'] for m in models['models']]}")
         logger.info(f"Using model: {MODEL_NAME}")
         logger.info(f"Max concurrent workers: {max_workers}")
-        
+
+        # S3 클라이언트 초기화
+        try:
+            s3_client = boto3.client(
+                's3',
+                aws_access_key_id=os.getenv('AWS_ACCESS_KEY_ID'),
+                aws_secret_access_key=os.getenv('AWS_SECRET_ACCESS_KEY'),
+                region_name=os.getenv('AWS_REGION', 'ap-northeast-2')
+            )
+            logger.info("S3 client initialized successfully")
+        except Exception as e:
+            logger.warning(f"Failed to initialize S3 client: {e}")
+            s3_client = None
+
     except Exception as e:
         logger.error(f"Failed to initialize Ollama client: {e}")
         raise
@@ -279,12 +322,12 @@ async def get_hashtag_results(job_id: str):
     """처리된 해시태그 결과 조회"""
     if not redis_consumer:
         raise HTTPException(status_code=503, detail="Redis consumer not available")
-    
+
     try:
         results = redis_consumer.get_processed_results(job_id)
         if not results:
             raise HTTPException(status_code=404, detail=f"No results found for job {job_id}")
-        
+
         return {
             "job_id": job_id,
             "categories": list(results.keys()),
@@ -294,6 +337,272 @@ async def get_hashtag_results(job_id: str):
     except Exception as e:
         logger.error(f"Failed to get hashtag results: {e}")
         raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/jobs/{job_id}/hashtags")
+async def get_job_hashtags(job_id: int):
+    """특정 job_id의 해시태그 목록 조회"""
+    try:
+        from .database import database
+
+        query = """
+        SELECT DISTINCT sh.chapter, sh.hashtag, sh.hashtag_id
+        FROM summary_hashtags sh
+        WHERE sh.mapping_id = %s
+        ORDER BY sh.chapter, sh.hashtag
+        """
+
+        async with database.get_connection() as cursor:
+            await cursor.execute(query, (job_id,))
+            results = await cursor.fetchall()
+
+            if not results:
+                raise HTTPException(status_code=404, detail=f"No hashtags found for job {job_id}")
+
+            hashtags_by_category = {}
+            for row in results:
+                chapter, hashtag, hashtag_id = row
+                if chapter not in hashtags_by_category:
+                    hashtags_by_category[chapter] = []
+                hashtags_by_category[chapter].append({
+                    "hashtag": hashtag,
+                    "hashtag_id": hashtag_id
+                })
+
+            return {
+                "job_id": job_id,
+                "categories": hashtags_by_category,
+                "total_hashtags": len(results)
+            }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Failed to get hashtags for job {job_id}: {e}")
+        raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")
+
+@app.get("/jobs/{job_id}/news")
+async def get_job_news(job_id: int, hashtag_id: Optional[int] = None, category: Optional[str] = None):
+    """특정 job_id의 뉴스 목록 조회"""
+    try:
+        from .database import database
+
+        # 기본 쿼리
+        base_query = """
+        SELECT
+            rn.news_id,
+            rn.title,
+            rn.url,
+            rn.published_date,
+            rn.hashtag_id,
+            sh.hashtag,
+            sh.chapter,
+            ns.news_content as summary
+        FROM raw_news rn
+        LEFT JOIN summary_hashtags sh ON rn.hashtag_id = sh.hashtag_id
+        LEFT JOIN news_summaries ns ON rn.news_id = ns.news_id
+            AND ns.mapping_id = %s
+        WHERE rn.mapping_id = %s
+        """
+
+        params = [job_id, job_id]
+
+        # 필터 조건 추가
+        if hashtag_id:
+            base_query += " AND rn.hashtag_id = %s"
+            params.append(hashtag_id)
+
+        if category:
+            base_query += " AND sh.chapter = %s"
+            params.append(category)
+
+        base_query += " ORDER BY rn.published_date DESC"
+
+        async with database.get_connection() as cursor:
+            await cursor.execute(base_query, params)
+            results = await cursor.fetchall()
+
+            if not results:
+                return {
+                    "job_id": job_id,
+                    "filters": {
+                        "hashtag_id": hashtag_id,
+                        "category": category
+                    },
+                    "news_items": [],
+                    "total_count": 0
+                }
+
+            news_items = []
+            for row in results:
+                news_id, title, url, published_date, hashtag_id_result, hashtag, chapter, summary = row
+
+                # 날짜 포맷팅
+                formatted_date = None
+                if published_date:
+                    if isinstance(published_date, datetime):
+                        formatted_date = published_date.strftime("%Y-%m-%d %H:%M:%S")
+                    else:
+                        formatted_date = str(published_date)
+
+                news_items.append({
+                    "news_id": news_id,
+                    "title": title or "제목 없음",
+                    "url": url or "",
+                    "published_date": formatted_date,
+                    "hashtag_id": hashtag_id_result,
+                    "hashtag": hashtag,
+                    "category": chapter,
+                    "summary": summary
+                })
+
+            return {
+                "job_id": job_id,
+                "filters": {
+                    "hashtag_id": hashtag_id,
+                    "category": category
+                },
+                "news_items": news_items,
+                "total_count": len(news_items)
+            }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Failed to get news for job {job_id}: {e}")
+        raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")
+
+@app.get("/jobs/{job_id}/summary")
+async def get_job_summary(job_id: int):
+    """특정 job_id의 요약 정보 조회"""
+    try:
+        from .database import database
+
+        # 해시태그 통계
+        hashtag_query = """
+        SELECT chapter, COUNT(*) as hashtag_count
+        FROM summary_hashtags
+        WHERE mapping_id = %s
+        GROUP BY chapter
+        """
+
+        # 뉴스 통계
+        news_query = """
+        SELECT sh.chapter, COUNT(rn.news_id) as news_count
+        FROM summary_hashtags sh
+        LEFT JOIN raw_news rn ON sh.hashtag_id = rn.hashtag_id AND rn.mapping_id = %s
+        WHERE sh.mapping_id = %s
+        GROUP BY sh.chapter
+        """
+
+        async with database.get_connection() as cursor:
+            # 해시태그 통계 조회
+            await cursor.execute(hashtag_query, (job_id,))
+            hashtag_stats = await cursor.fetchall()
+
+            # 뉴스 통계 조회
+            await cursor.execute(news_query, (job_id, job_id))
+            news_stats = await cursor.fetchall()
+
+            if not hashtag_stats:
+                raise HTTPException(status_code=404, detail=f"No data found for job {job_id}")
+
+            # 결과 구성
+            categories = {}
+            total_hashtags = 0
+            total_news = 0
+
+            # 해시태그 통계 처리
+            for row in hashtag_stats:
+                category, hashtag_count = row
+                categories[category] = {
+                    "hashtag_count": hashtag_count,
+                    "news_count": 0
+                }
+                total_hashtags += hashtag_count
+
+            # 뉴스 통계 처리
+            for row in news_stats:
+                category, news_count = row
+                if category in categories:
+                    categories[category]["news_count"] = news_count
+                    total_news += news_count
+
+            return {
+                "job_id": job_id,
+                "categories": categories,
+                "total_hashtags": total_hashtags,
+                "total_news": total_news,
+                "status": "completed" if categories else "no_data"
+            }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Failed to get summary for job {job_id}: {e}")
+        raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")
+
+@app.get("/jobs/{job_id}/company")
+async def get_job_company(job_id: int):
+    """특정 job_id의 회사 정보 조회 (mappings 테이블 사용 안함)"""
+    try:
+        # mappings 테이블 대신 다른 방법으로 회사명 추정
+        from .database import database
+
+        # 뉴스 데이터에서 가장 많이 등장하는 회사명 패턴을 찾거나
+        # 또는 단순히 job_id만 반환
+        return {
+            "job_id": job_id,
+            "company_name": None,  # mappings 테이블 없으면 null
+            "note": "Company name not available - mappings table not found"
+        }
+
+    except Exception as e:
+        logger.error(f"Failed to get company info for job {job_id}: {e}")
+        return {
+            "job_id": job_id,
+            "company_name": None,
+            "error": str(e)
+        }
+
+@app.post("/jobs/{job_id}/upload")
+async def upload_job_to_s3(job_id: int):
+    """특정 job_id의 데이터를 S3에 업로드"""
+    try:
+        from .services.s3_service import s3_service
+
+        uploaded_files = await s3_service.upload_job_completion_data(job_id)
+
+        if not uploaded_files:
+            raise HTTPException(status_code=500, detail="Failed to upload any files to S3")
+
+        return {
+            "job_id": job_id,
+            "uploaded_files": uploaded_files,
+            "total_files": len(uploaded_files),
+            "message": f"Successfully uploaded {len(uploaded_files)} files to S3"
+        }
+
+    except Exception as e:
+        logger.error(f"Failed to upload job {job_id} to S3: {e}")
+        raise HTTPException(status_code=500, detail=f"S3 upload error: {str(e)}")
+
+@app.get("/jobs/{job_id}/s3-files")
+async def get_job_s3_files(job_id: int):
+    """특정 job_id의 S3 파일 목록 조회"""
+    try:
+        from .services.s3_service import s3_service
+
+        files = s3_service.get_job_s3_files(job_id)
+
+        return {
+            "job_id": job_id,
+            "s3_files": files,
+            "total_files": len(files)
+        }
+
+    except Exception as e:
+        logger.error(f"Failed to list S3 files for job {job_id}: {e}")
+        raise HTTPException(status_code=500, detail=f"S3 list error: {str(e)}")
 
 @app.on_event("shutdown")
 async def shutdown_event_handler():
