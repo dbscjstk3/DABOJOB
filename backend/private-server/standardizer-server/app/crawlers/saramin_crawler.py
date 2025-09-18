@@ -593,10 +593,8 @@ class SaraminCrawler(BaseCrawler):
                     self.logger.warning(f"회사명이 없어 건너뜁니다: job_title={job_data.get('job_title')}")
                     continue
 
-                # 실시간 매핑 확인 (매핑 불가능한 회사는 저장하지 않음)
-                if not self._is_company_mappable(job_data['company_name']):
-                    self.logger.info(f"DART 매핑 불가능으로 저장 생략: {job_data['company_name']}")
-                    continue
+                # 모든 회사 저장 (나중에 자동 매핑에서 처리)
+                # 크롤링 단계에서는 필터링하지 않음
 
                 company_id = self._save_or_update_company(job_data)
                 if not company_id:
