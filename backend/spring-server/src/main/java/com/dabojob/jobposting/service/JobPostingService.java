@@ -59,4 +59,10 @@ public class JobPostingService {
                 .map(JobPostingResponse::of)
                 .collect(Collectors.toList());
     }
+//
+//    public Page<JobPostingResponse> searchJobPosting(String searchString, int page, int size) {
+//        Pageable pageable = PageRequest.of(page, size);
+//        return jobPostingDocumentRepository.searchIntegrated(searchString,pageable)
+//                .map(JobPostingDocument::toResponse);
+//    }
 }
