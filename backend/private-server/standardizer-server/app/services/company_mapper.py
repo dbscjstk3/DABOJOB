@@ -247,3 +247,56 @@ null
         logger.info(f"   - Success Rate: {(stats['suggested']/stats['processed']*100):.1f}%" if stats['processed'] > 0 else "   - Success Rate: 0%")
 
         return stats
+
+    def get_mapping_stats(self, db: Session) -> Dict[str, int]:
+        """매핑 통계 조회"""
+        try:
+            from sqlalchemy import func
+
+            total_companies = db.query(Company).count()
+            unmapped = len(self.get_unmapped_companies(db, limit=10000))
+
+            stats = db.query(CompanyDartMapping.mapping_status, func.count()).group_by(CompanyDartMapping.mapping_status).all()
+            result = {"total_companies": total_companies, "unmapped": unmapped}
+
+            for status, count in stats:
+                result[status.value] = count
+
+            return result
+        except Exception as e:
+            logger.error(f"Failed to get mapping stats: {e}")
+            raise Exception(f"Failed to get mapping stats: {e}")
+
+    def get_pending_mappings(self, db: Session, limit: int = 50) -> List[CompanyDartMapping]:
+        """대기 중인 매핑 목록 조회"""
+        try:
+            return db.query(CompanyDartMapping).filter(
+                CompanyDartMapping.mapping_status == MappingStatus.suggested
+            ).order_by(CompanyDartMapping.confidence_score.desc()).limit(limit).all()
+        except Exception as e:
+            logger.error(f"Failed to get pending mappings: {e}")
+            raise Exception(f"Failed to get pending mappings: {e}")
+
+    def verify_mapping(self, db: Session, mapping_id: int, verified_by: str,
+                      is_correct: bool, notes: Optional[str] = None) -> bool:
+        """매핑 검증"""
+        try:
+            mapping = db.query(CompanyDartMapping).filter(
+                CompanyDartMapping.mapping_id == mapping_id
+            ).first()
+
+            if not mapping:
+                return False
+
+            mapping.mapping_status = MappingStatus.verified if is_correct else MappingStatus.failed
+            mapping.verified_by = verified_by
+            mapping.verified_at = datetime.utcnow()
+            if notes:
+                mapping.manual_notes = notes
+
+            db.commit()
+            return True
+        except Exception as e:
+            logger.error(f"Failed to verify mapping {mapping_id}: {e}")
+            db.rollback()
+            raise Exception(f"Failed to verify mapping: {e}")

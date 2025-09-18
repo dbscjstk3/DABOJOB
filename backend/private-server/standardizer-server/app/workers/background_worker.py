@@ -7,6 +7,9 @@ from typing import Dict, Any, Optional
 from datetime import datetime
 import logging
 
+from .. import config
+from ..database import SessionLocal
+from ..models.crawler_models import CompanyDartMapping, MappingStatus
 from ..services.dart_extractor import DartDocumentExtractor
 from ..services.standardizer import StandardizerService
 from ..services.file_manager import FileManager
@@ -120,8 +123,8 @@ class BackgroundWorker:
             try:
                 jobs = await redis_helper.get_pending_jobs("crawler_stream", count=1)
 
-                for job_data in jobs:
-                    await self._handle_crawler_job(job_data)
+                for job_item in jobs:
+                    await self._handle_crawler_job(job_item)
 
                 await asyncio.sleep(5)  # 5초 대기
 
@@ -137,8 +140,8 @@ class BackgroundWorker:
             try:
                 jobs = await redis_helper.get_pending_jobs("mapping_stream", count=1)
 
-                for job_data in jobs:
-                    await self._handle_mapping_job(job_data)
+                for job_item in jobs:
+                    await self._handle_mapping_job(job_item)
 
                 await asyncio.sleep(5)
 
@@ -154,8 +157,8 @@ class BackgroundWorker:
             try:
                 jobs = await redis_helper.get_pending_jobs("dart_extract_stream", count=1)
 
-                for job_data in jobs:
-                    await self._handle_dart_extract_job(job_data)
+                for job_item in jobs:
+                    await self._handle_dart_extract_job(job_item)
 
                 await asyncio.sleep(5)
 
@@ -171,8 +174,8 @@ class BackgroundWorker:
             try:
                 jobs = await redis_helper.get_pending_jobs("standardize_stream", count=1)
 
-                for job_data in jobs:
-                    await self._handle_standardize_job(job_data)
+                for job_item in jobs:
+                    await self._handle_standardize_job(job_item)
 
                 await asyncio.sleep(5)
 
@@ -182,8 +185,10 @@ class BackgroundWorker:
                 logger.error(f"Error in standardize worker: {e}")
                 await asyncio.sleep(10)
 
-    async def _handle_crawler_job(self, job_data: Dict[str, Any]) -> None:
+    async def _handle_crawler_job(self, job_item: Dict[str, Any]) -> None:
         """크롤링 작업 처리"""
+        job_data = job_item["data"]
+        stream_id = job_item["stream_id"]
         job_id = job_data.get("job_id")
         try:
             logger.info(f"Processing crawler job: {job_id}")
@@ -209,12 +214,17 @@ class BackgroundWorker:
                 await redis_helper.add_job("mapping_stream", mapping_job_data)
                 logger.info(f"✅ Auto-mapping job queued: auto_mapping_{job_id}")
 
+            # 작업 완료 확인
+            await redis_helper.ack_job(stream_id)
+
         except Exception as e:
             logger.error(f"Failed to process crawler job {job_id}: {e}")
             await redis_helper.update_job_status(job_id, "failed", {"error": str(e)})
 
-    async def _handle_mapping_job(self, job_data: Dict[str, Any]) -> None:
+    async def _handle_mapping_job(self, job_item: Dict[str, Any]) -> None:
         """매핑 작업 처리"""
+        job_data = job_item["data"]
+        stream_id = job_item["stream_id"]
         job_id = job_data.get("job_id")
         try:
             logger.info(f"Processing mapping job: {job_id}")
@@ -229,9 +239,6 @@ class BackgroundWorker:
                 logger.info(f"🎯 {result.get('suggested')} companies mapped successfully. Starting DART extraction...")
 
                 # 성공적으로 매핑된 회사들 가져오기
-                from ..database import SessionLocal
-                from ..models.crawler_models import CompanyDartMapping, MappingStatus
-
                 db = SessionLocal()
                 try:
                     # 신뢰도 95% 이상만 자동 추출
@@ -259,12 +266,17 @@ class BackgroundWorker:
                 finally:
                     db.close()
 
+            # 작업 완료 확인
+            await redis_helper.ack_job(stream_id)
+
         except Exception as e:
             logger.error(f"Failed to process mapping job {job_id}: {e}")
             await redis_helper.update_job_status(job_id, "failed", {"error": str(e)})
 
-    async def _handle_dart_extract_job(self, job_data: Dict[str, Any]) -> None:
+    async def _handle_dart_extract_job(self, job_item: Dict[str, Any]) -> None:
         """DART 추출 작업 처리"""
+        job_data = job_item["data"]
+        stream_id = job_item["stream_id"]
         job_id = job_data.get("job_id")
         try:
             logger.info(f"Processing DART extract job: {job_id}")
@@ -314,12 +326,17 @@ class BackgroundWorker:
             else:
                 logger.warning(f"❌ DART extraction failed for {job_data.get('company_name')} - no content extracted")
 
+            # 작업 완료 확인
+            await redis_helper.ack_job(stream_id)
+
         except Exception as e:
             logger.error(f"Failed to process DART extract job {job_id}: {e}")
             await redis_helper.update_job_status(job_id, "failed", {"error": str(e)})
 
-    async def _handle_standardize_job(self, job_data: Dict[str, Any]) -> None:
+    async def _handle_standardize_job(self, job_item: Dict[str, Any]) -> None:
         """표준화 작업 처리"""
+        job_data = job_item["data"]
+        stream_id = job_item["stream_id"]
         job_id = job_data.get("job_id")
         try:
             logger.info(f"Processing standardize job: {job_id}")
@@ -343,12 +360,40 @@ class BackgroundWorker:
 
                 await redis_helper.update_job_status(job_id, "completed", result)
                 logger.info(f"✅ Standardization completed for {title}")
+
+                # Summary 서버로 데이터 전달
+                await self._trigger_summary_server(job_data, result)
             else:
                 await redis_helper.update_job_status(job_id, "failed", {"error": "No content provided"})
+
+            # 작업 완료 확인
+            await redis_helper.ack_job(stream_id)
 
         except Exception as e:
             logger.error(f"Failed to process standardize job {job_id}: {e}")
             await redis_helper.update_job_status(job_id, "failed", {"error": str(e)})
+
+    async def _trigger_summary_server(self, job_data: Dict, standardization_result: Dict):
+        """Summary 서버로 표준화 완료 데이터 전달"""
+        try:
+            summary_job_data = {
+                "job_id": f"summary_{job_data.get('mapping_id')}_{datetime.now().strftime('%Y%m%d_%H%M%S')}",
+                "mapping_id": job_data.get("mapping_id"),
+                "company_name": job_data.get("company_name"),
+                "standardized_content": standardization_result.get("standardized_content"),
+                "category": standardization_result.get("category"),
+                "submitted_at": datetime.now().isoformat()
+            }
+
+            # Summary 서버의 Redis 스트림에 작업 추가
+            await redis_helper.add_job(config.STREAM_SUMMARY, summary_job_data)
+
+            logger.info(f"📊 Summary job queued for {job_data.get('company_name')}")
+            logger.info(f"🎉 Complete pipeline finished: Crawling → Mapping → DART → Standardization → Summary")
+
+        except Exception as e:
+            logger.error(f"Failed to trigger summary server: {e}")
+            # Summary 실패해도 표준화는 성공으로 처리
 
     def get_status(self) -> Dict[str, Any]:
         """워커 상태 반환"""
