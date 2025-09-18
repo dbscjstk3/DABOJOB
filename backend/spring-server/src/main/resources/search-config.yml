@@ -1,0 +1,38 @@
+search:
+  # 통합검색 필드별 가중치 (우선순위 기반)
+  weights:
+    title: 5.0                    # 1순위 - 채용공고 제목
+    company-name: 4.0             # 2순위 - 회사명
+    summary-hashtags: 3.0         # 3순위 - 요약 해시태그
+    job-sector-name: 2.0          # 4순위 - 직무 분야명
+    job-sector-category: 1.0      # 5순위 - 직무 카테고리
+
+  # 동점 상황에서의 부스팅 점수
+  boost:
+    # 회사 규모 부스팅 (ENUM 기반)
+    company-scale:
+      BIG: 1.5        # 대기업
+      MEDIUM: 1.3     # 중견기업
+      SMALL: 1.1      # 중소기업
+      ETC: 1.0        # 기타
+
+    # 최신 공고 부스팅
+    recent-posting:
+      within-week: 1.3     # 7일 이내
+      within-month: 1.1    # 30일 이내
+      older: 1.0           # 30일 초과
+
+  # 검색 품질 설정
+  fuzziness:
+    auto-threshold: "AUTO"    # 자동 오타 허용
+    max-distance: 2           # 최대 편집 거리
+
+  # 결과 설정
+  pagination:
+    default-size: 10          # 기본 페이지 크기
+    max-size: 100            # 최대 페이지 크기
+
+  # 최소 점수 임계값
+  scoring:
+    min-score: 0.1           # 최소 관련도 점수
+    tie-breaker: 0.3         # 동점 처리 계수
