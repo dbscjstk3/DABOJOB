@@ -21,20 +21,38 @@ async def start_saramin_crawl(
 ):
     """
     사람인 크롤링 시작
-    
+
     Parameters:
     - max_pages: 크롤링할 최대 페이지 수 (1-100)
     """
     try:
-        def run_crawler():
+        async def run_crawler_and_trigger_mapping():
+            from ...utils.redis_helper import redis_helper
+
+            # 크롤링 실행
             crawler = SaraminCrawler(db_session=db)
-            return crawler.crawl(max_pages=max_pages)
-        
-        background_tasks.add_task(run_crawler)
-        
+            result = crawler.crawl(max_pages=max_pages)
+
+            # 크롤링 성공 시 자동 매핑 트리거
+            if result and result.get("status") == "completed":
+                job_id = f"saramin_crawl_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
+
+                # 매핑 작업을 Redis 스트림에 추가
+                mapping_job_data = {
+                    "job_id": f"auto_mapping_{job_id}",
+                    "trigger": "post_saramin_crawling",
+                    "limit": 20,
+                    "submitted_at": datetime.now().isoformat()
+                }
+
+                await redis_helper.add_job("mapping_stream", mapping_job_data)
+                print(f"✅ Auto-mapping job queued after Saramin crawling: auto_mapping_{job_id}")
+
+        background_tasks.add_task(run_crawler_and_trigger_mapping)
+
         return {
             "status": "started",
-            "message": f"사람인 크롤링이 시작되었습니다. (최대 {max_pages}페이지)",
+            "message": f"사람인 크롤링이 시작되었습니다. (최대 {max_pages}페이지) - 완료 후 자동 매핑 실행",
             "timestamp": datetime.now().isoformat()
         }
     except Exception as e:
