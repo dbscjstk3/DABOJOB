@@ -1,6 +1,9 @@
 package com.dabojob.jobposting.entity;
 
+import com.dabojob.company.entity.Company;
 import com.dabojob.jobposting.dto.JobPostingResponse;
+import com.dabojob.summary.entity.Hashtag;
+import com.dabojob.summary.entity.SummaryHashtag;
 import java.time.LocalDate;
 import java.util.List;
 import lombok.AllArgsConstructor;
@@ -79,6 +82,28 @@ public class JobPostingDocument {
 
     @Field(type = FieldType.Date, pattern = "yyyy-MM-dd", name = "deadline_date")
     private LocalDate deadlineDate;
+
+    public static JobPostingDocument of (JobPosting jobPosting, JobSector jobSector, Company company, List<SummaryHashtag> hashtags) {
+        List<String> hashtagIds = hashtags.stream().map(SummaryHashtag::getHashtag).map(Hashtag::getName).toList();
+
+        return JobPostingDocument.builder()
+                .jobPostingId(jobPosting.getId())
+                .companyId(company.getId())
+                .companyName(company.getName())
+                .companyNameCompletion(company.getName())
+                .title(jobPosting.getTitle())
+                .titleCompletion(jobPosting.getTitle())
+                .companyScale(company.getScale().name())
+                .url(jobPosting.getUrl())
+                .careerInfo(jobPosting.getCareerInfo())
+                .jobSectorCode(jobSector.getId())
+                .jobSectorName(jobSector.getName())
+                .jobSectorCategory(jobSector.getCategory())
+                .summaryHashtags(hashtagIds)
+                .postingDate(jobPosting.getPostingDate())
+                .deadlineDate(jobPosting.getDeadlineDate())
+                .build();
+    }
 
     public static JobPostingResponse toResponse(JobPostingDocument document) {
         return JobPostingResponse.builder()
