@@ -29,6 +29,11 @@ const calendarDetailRoute = createRoute({
   //   }
   // },
   component: CalendarDetailPage,
+  validateSearch: (search: Record<string, unknown>) => {
+    return {
+      jobPostingId: (search.jobPostingId as string) || undefined,
+    };
+  },
 });
 
 const loginRoute = createRoute({

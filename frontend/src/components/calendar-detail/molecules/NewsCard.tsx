@@ -3,7 +3,7 @@ import { cn } from '@/lib/utils';
 
 interface NewsCardProps {
   title: string;
-  source: string;
+  content: string;
   publishedDate: string;
   url?: string;
   className?: string;
@@ -11,7 +11,7 @@ interface NewsCardProps {
 
 export default function NewsCard({
   title,
-  source,
+  content,
   publishedDate,
   url,
   className = '',
@@ -23,26 +23,29 @@ export default function NewsCard({
   };
 
   return (
-    <article className={cn('border-b border-slate-200 pb-6 last:border-b-0', className)}>
+    <article className={cn('border-b border-slate-200 pb-1 last:border-b-0', className)}>
       {/* 제목과 날짜 */}
-      <div className="flex justify-between items-start mb-2">
-        <Typography
-          as="h3"
-          variant="default"
-          weight="semibold"
-          className="flex-1 cursor-pointer hover:text-blue-600 transition-colors"
-          onClick={handleClick}
-        >
-          {title}
-        </Typography>
-        <Typography variant="default" color="gray" className="ml-4 text-sm whitespace-nowrap">
-          {publishedDate}
-        </Typography>
-      </div>
+      <Typography
+        as="h3"
+        variant="default"
+        weight="semibold"
+        className="flex-1 cursor-pointer mb-3 hover:text-blue-600 transition-colors"
+        onClick={handleClick}
+      >
+        {title}
+      </Typography>
 
-      {/* 출처/요약 - 전체 표시 */}
-      <Typography variant="default" color="gray" className="text-sm">
-        {source}
+      {/* 뉴스 내용 - 전체 표시 */}
+      <Typography variant="default" color="gray" className="text-sm leading-6">
+        {content}
+      </Typography>
+      <Typography
+        variant="default"
+        color="gray"
+        align="right"
+        className="mt-2 text-sm whitespace-nowrap"
+      >
+        {publishedDate}
       </Typography>
     </article>
   );

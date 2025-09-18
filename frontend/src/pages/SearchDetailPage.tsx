@@ -118,7 +118,7 @@ export default function SearchDetailPage() {
     };
 
     loadResults();
-  }, [currentPage]);
+  }, [currentPage, query]);
 
   // 페이지 변경 핸들러
   const handlePageChange = (newPage: number) => {
