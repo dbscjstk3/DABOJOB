@@ -2,6 +2,7 @@ package com.dabojob.jobposting.controller;
 
 
 import com.dabojob.jobposting.dto.JobPostingResponse;
+import com.dabojob.jobposting.service.JobPostingSearchService;
 import com.dabojob.jobposting.service.JobPostingService;
 import java.time.LocalDate;
 import java.util.List;
@@ -22,6 +23,7 @@ import org.springframework.web.bind.annotation.RestController;
 public class JobPostingController {
 
     private final JobPostingService jobPostingService;
+    private final JobPostingSearchService  jobPostingSearchService;
 
     @GetMapping("/{jobPostingId}")
     public ResponseEntity<JobPostingResponse> getJobPosting(@PathVariable String jobPostingId){
@@ -40,6 +42,14 @@ public class JobPostingController {
                                                                              @RequestParam(defaultValue = "0") int page,
                                                                              @RequestParam(defaultValue = "20") int size){
         Page<JobPostingResponse> jobPostingResponses = jobPostingService.getJobPostingByCompanyId(companyId,page,size);
+        return ResponseEntity.ok(jobPostingResponses);
+    }
+
+    @GetMapping("/search")
+    public ResponseEntity<Page<JobPostingResponse>> searchJobPosting(@RequestParam String searchString,
+                                                                     @RequestParam(defaultValue = "0") int page,
+                                                                     @RequestParam(defaultValue = "10") int size){
+        Page<JobPostingResponse> jobPostingResponses = jobPostingSearchService.search(searchString, page ,size );
         return ResponseEntity.ok(jobPostingResponses);
     }
 
