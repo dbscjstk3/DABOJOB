@@ -29,7 +29,7 @@ import lombok.Setter;
 public class SummaryHashtag {
 
     @Id
-    @Column(name="summary_hashtag_id")
+    @Column(name="id")
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
