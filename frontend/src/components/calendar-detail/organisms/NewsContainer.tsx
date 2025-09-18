@@ -7,12 +7,12 @@ import PaginationDots from '../molecules/PaginationDots';
 import { cn } from '@/lib/utils';
 
 export interface NewsItem {
-  id: number;
-  title: string;
-  source: string;
-  publishedDate: string;
-  hashtags: string[];
-  url?: string;
+  newsId: number;
+  newsTitle: string;
+  newsContent: string;
+  newsCreateDate: string;
+  newsUrl: string;
+  summaryHashtagId?: number; // 필요시 사용
 }
 
 interface NewsContainerProps {
@@ -33,19 +33,13 @@ export default function NewsContainer({
   // const navigate = useNavigate();
   const [currentPage, setCurrentPage] = useState(0);
 
-  // 필터링된 뉴스
-  const filteredNews = useMemo(() => {
-    if (!filterTag) return news;
-    return news.filter((item) => item.hashtags.includes(filterTag));
-  }, [news, filterTag]);
-
-  // 페이지네이션 계산
-  const totalPages = Math.ceil(filteredNews.length / itemsPerPage);
+  // 페이지네이션 계산 (이미 필터링된 데이터를 받아옴)
+  const totalPages = Math.ceil(news.length / itemsPerPage);
   const currentNews = useMemo(() => {
     const start = currentPage * itemsPerPage;
     const end = start + itemsPerPage;
-    return filteredNews.slice(start, end);
-  }, [filteredNews, currentPage, itemsPerPage]);
+    return news.slice(start, end);
+  }, [news, currentPage, itemsPerPage]);
 
   // 태그 변경 시 첫 페이지로 리셋
   useMemo(() => {
@@ -78,7 +72,7 @@ export default function NewsContainer({
   return (
     <article className={cn('rounded-xl border border-slate-200 bg-white p-4 md:p-6', className)}>
       {/* 헤더 */}
-      <div className="mb-7">
+      <div className="mb-5">
         <Typography variant="subtitle" weight="bold">
           {filterTag ? `# ${filterTag} 관련 뉴스` : '관련 뉴스'}
         </Typography>
@@ -89,25 +83,25 @@ export default function NewsContainer({
         <div className="space-y-6" {...swipeHandlers}>
           {currentNews.map((item) => (
             <NewsCard
-              key={item.id}
-              title={item.title}
-              source={item.source}
-              publishedDate={item.publishedDate}
-              url={item.url}
+              key={item.newsId}
+              title={item.newsTitle}
+              content={item.newsContent}
+              publishedDate={item.newsCreateDate}
+              url={item.newsUrl}
             />
           ))}
         </div>
       ) : (
-        <div className="py-8 text-center">
-          <Typography variant="default" color="gray">
-            {filterTag ? `# ${filterTag} 관련 뉴스가 없습니다.` : '뉴스가 없습니다.'}
+        <div className="py-5 text-center">
+          <Typography variant="default" color="gray" className="text-center">
+            {filterTag ? `# ${filterTag} 관련 뉴스가 없습니다.😭` : '뉴스가 없습니다.'}
           </Typography>
         </div>
       )}
 
       {/* 채용공고 검색 버튼 - 태그 선택 시에만 표시 */}
       {filterTag && (
-        <div className="mt-6 text-center">
+        <div className="text-center">
           <Button variant="outlined" size="md" onClick={handleViewAll}>
             # {filterTag} 채용공고 검색하기
           </Button>
