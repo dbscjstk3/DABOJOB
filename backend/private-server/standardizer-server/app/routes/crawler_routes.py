@@ -261,86 +261,21 @@ async def get_companies(
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@router.get("/statistics")
-async def get_crawl_statistics(
-    days: int = Query(default=7, ge=1, le=30),
-    db: Session = Depends(get_db)
-):
-    """
-    크롤링 통계 조회
-    """
-    try:
-        since_date = datetime.now() - timedelta(days=days)
-        
-        total_jobs = db.query(JobPosting).count()
-        recent_jobs = db.query(JobPosting).filter(
-            JobPosting.created_at >= since_date
-        ).count()
-        
-        total_companies = db.query(Company).count()
-        
-        hot_jobs = db.query(JobPosting).filter(
-            JobPosting.is_hot == True
-        ).count()
-        
-        sectors_count = db.query(JobSector).count()
-        regions_count = db.query(Region).count()
-        
-        recent_crawls = db.query(CrawlingLog).filter(
-            CrawlingLog.started_at >= since_date
-        ).count()
-        
-        successful_crawls = db.query(CrawlingLog).filter(
-            CrawlingLog.started_at >= since_date,
-            CrawlingLog.crawl_status == 'success'
-        ).count()
-        
-        return {
-            "period_days": days,
-            "jobs": {
-                "total": total_jobs,
-                "recent": recent_jobs,
-                "hot": hot_jobs
-            },
-            "companies": {
-                "total": total_companies
-            },
-            "metadata": {
-                "sectors": sectors_count,
-                "regions": regions_count
-            },
-            "crawling": {
-                "recent_attempts": recent_crawls,
-                "successful": successful_crawls,
-                "success_rate": round(successful_crawls / recent_crawls * 100, 2) if recent_crawls > 0 else 0
-            }
-        }
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+# 아래 API들은 디버그/유지보수용으로 주석 처리
+# 핵심 파이프라인에는 필요하지 않음
 
+# @router.get("/statistics")
+# async def get_crawl_statistics(
+#     days: int = Query(default=7, ge=1, le=30),
+#     db: Session = Depends(get_db)
+# ):
+#     """크롤링 통계 조회 (디버그용)"""
+#     pass
 
-@router.delete("/jobs/cleanup")
-async def cleanup_old_jobs(
-    days_old: int = Query(default=30, ge=7, le=90),
-    db: Session = Depends(get_db)
-):
-    """
-    오래된 채용공고 정리
-    """
-    try:
-        cutoff_date = datetime.now() - timedelta(days=days_old)
-        
-        deleted_count = db.query(JobPosting).filter(
-            JobPosting.created_at < cutoff_date
-        ).delete()
-        
-        db.commit()
-        
-        return {
-            "deleted_count": deleted_count,
-            "cutoff_date": cutoff_date.isoformat(),
-            "message": f"{days_old}일 이상 된 {deleted_count}개의 채용공고가 삭제되었습니다."
-        }
-    except Exception as e:
-        db.rollback()
-        raise HTTPException(status_code=500, detail=str(e))
+# @router.delete("/jobs/cleanup")
+# async def cleanup_old_jobs(
+#     days_old: int = Query(default=30, ge=7, le=90),
+#     db: Session = Depends(get_db)
+# ):
+#     """오래된 채용공고 정리 (유지보수용)"""
+#     pass

@@ -286,34 +286,12 @@ async def create_manual_mapping(
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@router.delete("/mapping/{mapping_id}")
-async def delete_mapping(
-    mapping_id: int,
-    db: Session = Depends(get_db)
-):
-    """매핑 삭제"""
-    try:
-        mapping = db.query(CompanyDartMapping)\
-            .filter(CompanyDartMapping.mapping_id == mapping_id)\
-            .first()
+# 불필요한 API들 주석 처리 - 핵심 파이프라인에 불필요
 
-        if not mapping:
-            raise HTTPException(status_code=404, detail="매핑을 찾을 수 없습니다.")
-
-        db.delete(mapping)
-        db.commit()
-
-        return {
-            "status": "success",
-            "message": "매핑이 삭제되었습니다.",
-            "mapping_id": mapping_id
-        }
-
-    except HTTPException:
-        raise
-    except Exception as e:
-        db.rollback()
-        raise HTTPException(status_code=500, detail=str(e))
+# @router.delete("/mapping/{mapping_id}")
+# async def delete_mapping(mapping_id: int, db: Session = Depends(get_db)):
+#     """매핑 삭제 (유지보수용)"""
+#     pass
 
 
 @router.get("/verified-companies")
@@ -381,29 +359,14 @@ async def get_failed_mappings(
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@router.get("/workflow/summary")
-async def get_mapping_workflow_summary():
-    """매핑 워크플로우 현황 요약"""
-    try:
-        summary = mapping_workflow.get_mapping_summary()
-        return summary
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+# 아래 API들은 모니터링/유지보수용으로 주석 처리
 
+# @router.get("/workflow/summary")
+# async def get_mapping_workflow_summary():
+#     """매핑 워크플로우 현황 요약 (모니터링용)"""
+#     pass
 
-@router.post("/workflow/trigger")
-async def trigger_mapping_workflow(background_tasks: BackgroundTasks):
-    """수동으로 매핑 워크플로우 실행"""
-    try:
-        async def run_workflow():
-            return await mapping_workflow.process_new_companies()
-
-        background_tasks.add_task(run_workflow)
-
-        return {
-            "status": "triggered",
-            "message": "매핑 워크플로우가 백그라운드에서 시작되었습니다.",
-            "timestamp": datetime.now().isoformat()
-        }
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+# @router.post("/workflow/trigger")
+# async def trigger_mapping_workflow(background_tasks: BackgroundTasks):
+#     """수동으로 매핑 워크플로우 실행 (유지보수용)"""
+#     pass
