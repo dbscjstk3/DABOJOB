@@ -340,6 +340,40 @@ async def get_verified_companies(
         raise HTTPException(status_code=500, detail=str(e))
 
 
+@router.get("/failed-mappings")
+async def get_failed_mappings(
+    limit: int = Query(default=50, ge=1, le=200),
+    db: Session = Depends(get_db)
+):
+    """실패한 매핑 목록 조회"""
+    try:
+        mappings = db.query(CompanyDartMapping)\
+            .filter(CompanyDartMapping.mapping_status == MappingStatus.failed)\
+            .order_by(CompanyDartMapping.updated_at.desc())\
+            .limit(limit)\
+            .all()
+
+        return [
+            {
+                "mapping_id": mapping.mapping_id,
+                "company_id": mapping.company_id,
+                "company_name": mapping.crawled_company_name,
+                "company_url": mapping.crawled_company_url,
+                "mapping_status": mapping.mapping_status.value,
+                "confidence_score": mapping.confidence_score,
+                "gpt_response": mapping.gpt_response,
+                "manual_notes": mapping.manual_notes,
+                "created_at": mapping.created_at,
+                "updated_at": mapping.updated_at,
+                "processed_at": mapping.processed_at
+            }
+            for mapping in mappings
+        ]
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 @router.get("/workflow/summary")
 async def get_mapping_workflow_summary():
     """매핑 워크플로우 현황 요약"""
