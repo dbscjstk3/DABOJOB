@@ -31,16 +31,11 @@ import lombok.Setter;
 public class CompanyAnalysisSummary extends BaseTimeEntity {
 
     @Id
-    @Column(name="summary_id")
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long summaryId;
+    private Long id;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "company_id")
     private Company company;
-
-    @Column(name="company_name_normalized")
-    private String companyNameNormalized;
 
     @Lob
     @Column(name="business_overview",columnDefinition = "TEXT")

@@ -49,11 +49,4 @@ public class AuthController {
         UserInfoResponse userInfo = authService.getCurrentUser(authentication);
         return ResponseEntity.ok(userInfo);
     }
-
-
-//    @PostMapping("/revoke")  // 사용자당 하나의 Refresh Token이 아니라, 여러개를 허용할 것이라면 도입. 단 내부 로직 변경 필요.
-//    public ResponseEntity<SuccessResponse> revokeToken(HttpServletRequest request) {
-//        authService.revokeTokenFromCookie(request);
-//        return ResponseEntity.ok(new SuccessResponse(true, "토큰이 무효화되었습니다."));
-//    }
 }
