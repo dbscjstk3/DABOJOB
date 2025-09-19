@@ -351,17 +351,27 @@ class BackgroundWorker:
                     content=content
                 )
 
+                # 표준화된 내용을 파일로 저장
+                file_path = self._save_standardized_content(
+                    job_id=job_id,
+                    mapping_id=job_data.get("mapping_id"),
+                    company_name=title,
+                    category=category,
+                    content=standardized_content
+                )
+
                 result = {
                     "mapping_id": job_data.get("mapping_id"),
                     "category": category,
                     "standardized_content": standardized_content,
+                    "file_path": file_path,  # 파일 경로 추가
                     "processing_time": datetime.now().isoformat()
                 }
 
                 await redis_helper.update_job_status(job_id, "completed", result)
-                logger.info(f"✅ Standardization completed for {title}")
+                logger.info(f"✅ Standardization completed for {title}, saved to {file_path}")
 
-                # Summary 서버로 데이터 전달
+                # Summary 서버로 데이터 전달 (file_path 포함)
                 await self._trigger_summary_server(job_data, result)
             else:
                 await redis_helper.update_job_status(job_id, "failed", {"error": "No content provided"})
@@ -373,13 +383,52 @@ class BackgroundWorker:
             logger.error(f"Failed to process standardize job {job_id}: {e}")
             await redis_helper.update_job_status(job_id, "failed", {"error": str(e)})
 
+    def _save_standardized_content(self, job_id: str, mapping_id: str, company_name: str, category: str, content: str) -> str:
+        """
+        표준화된 내용을 파일로 저장하고 경로 반환
+
+        Args:
+            job_id: 작업 ID
+            mapping_id: 매핑 ID
+            company_name: 회사명
+            category: 카테고리
+            content: 표준화된 내용
+
+        Returns:
+            str: 저장된 파일 경로
+        """
+        # FileManager에서 카테고리별 파일로 저장
+        self.file_manager.append_to_category_file(
+            job_id=f"mapping_{mapping_id}",  # mapping_id 기반 디렉토리 사용
+            category=category,
+            title=company_name,
+            content=content
+        )
+
+        # 파일 경로 반환
+        job_path = self.file_manager.get_job_path(f"mapping_{mapping_id}")
+        standardized_path = job_path / "standardized"
+
+        category_files = {
+            'business_overview': 'business_overview.txt',
+            'products_services': 'products_services.txt',
+            'revenue_orders': 'revenue_orders.txt',
+            'contracts_rnd': 'contracts_rnd.txt',
+            'other_references': 'other_references.txt'
+        }
+
+        file_name = category_files.get(category, 'other_references.txt')
+        file_path = str(standardized_path / file_name)
+
+        return file_path
+
     async def _trigger_summary_server(self, job_data: Dict, standardization_result: Dict):
         """Summary 서버로 표준화 완료 데이터 전달"""
         try:
             summary_job_data = {
                 "job_id": f"summary_{job_data.get('mapping_id')}_{datetime.now().strftime('%Y%m%d_%H%M%S')}",
                 "company_name": job_data.get("company_name"),
-                "content": standardization_result.get("standardized_content"),  # Summary 서버 형식에 맞춤
+                "file_path": standardization_result.get("file_path"),  # file_path로 변경
                 "category": standardization_result.get("category"),
                 "mapping_id": job_data.get("mapping_id"),
                 "submitted_at": datetime.now().isoformat()
@@ -388,7 +437,7 @@ class BackgroundWorker:
             # Summary 서버의 Redis 스트림에 작업 추가
             await redis_helper.add_job("stream:summary", summary_job_data)
 
-            logger.info(f"📊 Summary job queued for {job_data.get('company_name')}")
+            logger.info(f"📊 Summary job queued for {job_data.get('company_name')} with file: {standardization_result.get('file_path')}")
             logger.info(f"🎉 Complete pipeline finished: Crawling → Mapping → DART → Standardization → Summary")
 
         except Exception as e:
