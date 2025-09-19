@@ -31,6 +31,12 @@ public class SummaryController {
         return ResponseEntity.ok(summaryResponse);
     }
 
+    @GetMapping("/company/{companyId}")
+    public ResponseEntity<SummaryResponse> getSummaryByCompanyId(@PathVariable String companyId){
+        SummaryResponse summaryResponse = summaryService.getFirstSummaryByCompanyId(companyId);
+        return ResponseEntity.ok(summaryResponse);
+    }
+
     @GetMapping("/search")
     public ResponseEntity<Page<SummaryResponse>> searchSummary(@RequestParam String query){
         Page<SummaryResponse> summaryDTOs = summaryService.searchSummary(query);

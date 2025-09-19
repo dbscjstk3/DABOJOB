@@ -15,27 +15,31 @@ import lombok.NoArgsConstructor;
 public class JobPostingResponse {
     private Long jobPostingId;
     private Long companyId;
-    private String saraminJobId;
     private String companyName;
     private String title;
     private String url;
-    private Integer experienceLevelCode;
-    private Integer jobMidCode;
-    private LocalDate postingTimeStamp;
-    private LocalDate expirationTimestamp;
+
+    private Long jobSectorId;
+    private String jobSectorName;
+    private String jobSectorCategory;
+    private String careerInfo;
+
+    private LocalDate postingDate;
+    private LocalDate deadlineDate;
 
     public static JobPostingResponse of(JobPosting jobPosting ){
         return JobPostingResponse.builder()
-                .jobPostingId(jobPosting.getJobPostingId())
-                .companyId(jobPosting.getCompanyJobPosting().getCompany().getCompanyId())
-                .saraminJobId(jobPosting.getSaraminJobPostingId())
-                .companyName(jobPosting.getCompanyName())
+                .jobPostingId(jobPosting.getId())
+                .companyId(jobPosting.getCompany().getId())
+                .companyName(jobPosting.getCompany().getName())
                 .title(jobPosting.getTitle())
                 .url(jobPosting.getUrl())
-                .experienceLevelCode(jobPosting.getExperienceLevelCode())
-                .jobMidCode(jobPosting.getJobMidCode())
-                .postingTimeStamp(DateTimeUtil.convertToLocalDate(jobPosting.getPostingTimeStamp()))
-                .expirationTimestamp(DateTimeUtil.convertToLocalDate(jobPosting.getExpirationTimestamp()))
+                .jobSectorId(jobPosting.getJobSector().getId())
+                .jobSectorName(jobPosting.getJobSector().getName())
+                .jobSectorCategory(jobPosting.getJobSector().getCategory())
+                .careerInfo(jobPosting.getCareerInfo().toString())
+                .postingDate(jobPosting.getPostingDate())
+                .deadlineDate(jobPosting.getDeadlineDate())
                 .build();
     }
 
