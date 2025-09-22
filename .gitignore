@@ -95,4 +95,4 @@ out/
 
 !gradle/wrapper/gradle-wrapper.jar
 
-.claude/
+.claude
