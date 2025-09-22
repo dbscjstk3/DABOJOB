@@ -52,6 +52,11 @@ async def get_categorized_files(job_id: str):
         # 각 카테고리별 통계 추가
         stats = {}
         for category, content in categorized_files.items():
+            # content가 None일 경우 빈 문자열로 처리
+            if content is None:
+                content = ""
+                categorized_files[category] = ""  # None을 빈 문자열로 교체
+
             stats[category] = {
                 "length": len(content),
                 "exists": bool(content),
