@@ -69,15 +69,13 @@ public class OAuth2SuccessHandler extends SimpleUrlAuthenticationSuccessHandler 
         } catch (Exception e) {
             log.error("OAuth 성공 처리 중 오류 발생", e);
 
-            // 오류 발생 시 에러 페이지로 리다이렉션
-            String errorUrl = frontendUrl + "/auth/callback?error=token_generation_failed";
+            // 에러 페이지로 리다이렉트
+            String errorUrl = frontendUrl + "/auth/error?type=token_generation_failed";
             getRedirectStrategy().sendRedirect(request, response, errorUrl);
         }
     }
 
-    /**
-     * 프론트엔드 리다이렉션 URL 생성 (쿠키 방식이므로 토큰은 URL에 포함하지 않음)
-     */
+    //프론트엔드 리다이렉션 URL 생성 (쿠키 방식이므로 토큰은 URL에 포함하지 않음)
     private String createRedirectUrl( ) {
         return UriComponentsBuilder.fromUriString(frontendUrl + "/auth/callback")
                 .queryParam("success", "true")
