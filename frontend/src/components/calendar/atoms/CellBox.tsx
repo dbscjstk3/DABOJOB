@@ -3,6 +3,7 @@ import { cva, type VariantProps } from 'class-variance-authority';
 import { cn } from '../../../lib/utils';
 import { RecruitBadge } from './RecruitBadge';
 import { Typography } from '../../common/atoms/Typography';
+import type { JobPostingResponse } from '@/lib/api';
 
 const cellBoxVariants = cva('flex flex-col border-t border-daboja-default p-2 h-20 md:h-72', {
   variants: {
@@ -38,23 +39,7 @@ export interface CellBoxProps
   /** 요일 (0: 일요일, 1: 월요일, ..., 6: 토요일) */
   dayOfWeek?: number;
   /** 공고 데이터 */
-  recruits?: {
-    event_type: 'job_posted' | 'job_expired';
-    job_id: string;
-    csn: string;
-    company_name: string;
-    title: string;
-    job_code: {
-      code: string;
-      name: string;
-    };
-    job_type: {
-      code: string;
-      name: string;
-    };
-    posting_date: string;
-    expiration_date: string;
-  }[];
+  recruits?: JobPostingResponse[];
   /** 확장 상태 */
   isExpanded?: boolean;
   /** 확장 토글 함수 */
@@ -140,14 +125,14 @@ export const CellBox: React.FC<CellBoxProps> = ({
                 <div className="hidden md:flex md:flex-col md:gap-1">
                   {(isExpanded ? recruits : recruits.slice(0, 8)).map((item, idx) => {
                     // 공고가 해당 날짜에 공고일인지 마감일인지 구분
-                    const postingDate = new Date(item.posting_date);
+                    const postingDate = new Date(item.postingDate);
                     const isPostingDate = postingDate.getDate() === day;
 
                     return (
                       <RecruitBadge
                         key={idx}
                         type={isPostingDate ? 'start' : 'end'}
-                        company={item.company_name}
+                        company={item.companyName}
                       />
                     );
                   })}

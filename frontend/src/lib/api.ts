@@ -37,6 +37,7 @@ export interface JobPostingResponse {
   jobPostingId: number;
   companyId: number;
   companyName: string;
+  companyType: string;
   title: string;
   url: string;
   jobSectorName: string;
@@ -63,6 +64,8 @@ export const API_ENDPOINTS = {
   },
   JOB_POSTING: {
     DETAIL: (jobPostingId: string | number) => `${API_BASE_URL}/api/job-posting/${jobPostingId}`,
+    CALENDAR: (startDate: string, endDate: string) =>
+      `${API_BASE_URL}/api/job-posting/calendar?startDate=${startDate}&endDate=${endDate}`,
   },
 } as const;
 
@@ -145,4 +148,27 @@ export const fetchJobPosting = async (
   }
 
   return response.json();
+};
+
+// 기간별 채용공고 조회 API 호출 함수
+export const fetchJobPostingsByDateRange = async (
+  startDate: string,
+  endDate: string,
+): Promise<JobPostingResponse[]> => {
+  const url = API_ENDPOINTS.JOB_POSTING.CALENDAR(startDate, endDate);
+
+  const response = await fetch(url, {
+    method: 'GET',
+    credentials: 'include', // Cookie 포함
+    headers: {
+      'Content-Type': 'application/json',
+    },
+  });
+
+  if (!response.ok) {
+    throw new Error(`Failed to fetch job postings by date range: ${response.status}`);
+  }
+
+  const data = await response.json();
+  return data;
 };
