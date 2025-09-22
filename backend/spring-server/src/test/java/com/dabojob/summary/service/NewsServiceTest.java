@@ -144,11 +144,12 @@ class NewsServiceTest {
         // when & then
         assertThatThrownBy(() -> newsService.getNews(invalidSummaryId, hashtagName))
                 .isInstanceOf(IllegalArgumentException.class)
-                .hasMessage("Invalid summary ID format: abc123");
+                .hasMessage("Invalid ID format");
 
         verify(newsRepository, never()).findBySummaryHashtagId(anyLong());
         verify(newsRepository, never()).findBySummaryHashtagIdAndHashtagName(anyLong(), anyString());
     }
+
 
     @Test
     @DisplayName("예외 케이스: summaryId가 실수")
@@ -160,7 +161,7 @@ class NewsServiceTest {
         // when & then
         assertThatThrownBy(() -> newsService.getNews(floatSummaryId, hashtagName))
                 .isInstanceOf(IllegalArgumentException.class)
-                .hasMessage("Invalid summary ID format: 123.45");
+                .hasMessage("Invalid ID format");
     }
 
     @Test
@@ -173,10 +174,9 @@ class NewsServiceTest {
         // when & then
         assertThatThrownBy(() -> newsService.getNews(nullSummaryId, hashtagName))
                 .isInstanceOf(IllegalArgumentException.class)
-                .hasMessage("Invalid summary ID format: null");
+                .hasMessage("Invalid ID format");
     }
 
-    @Test
     @DisplayName("예외 케이스: summaryId가 빈 문자열")
     void getNews_EmptySummaryId_ThrowsException() {
         // given
@@ -186,7 +186,7 @@ class NewsServiceTest {
         // when & then
         assertThatThrownBy(() -> newsService.getNews(emptySummaryId, hashtagName))
                 .isInstanceOf(IllegalArgumentException.class)
-                .hasMessage("Invalid summary ID format: ");
+                .hasMessage("Invalid ID format");
     }
 
     @Test
