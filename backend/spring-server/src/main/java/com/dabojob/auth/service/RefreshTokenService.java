@@ -79,16 +79,16 @@ public class RefreshTokenService {
     @Transactional
     public String refreshAccessToken(String refreshTokenValue) {
         RefreshToken refreshToken = refreshTokenRepository.findByUserRefreshToken(refreshTokenValue)
-                .orElseThrow(() -> new UnauthorizedException("유효하지 않은 Refresh Token입니다."));
+                .orElseThrow(() -> new UnauthorizedException("Invalid refresh token"));
 
         if (refreshToken.isExpired()) {
             refreshTokenRepository.delete(refreshToken);
-            throw new UnauthorizedException("만료된 Refresh Token입니다.");
+            throw new UnauthorizedException("Expired refresh token");
         }
 
         Long userId = refreshToken.getUserId();
         User user = userRepository.findById(userId)
-                .orElseThrow(() -> new UnauthorizedException("사용자를 찾을 수 없습니다."));
+                .orElseThrow(() -> new UnauthorizedException("User not found"));
 
         return jwtService.generateAccessToken(userId, user.getRole());
     }
@@ -99,11 +99,11 @@ public class RefreshTokenService {
     @Transactional
     public RefreshToken renewRefreshToken(String oldTokenValue) {
         RefreshToken oldToken = refreshTokenRepository.findByUserRefreshToken(oldTokenValue)
-                .orElseThrow(() -> new IllegalArgumentException("유효하지 않은 Refresh Token입니다."));
+                .orElseThrow(() -> new IllegalArgumentException("Invalid refresh token"));
 
         if (oldToken.isExpired()) {
             refreshTokenRepository.delete(oldToken);
-            throw new IllegalArgumentException("만료된 Refresh Token입니다.");
+            throw new IllegalArgumentException("Expired refresh token");
         }
 
         // 새 토큰 생성
