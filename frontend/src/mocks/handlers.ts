@@ -5,19 +5,6 @@ import { getAllJobPostings } from './jobPostings';
 import type { NewsResponse, JobPostingResponse } from '@/lib/api';
 
 export const handlers = [
-  // Auth API 목 핸들러
-  http.get('*/api/auth/me', () => {
-    console.log('🎭 MSW: Auth API 호출됨 - 사용자 정보 조회');
-
-    // 로그인되지 않은 상태로 응답
-    return HttpResponse.json(
-      { message: 'Unauthorized' },
-      {
-        status: 401,
-        statusText: 'Unauthorized',
-      },
-    );
-  }),
 
   // Summary Detail API 목 핸들러
   http.get('*/api/summary/:summaryId', ({ params }) => {
