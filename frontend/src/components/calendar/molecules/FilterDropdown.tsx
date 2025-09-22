@@ -77,29 +77,37 @@ export const FilterDropdown: React.FC<FilterDropdownProps> = ({
     <div className={cn('relative', className)} ref={dropdownRef}>
       <button
         type="button"
-        onClick={() => setIsOpen(!isOpen)}
+        onClick={() => {
+          console.log('FilterDropdown clicked, current isOpen:', isOpen);
+          setIsOpen(!isOpen);
+        }}
         className={cn(
           'w-full h-8 px-3 py-1 text-left bg-transparent border-none',
           'flex items-center gap-1',
         )}
       >
-        <div className="flex items-center gap-3 min-w-0">
+        <div className="flex items-center gap-2 min-w-0 flex-1">
           <Typography
             variant="default"
             color="black"
             weight="semibold"
             align="left"
-            className="whitespace-nowrap"
+            className="whitespace-nowrap text-xs sm:text-sm"
           >
             {label}
           </Typography>
-          <Typography variant="default" color="gray" align="left" className="truncate">
+          <Typography
+            variant="default"
+            color="gray"
+            align="left"
+            className="truncate text-xs sm:text-sm"
+          >
             {getDisplayText()}
           </Typography>
         </div>
         <ChevronDown
           className={cn(
-            'h-4 w-4 text-gray-400 transition-transform duration-200 flex-shrink-0',
+            'h-3 w-3 sm:h-4 sm:w-4 text-gray-400 transition-transform duration-200 flex-shrink-0 ml-auto',
             isOpen && 'rotate-180',
           )}
         />

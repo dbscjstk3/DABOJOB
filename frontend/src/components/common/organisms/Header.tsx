@@ -83,7 +83,11 @@ export function Header({
 
 function Logo() {
   return (
-    <Link to="/" aria-label="홈으로 이동" className="flex items-center gap-2 shrink-0 -ml-1">
+    <Link
+      to="/"
+      aria-label="홈으로 이동"
+      className="flex items-center gap-2 shrink-0 ml-2 md:-ml-1"
+    >
       <img
         src={DABOJOB_logo}
         alt="DABOJOB : ) 다보자"

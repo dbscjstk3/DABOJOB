@@ -55,17 +55,17 @@ export const FilterSection: React.FC<FilterSectionProps> = ({
 }) => {
   return (
     <div className={cn('w-full min-h-16 bg-white border-b border-gray-200 py-4', className)}>
-      <div className="px-12">
+      <div className="px-4 sm:px-8 lg:px-12">
         <div className="flex items-center">
           {/* 왼쪽 필터들 */}
-          <div className="flex items-center gap-1 flex-wrap">
+          <div className="flex items-center gap-1">
             <FilterDropdown
               label="채용형태"
               options={employmentTypeOptions}
               selectedValues={employmentTypeFilter}
               onSelectionChange={onEmploymentTypeChange}
-              placeholder="채용형태 선택"
-              className="w-30 min-w-40"
+              placeholder="신입"
+              className="w-28 min-w-28 sm:w-32 sm:min-w-32 lg:w-36 lg:min-w-36"
             />
 
             <FilterDropdown
@@ -73,8 +73,8 @@ export const FilterSection: React.FC<FilterSectionProps> = ({
               options={jobCategoryOptions}
               selectedValues={jobCategoryFilter}
               onSelectionChange={onJobCategoryChange}
-              placeholder="직무 선택"
-              className="w-30 min-w-40"
+              placeholder="IT/서비스"
+              className="w-32 min-w-32 sm:w-36 sm:min-w-36 lg:w-40 lg:min-w-40"
             />
 
             <FilterDropdown
@@ -82,8 +82,8 @@ export const FilterSection: React.FC<FilterSectionProps> = ({
               options={companyTypeOptions}
               selectedValues={companyTypeFilter}
               onSelectionChange={onCompanyTypeChange}
-              placeholder="기업형태 선택"
-              className="w-30 min-w-40"
+              placeholder="대기업"
+              className="w-30 min-w-30 sm:w-34 sm:min-w-34 lg:w-38 lg:min-w-38"
             />
           </div>
         </div>

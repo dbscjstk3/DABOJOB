@@ -104,6 +104,7 @@ export const RecruitModal: React.FC<RecruitModalProps> = ({
             onViewDateChange={onDateChange || (() => {})}
             showDay={true}
             dayOnly={true}
+            showPopularDropdown={false}
           />
         </div>
 
