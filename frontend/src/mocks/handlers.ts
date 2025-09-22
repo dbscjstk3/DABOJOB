@@ -5,8 +5,6 @@ import { getAllJobPostings } from './jobPostings';
 import type { NewsResponse, JobPostingResponse } from '@/lib/api';
 
 export const handlers = [
-  // Auth API는 실제 서버 사용
-
   // Summary Detail API 목 핸들러
   http.get('/api/summary/:summaryId', ({ params }) => {
     const summaryId = params.summaryId as string;
