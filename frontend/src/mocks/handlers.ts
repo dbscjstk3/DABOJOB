@@ -2,6 +2,7 @@ import { http, HttpResponse } from 'msw';
 import { mockSummaryData } from './data/summary';
 import { mockNewsData } from './data/news';
 import { getFilteredJobPostings, createAutocompleteResponse } from './data/autocomplete';
+import { searchJobPostings } from './data/jobPostings';
 import type { NewsResponse, JobPostingResponse } from '@/lib/api';
 
 export const handlers = [
@@ -149,7 +150,7 @@ export const handlers = [
         jobSectorCategory: 'IT/하드웨어',
         careerInfo: '경력 3년 이상',
         postingDate: '2024-12-15',
-        deadlineDate: '2025-01-31',
+        deadlineDate: '2025-12-31',
       },
       '2': {
         jobPostingId: 2,
@@ -224,6 +225,48 @@ export const handlers = [
       setTimeout(() => {
         resolve(
           HttpResponse.json(response, {
+            status: 200,
+            headers: {
+              'Content-Type': 'application/json',
+            },
+          }),
+        );
+      }, delay);
+    });
+  }),
+
+  // 검색 API 목 핸들러
+  http.get('/api/job-postings', ({ request }) => {
+    const url = new URL(request.url);
+    const search = url.searchParams.get('search') || '';
+    const page = parseInt(url.searchParams.get('page') || '0', 10);
+    const size = parseInt(url.searchParams.get('size') || '20', 10);
+
+    console.log(`🎭 MSW: 검색 API 호출됨 - search: "${search}", page: ${page}, size: ${size}`);
+
+    // 검색어가 필수 파라미터
+    if (!search) {
+      console.log('❌ MSW: search 파라미터가 없습니다.');
+      return new HttpResponse(null, {
+        status: 400,
+        statusText: 'Search parameter is required',
+      });
+    }
+
+    // 검색 실행
+    const searchResult = searchJobPostings(search, page, size);
+
+    console.log(
+      `✅ MSW: "${search}" 검색 결과 - 총 ${searchResult.totalElements}개 중 ${searchResult.numberOfElements}개 반환 (페이지: ${page + 1}/${searchResult.totalPages})`,
+    );
+
+    // 실제 API처럼 약간의 지연 추가
+    const delay = Math.random() * 200 + 100;
+
+    return new Promise((resolve) => {
+      setTimeout(() => {
+        resolve(
+          HttpResponse.json(searchResult, {
             status: 200,
             headers: {
               'Content-Type': 'application/json',

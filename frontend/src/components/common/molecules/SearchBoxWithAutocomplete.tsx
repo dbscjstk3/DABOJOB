@@ -4,6 +4,7 @@ import { Search } from 'lucide-react';
 import { useAutocomplete } from '@/lib/hooks';
 import AutocompleteDropdown from './AutocompleteDropdown';
 import { cn } from '@/lib/utils';
+import type { AutocompleteJobPosting } from '@/lib/api';
 
 interface SearchBoxWithAutocompleteProps {
   placeholder?: string;
@@ -77,6 +78,19 @@ export default function SearchBoxWithAutocomplete({
     }
   }, [items, query]);
 
+  // 자동완성 아이템 선택 처리
+  const handleItemClick = (item: AutocompleteJobPosting) => {
+    setQuery(item.title); // 검색바에 선택한 아이템의 제목 설정
+    setIsOpen(false); // 드롭다운 닫기
+
+    // 달력 상세 페이지로 이동 (companyId를 summaryId로 사용)
+    navigate({
+      to: '/calendar/$id',
+      params: { id: String(item.companyId) },
+      search: { jobPostingId: String(item.jobPostingId) },
+    });
+  };
+
   return (
     <div className={cn('relative w-full', className)}>
       <form onSubmit={handleSubmit} className="w-full">
@@ -110,6 +124,7 @@ export default function SearchBoxWithAutocomplete({
         items={items}
         isOpen={isOpen && items.length > 0}
         onClose={() => setIsOpen(false)}
+        onItemClick={handleItemClick}
         className={isOpen && items.length > 0 ? 'rounded-t-none rounded-b-lg' : ''}
       />
     </div>

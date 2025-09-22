@@ -5,7 +5,7 @@ export const mockJobPostings: AutocompleteJobPosting[] = [
   // 삼성전자
   {
     jobPostingId: 1,
-    companyId: 123,
+    companyId: 1,
     companyName: '삼성전자',
     title: 'AI 반도체 개발 엔지니어',
     url: 'https://www.saramin.co.kr/zf_user/jobs/relay/view?rec_idx=123456',
@@ -14,7 +14,7 @@ export const mockJobPostings: AutocompleteJobPosting[] = [
     jobSectorCategory: 'IT/하드웨어',
     careerInfo: 'EXPERIENCED',
     postingDate: '2024-12-15',
-    deadlineDate: '2025-01-31',
+    deadlineDate: '2025-12-31',
   },
   {
     jobPostingId: 2,

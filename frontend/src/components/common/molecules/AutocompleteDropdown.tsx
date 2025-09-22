@@ -76,7 +76,7 @@ export default function AutocompleteDropdown({
       onItemClick(item);
     } else {
       // 기본 동작: 캘린더 상세 페이지로 이동
-      // summaryId는 API에서 제공되지 않으므로, 임시로 companyId 사용
+      // companyId를 summaryId로 사용
       // 실제로는 API 수정이 필요할 수 있음
       navigate({
         to: '/calendar/$id',

@@ -90,6 +90,9 @@ export interface AutocompleteResponse {
   empty: boolean;
 }
 
+// 검색 API 응답 타입 정의 (AutocompleteResponse와 동일한 구조)
+export type SearchJobPostingResponse = AutocompleteResponse;
+
 export const API_ENDPOINTS = {
   AUTH: {
     LOGIN: (provider: string) => `${import.meta.env.VITE_API_BASE_URL}/api/auth/login/${provider}`,
@@ -109,6 +112,12 @@ export const API_ENDPOINTS = {
     DETAIL: (jobPostingId: string | number) => `${API_BASE_URL}/api/job-posting/${jobPostingId}`,
     AUTOCOMPLETE: (prefix: string) =>
       `${API_BASE_URL}/api/job-postings/suggestions?prefix=${encodeURIComponent(prefix)}`,
+    SEARCH: (search: string, page?: number, size?: number) => {
+      let url = `${API_BASE_URL}/api/job-postings?search=${encodeURIComponent(search)}`;
+      if (page !== undefined) url += `&page=${page}`;
+      if (size !== undefined) url += `&size=${size}`;
+      return url;
+    },
   },
 } as const;
 
@@ -229,6 +238,27 @@ export const fetchAutocomplete = async (prefix: string): Promise<AutocompleteRes
 
   if (!response.ok) {
     throw new Error(`Failed to fetch autocomplete results: ${response.status}`);
+  }
+
+  return response.json();
+};
+
+// 검색 API 호출 함수
+export const fetchSearchJobPostings = async (
+  search: string,
+  page?: number,
+  size?: number,
+): Promise<SearchJobPostingResponse> => {
+  const response = await fetch(API_ENDPOINTS.JOB_POSTING.SEARCH(search, page, size), {
+    method: 'GET',
+    credentials: 'include', // Cookie 포함
+    headers: {
+      'Content-Type': 'application/json',
+    },
+  });
+
+  if (!response.ok) {
+    throw new Error(`Failed to fetch search results: ${response.status}`);
   }
 
   return response.json();

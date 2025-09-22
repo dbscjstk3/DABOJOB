@@ -6,10 +6,12 @@ import {
   fetchNewsByHashtag,
   fetchJobPosting,
   fetchAutocomplete,
+  fetchSearchJobPostings,
   type SummaryResponse,
   type NewsResponse,
   type JobPostingResponse,
   type AutocompleteResponse,
+  type SearchJobPostingResponse,
 } from './api';
 
 // Summary Detail을 가져오는 커스텀 훅
@@ -106,5 +108,18 @@ export const useAutocomplete = (searchQuery: string) => {
     staleTime: 30 * 1000, // 30초
     gcTime: 60 * 1000, // 1분
     retry: 0, // 자동완성은 재시도 안함
+  });
+};
+
+// 검색을 위한 커스텀 훅
+export const useSearchJobPostings = (search: string, page?: number, size?: number) => {
+  return useQuery<SearchJobPostingResponse, Error>({
+    queryKey: ['searchJobPostings', search, page, size],
+    queryFn: () => fetchSearchJobPostings(search, page, size),
+    enabled: search.length > 0, // 검색어가 있을 때만 실행
+    staleTime: 5 * 60 * 1000, // 5분
+    gcTime: 10 * 60 * 1000, // 10분
+    retry: 1, // 실패 시 1번만 재시도
+    // keepPreviousData: true, // 페이지 전환 시 이전 데이터 유지
   });
 };
