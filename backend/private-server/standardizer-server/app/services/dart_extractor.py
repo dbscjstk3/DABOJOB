@@ -189,18 +189,49 @@ class DartDocumentExtractor:
             
             start_idx = -1
             end_idx = len(full_text)
-            
-            # 시작 지점 찾기
+
+            # 모든 "II. 사업의 내용" 패턴 찾기 (목차 vs 실제 내용 구분)
+            all_matches = []
             for pattern in start_patterns:
-                match = re.search(pattern, full_text, re.IGNORECASE)
-                if match:
-                    start_idx = match.start()
-                    logger.info(f"Found start of business section at position {start_idx}")
-                    break
-            
-            if start_idx == -1:
+                for match in re.finditer(pattern, full_text, re.IGNORECASE):
+                    all_matches.append((match.start(), match.group()))
+
+            if not all_matches:
                 logger.warning("Could not find 'II. 사업의 내용' section")
                 return ""
+
+            logger.info(f"Found {len(all_matches)} business section patterns")
+
+            # 각 매치에서 내용 길이 확인하여 가장 적합한 것 선택
+            best_match = None
+            best_content_length = 0
+
+            for i, (pos, text) in enumerate(all_matches):
+                # 해당 위치에서 다음 major section까지의 내용 길이 확인
+                temp_end_idx = len(full_text)
+                search_text = full_text[pos:]
+
+                for pattern in end_patterns:
+                    match = re.search(pattern, search_text, re.IGNORECASE)
+                    if match:
+                        temp_end_idx = pos + match.start()
+                        break
+
+                content_length = temp_end_idx - pos
+                logger.info(f"Match {i+1} at position {pos}: content length {content_length}")
+
+                # 내용이 100자 이상이고 가장 긴 것을 선택 (목차는 보통 매우 짧음)
+                if content_length > 100 and content_length > best_content_length:
+                    best_match = pos
+                    best_content_length = content_length
+
+            if best_match is None:
+                # fallback: 첫 번째 매치 사용
+                start_idx = all_matches[0][0]
+                logger.warning("No substantial content found, using first match")
+            else:
+                start_idx = best_match
+                logger.info(f"Selected business section at position {start_idx} with {best_content_length} characters")
             
             # 종료 지점 찾기 (시작 지점 이후에서 검색)
             search_text = full_text[start_idx:]
