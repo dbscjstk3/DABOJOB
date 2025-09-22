@@ -165,19 +165,33 @@ class StandardizerService:
             'other_references': []
         }
 
-        # 섹션 구분 패턴들
-        section_patterns = [
-            r'(?:^|\n)((?:\d+\.?\s*)?(?:사업의?\s*개요|회사\s*개요|사업\s*내용)[^\n]*)',
-            r'(?:^|\n)((?:\d+\.?\s*)?(?:주요\s*제품|제품.*서비스|주요.*서비스)[^\n]*)',
-            r'(?:^|\n)((?:\d+\.?\s*)?(?:매출|수주|원재료|생산설비)[^\n]*)',
-            r'(?:^|\n)((?:\d+\.?\s*)?(?:주요.*계약|연구개발|R&D)[^\n]*)',
-            r'(?:^|\n)((?:\d+\.?\s*)?(?:위험관리|파생거래|기타.*참고)[^\n]*)',
-        ]
+        # 대제목 패턴: "1.", "2.", "3." 형태로 시작하는 제목들
+        major_section_pattern = r'^[\s]*([0-9]+)\.\s+(.+)'
+
+        # 섹션 제목과 카테고리 매핑
+        section_mapping = {
+            '사업의 개요': 'business_overview',
+            '회사의 개요': 'business_overview',
+            '주요 제품': 'products_services',
+            '제품 및 서비스': 'products_services',
+            '주요제품': 'products_services',
+            '매출': 'revenue_orders',
+            '수주': 'revenue_orders',
+            '원재료': 'revenue_orders',
+            '생산설비': 'revenue_orders',
+            '주요계약': 'contracts_rnd',
+            '연구개발': 'contracts_rnd',
+            '기타': 'other_references',
+            '참고사항': 'other_references'
+        }
 
         lines = content.split('\n')
         current_section_title = None
         current_section_content = []
         current_category = None
+        last_section_number = 0
+
+        logger.info(f"Starting DART document parsing: {len(lines)} lines")
 
         for i, line in enumerate(lines):
             line_stripped = line.strip()
@@ -186,41 +200,41 @@ class StandardizerService:
                     current_section_content.append('')
                 continue
 
-            # 섹션 제목인지 확인
-            found_section = False
-            for pattern in section_patterns:
-                match = re.search(pattern, line, re.IGNORECASE)
-                if match:
+            # 대제목 패턴 확인 (1. 사업의 개요, 2. 주요 제품 등)
+            match = re.match(major_section_pattern, line_stripped)
+            if match:
+                section_number = int(match.group(1))
+                section_title = match.group(2).strip()
+
+                # 순차적 증가 확인
+                if section_number == 1 or section_number == last_section_number + 1:
                     # 이전 섹션 저장
                     if current_section_title and current_section_content and current_category:
                         section_text = f"\n=== {current_section_title} ===\n\n" + '\n'.join(current_section_content)
                         sections_by_category[current_category].append(section_text)
+                        logger.info(f"Saved section '{current_section_title}' to category '{current_category}': {len(section_text)} chars")
 
                     # 새 섹션 시작
-                    current_section_title = line_stripped
+                    current_section_title = f"{section_number}. {section_title}"
                     current_section_content = []
+                    last_section_number = section_number
 
-                    # 제목으로 카테고리 매핑
-                    current_category = self.classify_by_title_mapping(current_section_title)
+                    # 카테고리 결정
+                    current_category = None
+                    for keyword, category in section_mapping.items():
+                        if keyword in section_title:
+                            current_category = category
+                            break
+
                     if not current_category:
-                        # 패턴 기반 분류
-                        if '사업' in pattern or '개요' in pattern:
-                            current_category = 'business_overview'
-                        elif '제품' in pattern or '서비스' in pattern:
-                            current_category = 'products_services'
-                        elif '매출' in pattern or '수주' in pattern or '원재료' in pattern:
-                            current_category = 'revenue_orders'
-                        elif '계약' in pattern or '연구' in pattern:
-                            current_category = 'contracts_rnd'
-                        else:
-                            current_category = 'other_references'
+                        current_category = 'other_references'
 
-                    found_section = True
-                    break
+                    logger.info(f"Found section #{section_number}: '{section_title}' -> category: '{current_category}'")
+                    continue
 
-            if not found_section and current_category:
-                # 현재 섹션에 내용 추가
-                current_section_content.append(line)
+            # 섹션 내용 추가
+            if current_category:
+                current_section_content.append(line_stripped)
 
         # 마지막 섹션 저장
         if current_section_title and current_section_content and current_category:
