@@ -23,6 +23,13 @@ export default function AutocompleteDropdown({
   const dropdownRef = useRef<HTMLDivElement>(null);
   const [selectedIndex, setSelectedIndex] = useState(-1);
 
+  // 드롭다운이 열릴 때마다 selectedIndex 초기화
+  useEffect(() => {
+    if (isOpen) {
+      setSelectedIndex(-1);
+    }
+  }, [isOpen]);
+
   // 외부 클릭 감지
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -55,10 +62,12 @@ export default function AutocompleteDropdown({
           setSelectedIndex((prev) => (prev > 0 ? prev - 1 : items.length - 1));
           break;
         case 'Enter':
-          e.preventDefault();
+          // selectedIndex가 유효한 경우에만 처리
           if (selectedIndex >= 0 && selectedIndex < items.length) {
+            e.preventDefault();
             handleItemClick(items[selectedIndex]);
           }
+          // selectedIndex가 -1이면 기본 동작(form submit) 허용
           break;
         case 'Escape':
           e.preventDefault();

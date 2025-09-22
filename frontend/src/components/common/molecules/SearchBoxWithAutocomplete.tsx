@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
-import { useNavigate } from '@tanstack/react-router';
+import { useNavigate, useLocation } from '@tanstack/react-router';
 import { Search } from 'lucide-react';
 import { useAutocomplete } from '@/lib/hooks';
 import AutocompleteDropdown from './AutocompleteDropdown';
@@ -18,6 +18,7 @@ export default function SearchBoxWithAutocomplete({
   onSubmit,
 }: SearchBoxWithAutocompleteProps) {
   const navigate = useNavigate();
+  const location = useLocation();
   const inputRef = useRef<HTMLInputElement>(null);
   const [query, setQuery] = useState('');
   const [isOpen, setIsOpen] = useState(false);
@@ -70,6 +71,14 @@ export default function SearchBoxWithAutocomplete({
     document.addEventListener('keydown', handleKeyDown);
     return () => document.removeEventListener('keydown', handleKeyDown);
   }, []);
+
+  // 홈으로 이동 시 검색바 초기화
+  useEffect(() => {
+    if (location.pathname === '/') {
+      setQuery('');
+      setIsOpen(false);
+    }
+  }, [location.pathname]);
 
   // 자동완성 아이템이 있을 때만 드롭다운 표시
   useEffect(() => {
