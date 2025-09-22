@@ -21,18 +21,20 @@ const employmentTypeOptions: FilterOption[] = [
 
 // 직무 카테고리 옵션
 const jobCategoryOptions: FilterOption[] = [
-  { value: '개발', label: '개발' },
-  { value: '디자인', label: '디자인' },
-  { value: '마케팅', label: '마케팅' },
-  { value: '영업', label: '영업' },
-  { value: '인사', label: '인사' },
-  { value: '재무', label: '재무' },
-  { value: '경영', label: '경영' },
-  { value: '고객서비스', label: '고객서비스' },
-  { value: '운영', label: '운영' },
-  { value: '데이터', label: '데이터' },
-  { value: '보안', label: '보안' },
-  { value: 'QA', label: 'QA' },
+  { value: 'IT/서비스', label: 'IT/서비스' },
+  { value: 'IT/플랫폼', label: 'IT/플랫폼' },
+  { value: 'IT/보안', label: 'IT/보안' },
+  { value: '제조/모빌리티', label: '제조/모빌리티' },
+  { value: 'IT/커머스', label: 'IT/커머스' },
+  { value: '게임/엔터', label: '게임/엔터' },
+  { value: '바이오/헬스', label: '바이오/헬스' },
+  { value: '금융/핀테크', label: '금융/핀테크' },
+  { value: '물류/유통', label: '물류/유통' },
+  { value: '미디어/콘텐츠', label: '미디어/콘텐츠' },
+  { value: 'R&D/연구', label: 'R&D/연구' },
+  { value: 'IT/인프라', label: 'IT/인프라' },
+  { value: 'AI/ML', label: 'AI/ML' },
+  { value: '에너지/산업', label: '에너지/산업' },
 ];
 
 // 기업형태 옵션
@@ -62,7 +64,7 @@ export const FilterSection: React.FC<FilterSectionProps> = ({
               options={employmentTypeOptions}
               selectedValues={employmentTypeFilter}
               onSelectionChange={onEmploymentTypeChange}
-              placeholder="신입"
+              placeholder="채용형태 선택"
               className="w-30 min-w-40"
             />
 
@@ -71,7 +73,7 @@ export const FilterSection: React.FC<FilterSectionProps> = ({
               options={jobCategoryOptions}
               selectedValues={jobCategoryFilter}
               onSelectionChange={onJobCategoryChange}
-              placeholder="개발자"
+              placeholder="직무 선택"
               className="w-30 min-w-40"
             />
 
@@ -80,7 +82,7 @@ export const FilterSection: React.FC<FilterSectionProps> = ({
               options={companyTypeOptions}
               selectedValues={companyTypeFilter}
               onSelectionChange={onCompanyTypeChange}
-              placeholder="대기업"
+              placeholder="기업형태 선택"
               className="w-30 min-w-40"
             />
           </div>

@@ -119,7 +119,7 @@ export const Calendar: React.FC<CalendarProps> = ({
       const employmentTypeMatch =
         employmentTypeFilter.length === 0 || employmentTypeFilter.includes(recruit.careerInfo);
       const jobCategoryMatch =
-        jobCategoryFilter.length === 0 || jobCategoryFilter.includes(recruit.jobSectorName);
+        jobCategoryFilter.length === 0 || jobCategoryFilter.includes(recruit.jobSectorCategory);
       const companyTypeMatch =
         companyTypeFilter.length === 0 || companyTypeFilter.includes(recruit.companyType);
       return employmentTypeMatch && jobCategoryMatch && companyTypeMatch;
