@@ -1,5 +1,6 @@
 import { Link, useNavigate } from '@tanstack/react-router';
 import { SearchBox } from '../molecules/SearchBox';
+import SearchBoxWithAutocomplete from '../molecules/SearchBoxWithAutocomplete';
 import { Button } from '../atoms/Button';
 
 import DABOJOB_logo from '@/assets/logo/DABOJOB_logo_loop3.gif';
@@ -11,12 +12,13 @@ type HeaderProps = {
   onLogin?: () => void;
   onLogout?: () => void;
 
-  fetchSuggestions: (
+  fetchSuggestions?: (
     q: string,
     signal?: AbortSignal,
   ) => Promise<{ id: string | number; label: string }[]>;
   onSelectSuggestion?: (item: { id: string | number; label: string }) => void;
   onSubmitSearch?: (query: string) => void;
+  useNewAutocomplete?: boolean; // 새 자동완성 사용 여부
 };
 
 export function Header({
@@ -26,6 +28,7 @@ export function Header({
   fetchSuggestions,
   onSelectSuggestion,
   onSubmitSearch,
+  useNewAutocomplete = false,
 }: HeaderProps) {
   const navigate = useNavigate();
 
@@ -36,6 +39,12 @@ export function Header({
         bg-white/80 backdrop-blur
         supports-[backdrop-filter]:bg-white/60
       "
+      style={{
+        // 개발/캡처용 임시 패딩 (실제 기기의 노치 높이 시뮬레이션)
+        // paddingTop: '44px', // iPhone 노치 높이
+        paddingLeft: 'env(safe-area-inset-left)',
+        paddingRight: 'env(safe-area-inset-right)',
+      }}
     >
       <div className="w-full px-4 py-3 md:px-8 md:py-4 lg:px-16 lg:py-6">
         <div className="flex flex-col gap-3 md:flex-row md:gap-0 md:h-8 md:items-center">
@@ -45,12 +54,18 @@ export function Header({
 
             {/* 태블릿+ 검색창 */}
             <div className="hidden md:block md:w-[300px] lg:w-[500px] xl:w-[700px]">
-              <SearchBox
-                fetchSuggestions={fetchSuggestions}
-                onSelect={onSelectSuggestion}
-                onSubmit={onSubmitSearch}
-                className="w-full"
-              />
+              {useNewAutocomplete ? (
+                <SearchBoxWithAutocomplete onSubmit={onSubmitSearch} className="w-full" />
+              ) : (
+                fetchSuggestions && (
+                  <SearchBox
+                    fetchSuggestions={fetchSuggestions}
+                    onSelect={onSelectSuggestion}
+                    onSubmit={onSubmitSearch}
+                    className="w-full"
+                  />
+                )
+              )}
             </div>
 
             {/* 로그인/로그아웃 버튼 */}
@@ -68,12 +83,18 @@ export function Header({
 
           {/* 모바일: 두 번째 줄 (검색창) */}
           <div className="block md:hidden w-full">
-            <SearchBox
-              fetchSuggestions={fetchSuggestions}
-              onSelect={onSelectSuggestion}
-              onSubmit={onSubmitSearch}
-              className="w-full"
-            />
+            {useNewAutocomplete ? (
+              <SearchBoxWithAutocomplete onSubmit={onSubmitSearch} className="w-full" />
+            ) : (
+              fetchSuggestions && (
+                <SearchBox
+                  fetchSuggestions={fetchSuggestions}
+                  onSelect={onSelectSuggestion}
+                  onSubmit={onSubmitSearch}
+                  className="w-full"
+                />
+              )
+            )}
           </div>
         </div>
       </div>

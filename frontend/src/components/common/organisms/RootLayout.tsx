@@ -125,6 +125,7 @@ export function RootLayout() {
           fetchSuggestions={fetchSuggestions}
           onSelectSuggestion={handleSelectSuggestion}
           onSubmitSearch={handleSubmitSearch}
+          useNewAutocomplete={true} // 새 자동완성 사용
         />
       )}
       <main className="w-full flex-1">

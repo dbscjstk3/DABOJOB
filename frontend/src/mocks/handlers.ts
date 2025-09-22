@@ -1,6 +1,7 @@
 import { http, HttpResponse } from 'msw';
 import { mockSummaryData } from './data/summary';
 import { mockNewsData } from './data/news';
+import { getFilteredJobPostings, createAutocompleteResponse } from './data/autocomplete';
 import type { NewsResponse, JobPostingResponse } from '@/lib/api';
 
 export const handlers = [
@@ -193,6 +194,43 @@ export const handlers = [
       headers: {
         'Content-Type': 'application/json',
       },
+    });
+  }),
+
+  // 자동완성 API 목 핸들러
+  http.get('/api/job-postings/suggestions', ({ request }) => {
+    const url = new URL(request.url);
+    const prefix = url.searchParams.get('prefix') || '';
+
+    console.log(`🎭 MSW: 자동완성 API 호출됨 - prefix: "${prefix}"`);
+
+    // 빈 prefix면 빈 결과 반환
+    if (!prefix || prefix.trim().length === 0) {
+      console.log('⚠️ MSW: prefix가 비어있음. 빈 결과 반환');
+      const emptyResponse = createAutocompleteResponse([]);
+      return HttpResponse.json(emptyResponse);
+    }
+
+    // prefix로 필터링된 채용공고 검색
+    const filteredJobs = getFilteredJobPostings(prefix);
+    const response = createAutocompleteResponse(filteredJobs);
+
+    console.log(`✅ MSW: "${prefix}"로 검색한 결과 ${filteredJobs.length}개 채용공고 반환`);
+
+    // 실제 API처럼 약간의 지연 추가 (100-300ms)
+    const delay = Math.random() * 200 + 100;
+
+    return new Promise((resolve) => {
+      setTimeout(() => {
+        resolve(
+          HttpResponse.json(response, {
+            status: 200,
+            headers: {
+              'Content-Type': 'application/json',
+            },
+          }),
+        );
+      }, delay);
     });
   }),
 ];
