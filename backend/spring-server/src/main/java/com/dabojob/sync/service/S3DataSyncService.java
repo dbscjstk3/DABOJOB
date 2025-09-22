@@ -9,6 +9,8 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.Map;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -31,7 +33,7 @@ public class S3DataSyncService {
     private String bucketName;
 
     private final ObjectMapper objectMapper = new ObjectMapper();
-    private LocalDateTime lastSyncTime = LocalDateTime.now().minusDays(1);
+    private LocalDateTime lastSyncTime = LocalDateTime.now().minusDays(7);
 
     public void syncData() {
         try {
@@ -44,9 +46,8 @@ public class S3DataSyncService {
 
             log.info("Found {} new JSON files", newFiles.size());
 
-            for (S3ObjectSummary file : newFiles) {
-                processJsonFile(file);
-            }
+            // 파일 타입별 그룹핑 후 순차 처리
+            processFilesByTypeInOrder(newFiles);
 
             lastSyncTime = LocalDateTime.now();
 
@@ -56,9 +57,104 @@ public class S3DataSyncService {
         }
     }
 
+    //파일들을 타입별로 그룹핑한 후 의존성 순서에 맞게 처리
+    private void processFilesByTypeInOrder(List<S3ObjectSummary> files) {
+        Map<String, List<S3ObjectSummary>> filesByType = groupFilesByType(files);
+
+        // 의존성 순서 정의: job_sectors → companies → Dart → job_postings
+        String[] processingOrder = {"job_sectors", "companies", "Dart", "job_postings"};
+
+        for (String fileType : processingOrder) {
+            List<S3ObjectSummary> typedFiles = filesByType.get(fileType);
+
+            if (typedFiles != null && !typedFiles.isEmpty()) {
+                log.info("=== Processing {} files of type: {} ===", typedFiles.size(), fileType);
+
+                for (S3ObjectSummary file : typedFiles) {
+                    processFileByType(file, fileType);
+                }
+
+                log.info("=== Completed processing {} files ===", fileType);
+            } else {
+                log.info("No files found for type: {}", fileType);
+            }
+        }
+    }
+
+    //파일들을 타입별로 분류
+    private Map<String, List<S3ObjectSummary>> groupFilesByType(List<S3ObjectSummary> files) {
+        Map<String, List<S3ObjectSummary>> filesByType = new HashMap<>();
+
+        for (S3ObjectSummary file : files) {
+            String fileName = file.getKey();
+            String fileType = determineFileType(fileName);
+
+            if (fileType != null) {
+                filesByType.computeIfAbsent(fileType, k -> new ArrayList<>()).add(file);
+            } else {
+                log.warn("Unknown file type for file: {}", fileName);
+            }
+        }
+
+        // 분류 결과 로깅
+        for (Map.Entry<String, List<S3ObjectSummary>> entry : filesByType.entrySet()) {
+            log.info("Found {} files of type: {}", entry.getValue().size(), entry.getKey());
+        }
+
+        return filesByType;
+    }
+
+    //파일명으로 파일 타입 결정
+    private String determineFileType(String fileName) {
+        if (fileName.contains("job_sectors")) {
+            return "job_sectors";
+        } else if (fileName.contains("companies")) {
+            return "companies";
+        } else if (fileName.contains("Dart")) {
+            return "Dart";
+        } else if (fileName.contains("job_postings")) {
+            return "job_postings";
+        }
+        return null;
+    }
+
+    private void processFileByType(S3ObjectSummary fileSummary, String fileType) {
+        try {
+            log.info("Processing {} file: {}", fileType, fileSummary.getKey());
+
+            S3Object s3Object = amazonS3Client.getObject(bucketName, fileSummary.getKey());
+            JsonNode jsonData = objectMapper.readTree(s3Object.getObjectContent());
+            String fileName = fileSummary.getKey();
+
+            switch (fileType) {
+                case "job_sectors":
+                    fileProcessingService.processJobSectorFile(jsonData, fileName);
+                    break;
+                case "companies":
+                    fileProcessingService.processCompanyFile(jsonData, fileName);
+                    break;
+                case "Dart":
+                    fileProcessingService.processDartFile(jsonData, fileName);
+                    break;
+                case "job_postings":
+                    fileProcessingService.processJobPostingFile(jsonData, fileName);
+                    break;
+                default:
+                    log.warn("Unknown file type: {}", fileType);
+                    return;
+            }
+
+            log.info("Successfully processed {} file: {}", fileType, fileSummary.getKey());
+
+        } catch (Exception e) {
+            log.error("Failed to process {} file {}: {}", fileType, fileSummary.getKey(), e.getMessage(), e);
+            // 개별 파일 실패가 전체 배치를 중단시키지 않도록 예외를 다시 던지지 않음
+        }
+    }
+
     private List<S3ObjectSummary> getNewJsonFiles() {
         LocalDateTime now = LocalDateTime.now();
-        LocalDateTime yesterday = now.minusDays(1);
+        LocalDateTime yesterday = now.minusDays(4);
 
         String todayPrefix = "reports/" + now.format(DateTimeFormatter.ofPattern("yyyy-MM-dd")) + "/";
         String yesterdayPrefix = "reports/" + yesterday.format(DateTimeFormatter.ofPattern("yyyy-MM-dd")) + "/";
@@ -87,35 +183,6 @@ public class S3DataSyncService {
         } catch (Exception e) {
             log.warn("Failed to get files from prefix {}: {}", prefix, e.getMessage());
             return new ArrayList<>();
-        }
-    }
-
-    private void processJsonFile(S3ObjectSummary fileSummary) {
-        try {
-            log.info("Processing JSON file: {}", fileSummary.getKey());
-
-            S3Object s3Object = amazonS3Client.getObject(bucketName, fileSummary.getKey());
-            JsonNode jsonData = objectMapper.readTree(s3Object.getObjectContent());
-
-            String fileName = fileSummary.getKey();
-
-            // 파일명으로 타입 구분
-            if (fileName.contains("job_sectors")) {
-                fileProcessingService.processJobSectorFile(jsonData, fileName);
-            } else if (fileName.contains("job_postings")) {
-                fileProcessingService.processJobPostingFile(jsonData, fileName);
-            } else if (fileName.contains("companies")) {
-                fileProcessingService.processCompanyFile(jsonData, fileName);
-            } else if (fileName.contains("Dart")) {
-                fileProcessingService.processDartFile(jsonData, fileName);
-            } else {
-                log.warn("Unknown file type: {}", fileName);
-            }
-
-            log.info("Successfully processed JSON file: {}", fileSummary.getKey());
-
-        } catch (Exception e) {
-            log.error("Failed to process JSON file {}: {}", fileSummary.getKey(), e.getMessage(), e);
         }
     }
 }
