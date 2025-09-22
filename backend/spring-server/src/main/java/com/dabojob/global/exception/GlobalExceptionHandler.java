@@ -6,6 +6,7 @@ import jakarta.validation.ConstraintViolationException;
 import java.time.LocalDateTime;
 import java.util.HashMap;
 import java.util.Map;
+import org.hibernate.TypeMismatchException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.HttpRequestMethodNotSupportedException;
@@ -98,6 +99,18 @@ public class GlobalExceptionHandler {
     }
 
     // validation 관련
+
+    @ExceptionHandler(TypeMismatchException.class)
+    public ResponseEntity<ErrorResponse> handleTypeMismatchException(TypeMismatchException e) {
+        ErrorResponse errorResponse = ErrorResponse.builder()
+                .message("Invalid parameter type")
+                .code("TYPE_MISMATCH")
+                .timestamp(LocalDateTime.now())
+                .build();
+
+        return ResponseEntity.badRequest().body(errorResponse);
+    }
+
     @ExceptionHandler(MethodArgumentNotValidException.class)
     public ResponseEntity<ErrorResponse> handleValidationException(MethodArgumentNotValidException e) {
         Map<String, String> fieldErrors = new HashMap<>();
