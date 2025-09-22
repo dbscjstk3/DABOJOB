@@ -382,8 +382,9 @@ class BackgroundWorker:
                 # 전체 작업 결과
                 result = {
                     "mapping_id": mapping_id,
-                    "categories_processed": list(file_paths.keys()),
-                    "file_paths": file_paths,
+                    "categories_processed": ", ".join(file_paths.keys()),  # list를 문자열로 변환
+                    "categories_count": len(file_paths),
+                    "file_paths": ", ".join(f"{k}:{v}" for k, v in file_paths.items()),  # dict를 문자열로 변환
                     "processing_time": datetime.now().isoformat()
                 }
 
@@ -464,7 +465,7 @@ class BackgroundWorker:
         """워커 상태 반환"""
         return {
             "running": self.running,
-            "active_workers": list(self.worker_tasks.keys()),
+            "active_workers": ", ".join(self.worker_tasks.keys()),
             "worker_count": len(self.worker_tasks),
             "services": {
                 "standardizer": "initialized" if self.standardizer_service else "not_initialized",
