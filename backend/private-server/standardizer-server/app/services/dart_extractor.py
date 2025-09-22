@@ -245,8 +245,9 @@ class DartDocumentExtractor:
             # 섹션 추출
             business_section = full_text[start_idx:end_idx]
             
-            # 텍스트 정리
-            business_section = re.sub(r'\s+', ' ', business_section)  # 과도한 공백 제거
+            # 텍스트 정리 - 줄바꿈은 보존하고 과도한 공백만 제거
+            business_section = re.sub(r'[ \t]+', ' ', business_section)  # 스페이스와 탭만 정리
+            business_section = re.sub(r'\n{3,}', '\n\n', business_section)  # 과도한 줄바꿈만 정리
             business_section = business_section.strip()
             
             return business_section
