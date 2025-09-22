@@ -171,7 +171,7 @@ export const handlers = [
   }),
 
   // JobPosting API 목 핸들러 (단수형)
-  http.get('/api/job-posting/:jobPostingId', ({ params }) => {
+  http.get('/api/job-postings/:jobPostingId', ({ params }) => {
     const jobPostingId = params.jobPostingId as string;
 
     console.log(`🎭 MSW: JobPosting API 호출됨 - ID: ${jobPostingId}`);

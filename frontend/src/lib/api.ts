@@ -110,7 +110,7 @@ export const API_ENDPOINTS = {
       `${API_BASE_URL}/api/summary/${summaryId}/news/${encodeURIComponent(hashtagName)}`,
   },
   JOB_POSTING: {
-    DETAIL: (jobPostingId: string | number) => `${API_BASE_URL}/api/job-posting/${jobPostingId}`,
+    DETAIL: (jobPostingId: string | number) => `${API_BASE_URL}/api/job-postings/${jobPostingId}`,
     AUTOCOMPLETE: (prefix: string) =>
       `${API_BASE_URL}/api/job-postings/suggestions?prefix=${encodeURIComponent(prefix)}`,
     SEARCH: (search: string, page?: number, size?: number) => {
