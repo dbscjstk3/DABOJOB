@@ -92,7 +92,7 @@ export const handlers = [
       ],
       HBM: [
         {
-          newsId: 1,
+          newsId: 3,
           summaryHashtagId: 10,
           newsUrl: 'https://news.example.com/samsung-hbm-production',
           newsTitle: '삼성전자, HBM3E 양산 본격화로 AI 반도체 시장 선도',
@@ -103,7 +103,7 @@ export const handlers = [
       ],
       투자: [
         {
-          newsId: 2,
+          newsId: 4,
           summaryHashtagId: 11,
           newsUrl: 'https://news.example.com/samsung-ai-investment',
           newsTitle: '삼성전자, AI 반도체 개발에 3년간 100조원 투자 계획 발표',
@@ -170,9 +170,11 @@ export const handlers = [
     });
   }),
 
-  // JobPosting API 목 핸들러 (더 일반적인 패턴을 나중에 정의)
-  http.get('/api/job-postings/:jobPostingId', ({ params }) => {
+  // JobPosting API 목 핸들러 (단수형)
+  http.get('/api/job-posting/:jobPostingId', ({ params }) => {
     const jobPostingId = params.jobPostingId as string;
+
+    console.log(`🎭 MSW: JobPosting API 호출됨 - ID: ${jobPostingId}`);
 
     // 목 데이터 - 실제로는 jobPostingId에 따라 다른 데이터 반환
     const mockJobPostingData: Record<string, JobPostingResponse> = {
