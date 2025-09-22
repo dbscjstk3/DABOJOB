@@ -66,7 +66,7 @@ public class CustomOAuth2UserService extends DefaultOAuth2UserService {
             case "ssafy":
                 return new SsafyUserInfo(attributes);
             default:
-                throw new OAuth2AuthenticationException("지원하지 않는 OAuth 제공자입니다: " + registrationId);
+                throw new OAuth2AuthenticationException("Unsupported OAuth provider: " + registrationId);
         }
     }
 
