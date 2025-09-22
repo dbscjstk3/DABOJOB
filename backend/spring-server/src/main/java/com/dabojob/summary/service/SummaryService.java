@@ -29,14 +29,18 @@ public class SummaryService {
             Long id = Long.parseLong(summaryId);
 
             CompanyAnalysisSummary summary = summaryRepository.findById(id)
-                    .orElseThrow(() -> new EntityNotFoundException("Summary not found with id: " + summaryId));
+                    .orElseThrow(() -> {
+                        log.error("Summary not found with ID: {}", id);
+                        return new EntityNotFoundException("Entity not found");
+                    });
 
             List<SummaryHashtag> allSummaryHashtags = summaryHashtagRepository.findBySummary_Id(id);
 
             return createSummaryResponse(summary, allSummaryHashtags);
 
         } catch (NumberFormatException e) {
-            throw new IllegalArgumentException("Invalid summary ID format: " + summaryId);
+            log.error("Invalid summary ID format: {}", summaryId, e); // 상세한 로그
+            throw new IllegalArgumentException("Invalid ID format"); // 간단한 메시지
         }
     }
 
@@ -45,14 +49,18 @@ public class SummaryService {
             Long parsedCompanyId = Long.parseLong(companyId);
 
             CompanyAnalysisSummary summary = summaryRepository.findFirstByCompany_IdOrderByCreatedAtDesc(parsedCompanyId)
-                    .orElseThrow(() -> new EntityNotFoundException("Summary not found with companyId: " + companyId));
+                    .orElseThrow(() -> {
+                        log.error("Summary not found with companyID: {}", parsedCompanyId);
+                        return new EntityNotFoundException("Entity not found");
+                    });
 
             List<SummaryHashtag> allSummaryHashtags = summaryHashtagRepository.findBySummary_Id(summary.getId());
 
             return createSummaryResponse(summary, allSummaryHashtags);
 
         } catch (NumberFormatException e) {
-            throw new IllegalArgumentException("Invalid company ID format: " + companyId);
+            log.error("Invalid company ID format: {}", companyId, e);
+            throw new IllegalArgumentException("Invalid ID format");
         }
     }
 
