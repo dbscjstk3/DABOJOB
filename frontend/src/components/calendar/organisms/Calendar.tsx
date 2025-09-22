@@ -1,10 +1,11 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { CalendarGrid } from '../molecules/CalendarGrid';
 import { CalendarHeader } from '../molecules/CalendarHeader';
 import { FilterSection } from './FilterSection';
 import { RecruitModal } from './RecruitModal';
 import { cn } from '../../../lib/utils';
-import { getRecruitsByDate, recruitMap } from '../../../mocks/recruitData';
+import { fetchJobPostingsByDateRange } from '../../../lib/api';
+import type { JobPostingResponse } from '@/lib/api';
 
 export interface CalendarProps {
   viewDate: Date;
@@ -13,6 +14,8 @@ export interface CalendarProps {
   onEmploymentTypeChange: (values: string[]) => void;
   jobCategoryFilter: string[];
   onJobCategoryChange: (values: string[]) => void;
+  companyTypeFilter: string[];
+  onCompanyTypeChange: (values: string[]) => void;
   className?: string;
 }
 
@@ -23,6 +26,8 @@ export const Calendar: React.FC<CalendarProps> = ({
   onEmploymentTypeChange,
   jobCategoryFilter,
   onJobCategoryChange,
+  companyTypeFilter,
+  onCompanyTypeChange,
   className,
 }) => {
   // 더보기(확장) 상태: 날짜 번호 Set
@@ -33,41 +38,101 @@ export const Calendar: React.FC<CalendarProps> = ({
   const [selectedDay, setSelectedDay] = useState<number | null>(null);
   const [modalDate, setModalDate] = useState<Date>(new Date());
 
-  // 필터링된 공고 데이터 (공고일과 마감일 모두 포함)
-  const getFilteredRecruits = (day: number) => {
-    const allRecruits = getRecruitsByDate(day);
+  // API 데이터 상태
+  const [jobPostings, setJobPostings] = useState<JobPostingResponse[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-    // 마감일이 해당 날짜인 공고들도 추가로 가져오기
-    const expirationRecruits = Object.values(recruitMap)
-      .flat()
-      .filter((recruit) => {
-        const expirationDate = new Date(recruit.expiration_date);
-        return (
-          expirationDate.getDate() === day &&
-          expirationDate.getMonth() === viewDate.getMonth() &&
-          expirationDate.getFullYear() === viewDate.getFullYear()
+  // 달력 기간 계산 (현재 월의 첫째 날과 마지막 날)
+  const calendarDateRange = useMemo(() => {
+    const year = viewDate.getFullYear();
+    const month = viewDate.getMonth();
+    const startDate = new Date(year, month, 1);
+    const endDate = new Date(year, month + 1, 0);
+
+    return {
+      startDate: startDate.toISOString().split('T')[0], // YYYY-MM-DD 형식
+      endDate: endDate.toISOString().split('T')[0],
+    };
+  }, [viewDate]);
+
+  // API 호출
+  useEffect(() => {
+    const fetchJobPostings = async () => {
+      setIsLoading(true);
+      setError(null);
+
+      try {
+        const data = await fetchJobPostingsByDateRange(
+          calendarDateRange.startDate,
+          calendarDateRange.endDate,
         );
-      });
+        setJobPostings(data);
+      } catch (err) {
+        console.error('📅 Calendar: API 호출 실패', err);
+        setError(err instanceof Error ? err.message : '채용공고를 불러오는데 실패했습니다.');
+      } finally {
+        setIsLoading(false);
+      }
+    };
 
-    // 공고일과 마감일 공고를 합치고 중복 제거
-    const combinedRecruits = [...allRecruits, ...expirationRecruits];
-    const uniqueRecruits = combinedRecruits.filter(
-      (recruit, index, self) => index === self.findIndex((r) => r.job_id === recruit.job_id),
-    );
+    fetchJobPostings();
+  }, [calendarDateRange, viewDate]);
 
-    return uniqueRecruits.filter((recruit) => {
-      const employmentTypeMatch =
-        employmentTypeFilter.length === 0 || employmentTypeFilter.includes(recruit.job_type.name);
-      const jobCategoryMatch =
-        jobCategoryFilter.length === 0 || jobCategoryFilter.includes(recruit.job_code.name);
-      return employmentTypeMatch && jobCategoryMatch;
+  // 날짜별로 그룹화된 채용공고 데이터
+  const jobPostingsByDate = useMemo(() => {
+    const grouped: Record<string, JobPostingResponse[]> = {};
+
+    jobPostings.forEach((posting) => {
+      // 공고일과 마감일 모두 처리
+      // 시간대 문제를 방지하기 위해 로컬 날짜로 직접 파싱
+      const postingDate = posting.postingDate; // 이미 YYYY-MM-DD 형식
+      const deadlineDate = posting.deadlineDate; // 이미 YYYY-MM-DD 형식
+
+      // 공고일
+      if (!grouped[postingDate]) {
+        grouped[postingDate] = [];
+      }
+      grouped[postingDate].push(posting);
+
+      // 마감일 (공고일과 다른 경우에만)
+      if (postingDate !== deadlineDate) {
+        if (!grouped[deadlineDate]) {
+          grouped[deadlineDate] = [];
+        }
+        grouped[deadlineDate].push(posting);
+      }
     });
+
+    return grouped;
+  }, [jobPostings]);
+
+  // 필터링된 공고 데이터 (공고일과 마감일 모두 포함)
+  const getFilteredRecruits = (day: number): JobPostingResponse[] => {
+    const year = viewDate.getFullYear();
+    const month = viewDate.getMonth();
+    // 시간대 문제를 방지하기 위해 로컬 날짜로 직접 생성
+    const dateKey = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+    const dayPostings = jobPostingsByDate[dateKey] || [];
+
+    const filtered = dayPostings.filter((recruit) => {
+      const employmentTypeMatch =
+        employmentTypeFilter.length === 0 || employmentTypeFilter.includes(recruit.careerInfo);
+      const jobCategoryMatch =
+        jobCategoryFilter.length === 0 || jobCategoryFilter.includes(recruit.jobSectorCategory);
+      const companyTypeMatch =
+        companyTypeFilter.length === 0 || companyTypeFilter.includes(recruit.companyType);
+      return employmentTypeMatch && jobCategoryMatch && companyTypeMatch;
+    });
+
+    return filtered;
   };
 
   // 모달 열기 함수
   const handleOpenModal = (day: number) => {
     setSelectedDay(day);
-    setModalDate(new Date(viewDate.getFullYear(), viewDate.getMonth(), day));
+    const modalDate = new Date(viewDate.getFullYear(), viewDate.getMonth(), day);
+    setModalDate(modalDate);
     setIsModalOpen(true);
   };
 
@@ -94,20 +159,38 @@ export const Calendar: React.FC<CalendarProps> = ({
         onEmploymentTypeChange={onEmploymentTypeChange}
         jobCategoryFilter={jobCategoryFilter}
         onJobCategoryChange={onJobCategoryChange}
+        companyTypeFilter={companyTypeFilter}
+        onCompanyTypeChange={onCompanyTypeChange}
       />
 
       <div className="p-6 w-full">
         {/* 달력 헤더 */}
         <CalendarHeader viewDate={viewDate} onViewDateChange={onViewDateChange} />
 
+        {/* 로딩 상태 */}
+        {isLoading && (
+          <div className="flex justify-center items-center h-64">
+            <div className="text-gray-500">채용공고를 불러오는 중...</div>
+          </div>
+        )}
+
+        {/* 에러 상태 */}
+        {error && (
+          <div className="flex justify-center items-center h-64">
+            <div className="text-red-500">에러: {error}</div>
+          </div>
+        )}
+
         {/* 달력 그리드 */}
-        <CalendarGrid
-          viewDate={viewDate}
-          getFilteredRecruits={getFilteredRecruits}
-          expandedDays={expandedDays}
-          onExpandedDaysChange={setExpandedDays}
-          onOpenModal={handleOpenModal}
-        />
+        {!isLoading && !error && (
+          <CalendarGrid
+            viewDate={viewDate}
+            getFilteredRecruits={getFilteredRecruits}
+            expandedDays={expandedDays}
+            onExpandedDaysChange={setExpandedDays}
+            onOpenModal={handleOpenModal}
+          />
+        )}
       </div>
 
       {/* 채용 공고 모달 */}
@@ -115,7 +198,7 @@ export const Calendar: React.FC<CalendarProps> = ({
         <RecruitModal
           isOpen={isModalOpen}
           onClose={handleCloseModal}
-          recruits={getFilteredRecruits(modalDate.getDate())}
+          recruits={getFilteredRecruits(selectedDay)}
           selectedDate={modalDate.getDate()}
           selectedMonth={modalDate.getMonth()}
           selectedYear={modalDate.getFullYear()}

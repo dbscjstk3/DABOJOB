@@ -59,14 +59,14 @@ export default function LoginPage() {
               className="h-12 md:h-10 lg:h-12 w-auto"
             />
           </div>
-          <Typography as="h2" variant="title" weight="bold" className="mt-8 text-slate-900">
+          <Typography as="h2" variant="title" weight="bold" className="mt-24 text-slate-900">
             로그인
           </Typography>
           <Typography variant="default" color="gray" className="mt-2">
             소셜 계정으로 간편하게 로그인하세요.
           </Typography>
 
-          <div className="mt-8 md:mt-28 grid gap-5">
+          <div className="!mt-4 md:mt-28 grid gap-5" style={{ marginTop: '4px' }}>
             <Button
               variant="outlined"
               size="lg"

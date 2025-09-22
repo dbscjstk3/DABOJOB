@@ -3,27 +3,12 @@ import { Typography } from '../../common/atoms/Typography';
 import { RecruitBadge } from '../atoms/RecruitBadge';
 import { Button } from '../../common/atoms/Button';
 import { CalendarHeader } from '../molecules/CalendarHeader';
+import type { JobPostingResponse } from '@/lib/api';
 
 export interface RecruitModalProps {
   isOpen: boolean;
   onClose: () => void;
-  recruits: {
-    event_type: 'job_posted' | 'job_expired';
-    job_id: string;
-    csn: string;
-    company_name: string;
-    title: string;
-    job_code: {
-      code: string;
-      name: string;
-    };
-    job_type: {
-      code: string;
-      name: string;
-    };
-    posting_date: string;
-    expiration_date: string;
-  }[];
+  recruits: JobPostingResponse[];
   selectedDate: number;
   selectedMonth: number;
   selectedYear: number;
@@ -41,25 +26,43 @@ export const RecruitModal: React.FC<RecruitModalProps> = ({
 }) => {
   if (!isOpen) return null;
 
+  const getCompanyTypeClass = (companyType: string) => {
+    switch (companyType) {
+      case '대기업':
+        return 'bg-purple-100 text-purple-800';
+      case '중견기업':
+        return 'bg-amber-100 text-amber-800';
+      case '중소기업':
+        return 'bg-emerald-100 text-emerald-800';
+      default:
+        return 'bg-gray-100 text-gray-800';
+    }
+  };
+
   // 시작 공고와 종료 공고를 분리
   // 공고를 공고일/마감일로 분류
   const postingRecruits = recruits.filter((recruit) => {
-    const postingDate = new Date(recruit.posting_date);
-    return (
-      postingDate.getDate() === selectedDate &&
-      postingDate.getMonth() === selectedMonth &&
-      postingDate.getFullYear() === selectedYear
-    );
+    // 날짜 문자열을 직접 비교 (YYYY-MM-DD 형식)
+    const expectedDate = `${selectedYear}-${String(selectedMonth + 1).padStart(2, '0')}-${String(selectedDate).padStart(2, '0')}`;
+    const matches = recruit.postingDate === expectedDate;
+
+    return matches;
   });
 
   const expirationRecruits = recruits.filter((recruit) => {
-    const expirationDate = new Date(recruit.expiration_date);
-    return (
-      expirationDate.getDate() === selectedDate &&
-      expirationDate.getMonth() === selectedMonth &&
-      expirationDate.getFullYear() === selectedYear
-    );
+    // 날짜 문자열을 직접 비교 (YYYY-MM-DD 형식)
+    const expectedDate = `${selectedYear}-${String(selectedMonth + 1).padStart(2, '0')}-${String(selectedDate).padStart(2, '0')}`;
+    const matches = recruit.deadlineDate === expectedDate;
+
+    return matches;
   });
+
+  // 만약 공고일/마감일 필터링에서 아무것도 찾지 못했다면,
+  // 해당 날짜에 있는 모든 공고를 "공고일"로 표시
+  const allRecruits =
+    postingRecruits.length === 0 && expirationRecruits.length === 0
+      ? recruits
+      : [...postingRecruits, ...expirationRecruits];
 
   // 날짜 포맷팅 함수
   const formatDate = (dateString: string) => {
@@ -124,7 +127,7 @@ export const RecruitModal: React.FC<RecruitModalProps> = ({
                     <div className="flex items-start justify-between mb-2">
                       <div className="flex-1">
                         <Typography variant="default" weight="bold" color="black" className="mb-1">
-                          {recruit.company_name}
+                          {recruit.companyName}
                         </Typography>
                         <Typography variant="recruits" color="black" className="mb-2">
                           {recruit.title}
@@ -133,17 +136,22 @@ export const RecruitModal: React.FC<RecruitModalProps> = ({
                       <RecruitBadge type="start" company="" />
                     </div>
                     <div className="flex flex-wrap gap-2 mb-2">
+                      <span
+                        className={`px-2 py-1 text-xs rounded ${getCompanyTypeClass(recruit.companyType)}`}
+                      >
+                        {recruit.companyType}
+                      </span>
                       <span className="px-2 py-1 text-xs bg-blue-100 text-blue-800 rounded">
-                        {recruit.job_type.name}
+                        {recruit.careerInfo}
                       </span>
                       <span className="px-2 py-1 text-xs bg-green-100 text-green-800 rounded">
-                        {recruit.job_code.name}
+                        {recruit.jobSectorName}
                       </span>
                     </div>
                     <div className="text-xs text-gray-600">
                       <div>
-                        📅 {formatDate(recruit.posting_date)} ~{' '}
-                        {formatDateTime(recruit.expiration_date)}
+                        📅 {formatDate(recruit.postingDate)} ~{' '}
+                        {formatDateTime(recruit.deadlineDate)}
                       </div>
                     </div>
                   </div>
@@ -170,7 +178,7 @@ export const RecruitModal: React.FC<RecruitModalProps> = ({
                     <div className="flex items-start justify-between mb-2">
                       <div className="flex-1">
                         <Typography variant="default" weight="bold" color="black" className="mb-1">
-                          {recruit.company_name}
+                          {recruit.companyName}
                         </Typography>
                         <Typography variant="recruits" color="black" className="mb-2">
                           {recruit.title}
@@ -179,17 +187,22 @@ export const RecruitModal: React.FC<RecruitModalProps> = ({
                       <RecruitBadge type="end" company="" />
                     </div>
                     <div className="flex flex-wrap gap-2 mb-2">
+                      <span
+                        className={`px-2 py-1 text-xs rounded ${getCompanyTypeClass(recruit.companyType)}`}
+                      >
+                        {recruit.companyType}
+                      </span>
                       <span className="px-2 py-1 text-xs bg-red-100 text-red-800 rounded">
-                        {recruit.job_type.name}
+                        {recruit.careerInfo}
                       </span>
                       <span className="px-2 py-1 text-xs bg-green-100 text-green-800 rounded">
-                        {recruit.job_code.name}
+                        {recruit.jobSectorName}
                       </span>
                     </div>
                     <div className="text-xs text-gray-600">
                       <div>
-                        📅 {formatDate(recruit.posting_date)} ~{' '}
-                        {formatDateTime(recruit.expiration_date)}
+                        📅 {formatDate(recruit.postingDate)} ~{' '}
+                        {formatDateTime(recruit.deadlineDate)}
                       </div>
                     </div>
                   </div>
@@ -198,8 +211,66 @@ export const RecruitModal: React.FC<RecruitModalProps> = ({
             </div>
           )}
 
+          {/* 공고일/마감일 필터링에서 아무것도 찾지 못한 경우, 모든 공고를 표시 */}
+          {postingRecruits.length === 0 &&
+            expirationRecruits.length === 0 &&
+            allRecruits.length > 0 && (
+              <div>
+                <Typography
+                  as="h3"
+                  variant="title"
+                  weight="bold"
+                  color="dabojob"
+                  className="mb-3 text-lg"
+                >
+                  채용 공고 ({allRecruits.length}개)
+                </Typography>
+                <div className="space-y-3">
+                  {allRecruits.map((recruit, index) => (
+                    <div key={index} className="p-4 bg-blue-50 rounded-lg border border-blue-200">
+                      <div className="flex items-start justify-between mb-2">
+                        <div className="flex-1">
+                          <Typography
+                            variant="default"
+                            weight="bold"
+                            color="black"
+                            className="mb-1"
+                          >
+                            {recruit.companyName}
+                          </Typography>
+                          <Typography variant="recruits" color="black" className="mb-2">
+                            {recruit.title}
+                          </Typography>
+                        </div>
+                        <RecruitBadge type="start" company="" />
+                      </div>
+                      <div className="flex flex-wrap gap-2 mb-2">
+                        <span
+                          className={`px-2 py-1 text-xs rounded ${getCompanyTypeClass(recruit.companyType)}`}
+                        >
+                          {recruit.companyType}
+                        </span>
+                        <span className="px-2 py-1 text-xs bg-blue-100 text-blue-800 rounded">
+                          {recruit.careerInfo}
+                        </span>
+                        <span className="px-2 py-1 text-xs bg-green-100 text-green-800 rounded">
+                          {recruit.jobSectorName}
+                        </span>
+                      </div>
+                      <div className="text-xs text-gray-600">
+                        <div>
+                          📅 {formatDate(recruit.postingDate)} ~{' '}
+                          {formatDateTime(recruit.deadlineDate)}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
           {/* 공고가 없는 경우 */}
-          {recruits.length === 0 && (
+          {allRecruits.length === 0 && (
             <div className="text-center py-8">
               <Typography variant="default" color="gray">
                 해당 날짜에 채용 공고가 없습니다.
