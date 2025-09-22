@@ -345,34 +345,50 @@ class BackgroundWorker:
             title = job_data.get("company_name", "")
 
             if content:
-                # 분류 및 표준화 수행
-                category, standardized_content = await self.standardizer_service.classify_and_standardize(
-                    title=title,
+                # DART 문서 전체를 5개 카테고리로 분류 및 표준화
+                categorized_sections = await self.standardizer_service.classify_and_standardize_all_sections(
+                    company_name=title,
                     content=content
                 )
 
-                # 표준화된 내용을 파일로 저장
-                file_path = self._save_standardized_content(
-                    job_id=job_id,
-                    mapping_id=job_data.get("mapping_id"),
-                    company_name=title,
-                    category=category,
-                    content=standardized_content
-                )
+                # 각 카테고리별로 파일 저장 및 Summary 서버 전송
+                file_paths = {}
+                mapping_id = job_data.get("mapping_id")
 
+                for category, standardized_content in categorized_sections.items():
+                    if standardized_content:  # 내용이 있는 카테고리만 처리
+                        # 카테고리별 파일 저장
+                        file_path = self._save_standardized_content(
+                            job_id=job_id,
+                            mapping_id=mapping_id,
+                            company_name=title,
+                            category=category,
+                            content=standardized_content
+                        )
+                        file_paths[category] = file_path
+
+                        logger.info(f"📁 Category '{category}' saved: {len(standardized_content)} chars to {file_path}")
+
+                        # 각 카테고리별로 Summary 서버에 작업 전송
+                        category_result = {
+                            "mapping_id": mapping_id,
+                            "category": category,
+                            "standardized_content": standardized_content,
+                            "file_path": file_path,
+                            "processing_time": datetime.now().isoformat()
+                        }
+                        await self._trigger_summary_server(job_data, category_result)
+
+                # 전체 작업 결과
                 result = {
-                    "mapping_id": job_data.get("mapping_id"),
-                    "category": category,
-                    "standardized_content": standardized_content,
-                    "file_path": file_path,  # 파일 경로 추가
+                    "mapping_id": mapping_id,
+                    "categories_processed": list(file_paths.keys()),
+                    "file_paths": file_paths,
                     "processing_time": datetime.now().isoformat()
                 }
 
                 await redis_helper.update_job_status(job_id, "completed", result)
-                logger.info(f"✅ Standardization completed for {title}, saved to {file_path}")
-
-                # Summary 서버로 데이터 전달 (file_path 포함)
-                await self._trigger_summary_server(job_data, result)
+                logger.info(f"✅ Standardization completed for {title}: {len(file_paths)} categories processed")
             else:
                 await redis_helper.update_job_status(job_id, "failed", {"error": "No content provided"})
 
