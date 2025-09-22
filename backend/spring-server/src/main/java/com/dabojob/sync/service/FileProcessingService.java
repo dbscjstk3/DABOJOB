@@ -39,6 +39,7 @@ import java.util.List;
 import java.util.Optional;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -254,10 +255,17 @@ public class FileProcessingService {
             return existing.get();
         }
 
-        Hashtag newHashtag = Hashtag.builder()
-                .name(hashtagName)
-                .build();
-        return hashtagRepository.save(newHashtag);
+        try {
+            // 새로 생성
+            Hashtag newHashtag = Hashtag.builder()
+                    .name(hashtagName)
+                    .build();
+            return hashtagRepository.save(newHashtag);
+        } catch (DataIntegrityViolationException e) {
+            // 다른 스레드가 이미 생성했으니 다시 조회
+            return hashtagRepository.findByName(hashtagName)
+                    .orElseThrow(() -> new RuntimeException("Hashtag not found after creation: " + hashtagName));
+        }
     }
 
     private SummaryHashtag findSummaryHashtag(CompanyAnalysisSummary summary, Hashtag hashtag, ChapterType chapterType) {
