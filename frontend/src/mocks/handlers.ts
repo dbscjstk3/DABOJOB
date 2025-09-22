@@ -170,73 +170,7 @@ export const handlers = [
     });
   }),
 
-  // JobPosting API 목 핸들러 (단수형)
-  http.get('/api/job-postings/:jobPostingId', ({ params }) => {
-    const jobPostingId = params.jobPostingId as string;
-
-    console.log(`🎭 MSW: JobPosting API 호출됨 - ID: ${jobPostingId}`);
-
-    // 목 데이터 - 실제로는 jobPostingId에 따라 다른 데이터 반환
-    const mockJobPostingData: Record<string, JobPostingResponse> = {
-      '1': {
-        jobPostingId: 1,
-        companyId: 123,
-        companyName: '삼성전자',
-        companyType: '대기업',
-        title: 'AI 반도체 개발 엔지니어',
-        url: 'https://www.saramin.co.kr/zf_user/jobs/relay/view?rec_idx=123456',
-        jobSectorName: '반도체 설계',
-        jobSectorCategory: 'IT/하드웨어',
-        careerInfo: '경력 3년 이상',
-        postingDate: '2024-12-15',
-        deadlineDate: '2025-12-31',
-      },
-      '2': {
-        jobPostingId: 2,
-        companyId: 456,
-        companyName: 'LG전자',
-        companyType: '대기업',
-        title: '전기차 SW 개발자',
-        url: 'https://www.saramin.co.kr/zf_user/jobs/relay/view?rec_idx=789012',
-        jobSectorName: '소프트웨어 개발',
-        jobSectorCategory: 'IT/소프트웨어',
-        careerInfo: '신입',
-        postingDate: '2024-12-10',
-        deadlineDate: '2024-12-25',
-      },
-      '3': {
-        jobPostingId: 3,
-        companyId: 789,
-        companyName: 'SK하이닉스',
-        companyType: '대기업',
-        title: '메모리 반도체 연구원',
-        url: 'https://www.saramin.co.kr/zf_user/jobs/relay/view?rec_idx=345678',
-        jobSectorName: '연구개발',
-        jobSectorCategory: '연구/R&D',
-        careerInfo: '경력무관',
-        postingDate: '2024-12-20',
-        deadlineDate: '2025-02-28',
-      },
-    };
-
-    const jobPostingData = mockJobPostingData[jobPostingId];
-
-    if (!jobPostingData) {
-      return new HttpResponse(null, {
-        status: 404,
-        statusText: 'Job Posting not found',
-      });
-    }
-
-    return HttpResponse.json(jobPostingData, {
-      status: 200,
-      headers: {
-        'Content-Type': 'application/json',
-      },
-    });
-  }),
-
-  // 자동완성 API 목 핸들러
+  // 자동완성 API 목 핸들러 (더 구체적인 패턴을 먼저 정의)
   http.get('/api/job-postings/suggestions', ({ request }) => {
     const url = new URL(request.url);
     const prefix = url.searchParams.get('prefix') || '';
@@ -312,6 +246,72 @@ export const handlers = [
           }),
         );
       }, delay);
+    });
+  }),
+
+  // JobPosting API 목 핸들러 (단수형) - 더 구체적인 패턴들 뒤에 배치
+  http.get('/api/job-postings/:jobPostingId', ({ params }) => {
+    const jobPostingId = params.jobPostingId as string;
+
+    console.log(`🎭 MSW: JobPosting API 호출됨 - ID: ${jobPostingId}`);
+
+    // 목 데이터 - 실제로는 jobPostingId에 따라 다른 데이터 반환
+    const mockJobPostingData: Record<string, JobPostingResponse> = {
+      '1': {
+        jobPostingId: 1,
+        companyId: 123,
+        companyName: '삼성전자',
+        companyType: '대기업',
+        title: 'AI 반도체 개발 엔지니어',
+        url: 'https://www.saramin.co.kr/zf_user/jobs/relay/view?rec_idx=123456',
+        jobSectorName: '반도체 설계',
+        jobSectorCategory: 'IT/하드웨어',
+        careerInfo: '경력 3년 이상',
+        postingDate: '2024-12-15',
+        deadlineDate: '2025-12-31',
+      },
+      '2': {
+        jobPostingId: 2,
+        companyId: 456,
+        companyName: 'LG전자',
+        companyType: '대기업',
+        title: '전기차 SW 개발자',
+        url: 'https://www.saramin.co.kr/zf_user/jobs/relay/view?rec_idx=789012',
+        jobSectorName: '소프트웨어 개발',
+        jobSectorCategory: 'IT/소프트웨어',
+        careerInfo: '신입',
+        postingDate: '2024-12-10',
+        deadlineDate: '2024-12-25',
+      },
+      '3': {
+        jobPostingId: 3,
+        companyId: 789,
+        companyName: 'SK하이닉스',
+        companyType: '대기업',
+        title: '메모리 반도체 연구원',
+        url: 'https://www.saramin.co.kr/zf_user/jobs/relay/view?rec_idx=345678',
+        jobSectorName: '연구개발',
+        jobSectorCategory: '연구/R&D',
+        careerInfo: '경력무관',
+        postingDate: '2024-12-20',
+        deadlineDate: '2025-02-28',
+      },
+    };
+
+    const jobPostingData = mockJobPostingData[jobPostingId];
+
+    if (!jobPostingData) {
+      return new HttpResponse(null, {
+        status: 404,
+        statusText: 'Job Posting not found',
+      });
+    }
+
+    return HttpResponse.json(jobPostingData, {
+      status: 200,
+      headers: {
+        'Content-Type': 'application/json',
+      },
     });
   }),
 ];

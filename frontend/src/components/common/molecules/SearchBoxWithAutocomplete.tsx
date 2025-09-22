@@ -33,13 +33,18 @@ export default function SearchBoxWithAutocomplete({
     const trimmedQuery = query.trim();
     if (!trimmedQuery) return;
 
+    // "회사명 - 제목" 형식인 경우 제목만 추출, 아니면 전체 사용
+    const searchQuery = trimmedQuery.includes(' - ')
+      ? trimmedQuery.split(' - ').slice(1).join(' - ') // " - " 뒤의 모든 부분
+      : trimmedQuery;
+
     if (onSubmit) {
-      onSubmit(trimmedQuery);
+      onSubmit(searchQuery);
     } else {
       // 기본 동작: 검색 페이지로 이동
       navigate({
         to: '/search',
-        search: { q: trimmedQuery, page: 1 },
+        search: { q: searchQuery, page: 1 },
       });
     }
     setIsOpen(false);
@@ -89,7 +94,7 @@ export default function SearchBoxWithAutocomplete({
 
   // 자동완성 아이템 선택 처리
   const handleItemClick = (item: AutocompleteJobPosting) => {
-    setQuery(item.title); // 검색바에 선택한 아이템의 제목 설정
+    setQuery(`${item.companyName} - ${item.title}`); // 검색바에 회사명과 제목 형식으로 설정
     setIsOpen(false); // 드롭다운 닫기
 
     // 달력 상세 페이지로 이동 (companyId를 summaryId로 사용)
