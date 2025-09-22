@@ -33,7 +33,7 @@ public class S3DataSyncService {
     private String bucketName;
 
     private final ObjectMapper objectMapper = new ObjectMapper();
-    private LocalDateTime lastSyncTime = LocalDateTime.now().minusDays(7);
+    private LocalDateTime lastSyncTime = LocalDateTime.now().minusDays(1);
 
     public void syncData() {
         try {
@@ -154,7 +154,7 @@ public class S3DataSyncService {
 
     private List<S3ObjectSummary> getNewJsonFiles() {
         LocalDateTime now = LocalDateTime.now();
-        LocalDateTime yesterday = now.minusDays(4);
+        LocalDateTime yesterday = now.minusDays(1);
 
         String todayPrefix = "reports/" + now.format(DateTimeFormatter.ofPattern("yyyy-MM-dd")) + "/";
         String yesterdayPrefix = "reports/" + yesterday.format(DateTimeFormatter.ofPattern("yyyy-MM-dd")) + "/";
