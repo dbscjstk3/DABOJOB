@@ -47,6 +47,53 @@ export interface JobPostingResponse {
   deadlineDate: string;
 }
 
+// 자동완성 API 응답 타입 정의
+export interface AutocompleteJobPosting {
+  jobPostingId: number;
+  companyId: number;
+  companyName: string;
+  title: string;
+  url: string;
+  jobSectorId: number;
+  jobSectorName: string;
+  jobSectorCategory: string;
+  careerInfo: string;
+  postingDate: string;
+  deadlineDate: string;
+}
+
+export interface AutocompleteResponse {
+  content: AutocompleteJobPosting[];
+  pageable: {
+    pageNumber: number;
+    pageSize: number;
+    sort: {
+      empty: boolean;
+      sorted: boolean;
+      unsorted: boolean;
+    };
+    offset: number;
+    paged: boolean;
+    unpaged: boolean;
+  };
+  last: boolean;
+  totalElements: number;
+  totalPages: number;
+  size: number;
+  number: number;
+  sort: {
+    empty: boolean;
+    sorted: boolean;
+    unsorted: boolean;
+  };
+  first: boolean;
+  numberOfElements: number;
+  empty: boolean;
+}
+
+// 검색 API 응답 타입 정의 (AutocompleteResponse와 동일한 구조)
+export type SearchJobPostingResponse = AutocompleteResponse;
+
 export const API_ENDPOINTS = {
   AUTH: {
     LOGIN: (provider: string) => `${import.meta.env.VITE_API_BASE_URL}/api/auth/login/${provider}`,
@@ -64,6 +111,14 @@ export const API_ENDPOINTS = {
   },
   JOB_POSTING: {
     DETAIL: (jobPostingId: string | number) => `${API_BASE_URL}/api/job-postings/${jobPostingId}`,
+    AUTOCOMPLETE: (prefix: string) =>
+      `${API_BASE_URL}/api/job-postings/suggestions?prefix=${encodeURIComponent(prefix)}`,
+    SEARCH: (search: string, page?: number, size?: number) => {
+      let url = `${API_BASE_URL}/api/job-postings?search=${encodeURIComponent(search)}`;
+      if (page !== undefined) url += `&page=${page}`;
+      if (size !== undefined) url += `&size=${size}`;
+      return url;
+    },
     CALENDAR: (startDate: string, endDate: string) =>
       `${API_BASE_URL}/api/job-postings/calendar?startDate=${startDate}&endDate=${endDate}`,
   },
@@ -145,6 +200,68 @@ export const fetchJobPosting = async (
 
   if (!response.ok) {
     throw new Error(`Failed to fetch job posting: ${response.status}`);
+  }
+
+  return response.json();
+};
+
+// 자동완성 API 호출 함수
+export const fetchAutocomplete = async (prefix: string): Promise<AutocompleteResponse> => {
+  // prefix가 비어있으면 빈 결과 반환
+  if (!prefix || prefix.trim().length === 0) {
+    return {
+      content: [],
+      pageable: {
+        pageNumber: 0,
+        pageSize: 10,
+        sort: { empty: true, sorted: false, unsorted: true },
+        offset: 0,
+        paged: true,
+        unpaged: false,
+      },
+      last: true,
+      totalElements: 0,
+      totalPages: 0,
+      size: 10,
+      number: 0,
+      sort: { empty: true, sorted: false, unsorted: true },
+      first: true,
+      numberOfElements: 0,
+      empty: true,
+    };
+  }
+
+  const response = await fetch(API_ENDPOINTS.JOB_POSTING.AUTOCOMPLETE(prefix), {
+    method: 'GET',
+    credentials: 'include', // Cookie 포함
+    headers: {
+      'Content-Type': 'application/json',
+    },
+  });
+
+  if (!response.ok) {
+    throw new Error(`Failed to fetch autocomplete results: ${response.status}`);
+  }
+
+  return response.json();
+};
+
+// 검색 API 호출 함수
+export const fetchSearchJobPostings = async (
+  search: string,
+  page?: number,
+  size?: number,
+): Promise<SearchJobPostingResponse> => {
+  const response = await fetch(API_ENDPOINTS.JOB_POSTING.SEARCH(search, page, size), {
+    method: 'GET',
+    credentials: 'include', // Cookie 포함
+    headers: {
+      'Content-Type': 'application/json',
+    },
+  });
+
+  if (!response.ok) {
+    throw new Error(`Failed to fetch search results: ${response.status}`);
   }
 
   return response.json();

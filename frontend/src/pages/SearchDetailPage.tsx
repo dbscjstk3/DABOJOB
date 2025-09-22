@@ -1,21 +1,9 @@
-import { useState, useEffect } from 'react';
 import { useSearch, useNavigate } from '@tanstack/react-router';
+import { useSearchJobPostings } from '@/lib/hooks';
 import SearchResultCard from '@/components/search/organisms/SearchResultCard';
 import PaginationControls from '@/components/search/molecules/PaginationControls';
 import EmptyState from '@/components/search/molecules/EmptyState';
 import Typography from '@/components/common/atoms/Typography';
-
-// 검색 결과 타입 정의
-interface SearchResult {
-  id: string;
-  status: 'started' | 'ended';
-  companyName: string;
-  title: string;
-  experienceLevel: string;
-  period: string;
-  jobCategory: string;
-  url?: string;
-}
 
 // 검색 파라미터 타입 정의
 interface SearchParams {
@@ -27,105 +15,42 @@ export default function SearchDetailPage() {
   const navigate = useNavigate({ from: '/search' });
   const searchParams = useSearch({ from: '/search' }) as SearchParams;
   const query = searchParams.q || '';
-  const currentPage = searchParams.page || 1;
+  const currentPage = (searchParams.page || 1) - 1; // API는 0부터 시작
 
-  const [results, setResults] = useState<SearchResult[]>([]);
-  const [totalPages, setTotalPages] = useState(0);
-  const [loading, setLoading] = useState(false);
+  // React Query를 사용한 데이터 fetching
+  const { data, isLoading, isError } = useSearchJobPostings(query, currentPage, 20);
 
-  // Mock 데이터 생성 함수 (실제로는 API 호출로 대체)
-  // query: string 추가할 예정
-  const fetchSearchResults = async (page: number = 1) => {
-    // 실제 API 호출 예시:
-    // const response = await fetch(`/api/search?q=${query}&page=${page}`);
-    // return response.json();
-
-    // Mock 데이터
-    const mockResults: SearchResult[] = [
-      {
-        id: '1',
-        status: 'started',
-        companyName: '삼성전자',
-        title: '2025 하반기 삼성전자 집중 채용 (신입/경력)',
-        experienceLevel: '신입',
-        period: '09/05~09/12',
-        jobCategory: 'IT 직무',
-        url: 'https://example.com/1',
-      },
-      {
-        id: '2',
-        status: 'ended',
-        companyName: '삼성전자',
-        title: '2025 상반기 삼성전자 SW 개발자 모집',
-        experienceLevel: '경력',
-        period: '08/01~08/15',
-        jobCategory: '소프트웨어 개발',
-        url: 'https://example.com/2',
-      },
-      {
-        id: '3',
-        status: 'ended',
-        companyName: '삼성전자',
-        title: '2025 상반기 삼성전자 SW 개발자 모집',
-        experienceLevel: '경력',
-        period: '08/01~08/15',
-        jobCategory: '소프트웨어 개발',
-        url: 'https://example.com/2',
-      },
-      {
-        id: '4',
-        status: 'ended',
-        companyName: '삼성전자',
-        title: '2025 상반기 삼성전자 SW 개발자 모집',
-        experienceLevel: '경력',
-        period: '08/01~08/15',
-        jobCategory: '소프트웨어 개발',
-        url: 'https://example.com/2',
-      },
-      {
-        id: '5',
-        status: 'ended',
-        companyName: '삼성전자',
-        title: '2025 상반기 삼성전자 SW 개발자 모집',
-        experienceLevel: '경력',
-        period: '08/01~08/15',
-        jobCategory: '소프트웨어 개발',
-        url: 'https://example.com/2',
-      },
-    ];
-
-    return {
-      items: mockResults,
-      totalPages: 10,
-      currentPage: page,
-    };
+  // 날짜 포맷 함수
+  const formatPeriod = (deadline: string): string => {
+    const date = new Date(deadline);
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return `~${month}/${day}`;
   };
-  // query: string 추가할 예정
-  useEffect(() => {
-    const loadResults = async () => {
-      if (!query) return;
 
-      setLoading(true);
-      try {
-        const data = await fetchSearchResults(currentPage);
-        setResults(data.items);
-        setTotalPages(data.totalPages);
-      } catch (error) {
-        console.error('검색 실패:', error);
-      } finally {
-        setLoading(false);
-      }
+  // 상태 계산 함수
+  const getStatus = (deadline: string): 'started' | 'ended' => {
+    const today = new Date();
+    const deadlineDate = new Date(deadline);
+    return deadlineDate >= today ? 'started' : 'ended';
+  };
+
+  // 경력 정보 변환 함수
+  const formatCareerInfo = (careerInfo: string): string => {
+    const careerMap: { [key: string]: string } = {
+      NEWBIE: '신입',
+      JUNIOR: '주니어',
+      SENIOR: '시니어',
     };
-
-    loadResults();
-  }, [currentPage, query]);
+    return careerMap[careerInfo] || careerInfo;
+  };
 
   // 페이지 변경 핸들러
   const handlePageChange = (newPage: number) => {
     navigate({
       search: (prev) => ({
         ...prev,
-        page: newPage,
+        page: newPage, // UI는 1부터 시작
       }),
     });
   };
@@ -138,27 +63,44 @@ export default function SearchDetailPage() {
 
       {!query ? (
         <EmptyState />
-      ) : loading ? (
+      ) : isLoading ? (
         <div className="flex justify-center items-center py-12">
           <div className="text-center">
             <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
             <p className="text-gray-600">검색 중...</p>
           </div>
         </div>
-      ) : results.length > 0 ? (
+      ) : isError ? (
+        <div className="flex justify-center items-center py-12">
+          <div className="text-center text-red-600">
+            <p>검색 중 오류가 발생했습니다. 다시 시도해주세요.</p>
+          </div>
+        </div>
+      ) : data && data.content.length > 0 ? (
         <div className="bg-white flex flex-col gap-4">
-          {results.map((result) => (
-            <SearchResultCard key={result.id} {...result} />
+          {data.content.map((job) => (
+            <SearchResultCard
+              key={job.jobPostingId}
+              status={getStatus(job.deadlineDate)}
+              companyName={job.companyName}
+              title={job.title}
+              experienceLevel={formatCareerInfo(job.careerInfo)}
+              period={formatPeriod(job.deadlineDate)}
+              jobCategory={`${job.jobSectorCategory} · ${job.jobSectorName}`}
+              url={job.url}
+              companyId={job.companyId}
+              jobPostingId={job.jobPostingId}
+            />
           ))}
         </div>
       ) : (
         <EmptyState />
       )}
 
-      {totalPages > 1 && (
+      {data && data.totalPages > 1 && (
         <PaginationControls
-          currentPage={currentPage}
-          totalPages={totalPages}
+          currentPage={currentPage + 1} // UI는 1부터 표시
+          totalPages={data.totalPages}
           onPageChange={handlePageChange}
         />
       )}

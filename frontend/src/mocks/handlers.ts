@@ -2,6 +2,8 @@ import { http, HttpResponse } from 'msw';
 import { mockSummaryData } from './data/summary';
 import { mockNewsData } from './data/news';
 import { getAllJobPostings } from './jobPostings';
+import { getFilteredJobPostings, createAutocompleteResponse } from './data/autocomplete';
+import { searchJobPostings } from './data/jobPostings';
 import type { NewsResponse, JobPostingResponse } from '@/lib/api';
 
 export const handlers = [
@@ -90,7 +92,7 @@ export const handlers = [
       ],
       HBM: [
         {
-          newsId: 1,
+          newsId: 3,
           summaryHashtagId: 10,
           newsUrl: 'https://news.example.com/samsung-hbm-production',
           newsTitle: '삼성전자, HBM3E 양산 본격화로 AI 반도체 시장 선도',
@@ -101,7 +103,7 @@ export const handlers = [
       ],
       투자: [
         {
-          newsId: 2,
+          newsId: 4,
           summaryHashtagId: 11,
           newsUrl: 'https://news.example.com/samsung-ai-investment',
           newsTitle: '삼성전자, AI 반도체 개발에 3년간 100조원 투자 계획 발표',
@@ -168,9 +170,90 @@ export const handlers = [
     });
   }),
 
-  // JobPosting API 목 핸들러 (더 일반적인 패턴을 나중에 정의)
+  // 자동완성 API 목 핸들러 (더 구체적인 패턴을 먼저 정의)
+  http.get('/api/job-postings/suggestions', ({ request }) => {
+    const url = new URL(request.url);
+    const prefix = url.searchParams.get('prefix') || '';
+
+    console.log(`🎭 MSW: 자동완성 API 호출됨 - prefix: "${prefix}"`);
+
+    // 빈 prefix면 빈 결과 반환
+    if (!prefix || prefix.trim().length === 0) {
+      console.log('⚠️ MSW: prefix가 비어있음. 빈 결과 반환');
+      const emptyResponse = createAutocompleteResponse([]);
+      return HttpResponse.json(emptyResponse);
+    }
+
+    // prefix로 필터링된 채용공고 검색
+    const filteredJobs = getFilteredJobPostings(prefix);
+    const response = createAutocompleteResponse(filteredJobs);
+
+    console.log(`✅ MSW: "${prefix}"로 검색한 결과 ${filteredJobs.length}개 채용공고 반환`);
+
+    // 실제 API처럼 약간의 지연 추가 (100-300ms)
+    const delay = Math.random() * 200 + 100;
+
+    return new Promise((resolve) => {
+      setTimeout(() => {
+        resolve(
+          HttpResponse.json(response, {
+            status: 200,
+            headers: {
+              'Content-Type': 'application/json',
+            },
+          }),
+        );
+      }, delay);
+    });
+  }),
+
+  // 검색 API 목 핸들러
+  http.get('/api/job-postings', ({ request }) => {
+    const url = new URL(request.url);
+    const search = url.searchParams.get('search') || '';
+    const page = parseInt(url.searchParams.get('page') || '0', 10);
+    const size = parseInt(url.searchParams.get('size') || '20', 10);
+
+    console.log(`🎭 MSW: 검색 API 호출됨 - search: "${search}", page: ${page}, size: ${size}`);
+
+    // 검색어가 필수 파라미터
+    if (!search) {
+      console.log('❌ MSW: search 파라미터가 없습니다.');
+      return new HttpResponse(null, {
+        status: 400,
+        statusText: 'Search parameter is required',
+      });
+    }
+
+    // 검색 실행
+    const searchResult = searchJobPostings(search, page, size);
+
+    console.log(
+      `✅ MSW: "${search}" 검색 결과 - 총 ${searchResult.totalElements}개 중 ${searchResult.numberOfElements}개 반환 (페이지: ${page + 1}/${searchResult.totalPages})`,
+    );
+
+    // 실제 API처럼 약간의 지연 추가
+    const delay = Math.random() * 200 + 100;
+
+    return new Promise((resolve) => {
+      setTimeout(() => {
+        resolve(
+          HttpResponse.json(searchResult, {
+            status: 200,
+            headers: {
+              'Content-Type': 'application/json',
+            },
+          }),
+        );
+      }, delay);
+    });
+  }),
+
+  // JobPosting API 목 핸들러 (단수형) - 더 구체적인 패턴들 뒤에 배치
   http.get('/api/job-postings/:jobPostingId', ({ params }) => {
     const jobPostingId = params.jobPostingId as string;
+
+    console.log(`🎭 MSW: JobPosting API 호출됨 - ID: ${jobPostingId}`);
 
     // 목 데이터 - 실제로는 jobPostingId에 따라 다른 데이터 반환
     const mockJobPostingData: Record<string, JobPostingResponse> = {
@@ -185,7 +268,7 @@ export const handlers = [
         jobSectorCategory: 'IT/하드웨어',
         careerInfo: '경력 3년 이상',
         postingDate: '2024-12-15',
-        deadlineDate: '2025-01-31',
+        deadlineDate: '2025-12-31',
       },
       '2': {
         jobPostingId: 2,

@@ -1,5 +1,6 @@
 import Typography from '@/components/common/atoms/Typography';
 import ResultTitleLink from '@/components/search/molecules/ResultTitleLink';
+import { useNavigate } from '@tanstack/react-router';
 import { cn } from '@/lib/utils';
 
 interface SearchResultCardProps {
@@ -11,6 +12,8 @@ interface SearchResultCardProps {
   jobCategory: string;
   url?: string;
   className?: string;
+  companyId: number;
+  jobPostingId: number;
 }
 
 export default function SearchResultCard({
@@ -22,8 +25,22 @@ export default function SearchResultCard({
   jobCategory,
   url,
   className = '',
+  companyId,
+  jobPostingId,
 }: SearchResultCardProps) {
+  const navigate = useNavigate();
+
   const handleCardClick = () => {
+    // 달력 상세 페이지로 이동 (companyId를 summaryId로 사용)
+    navigate({
+      to: '/calendar/$id',
+      params: { id: String(companyId) },
+      search: { jobPostingId: String(jobPostingId) },
+    });
+  };
+
+  const handleTitleClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
     if (url) {
       window.open(url, '_blank');
     }
@@ -55,7 +72,7 @@ export default function SearchResultCard({
         </Typography>
 
         {/* 제목 */}
-        <div className="flex-1" onClick={(e) => e.stopPropagation()}>
+        <div className="flex-1" onClick={handleTitleClick}>
           <ResultTitleLink title={title} url={url} className="text-base" />
         </div>
 
