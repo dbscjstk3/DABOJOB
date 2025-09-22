@@ -31,7 +31,7 @@ class MappingVerifyRequest(BaseModel):
 
 class BatchMappingRequest(BaseModel):
     """배치 매핑 요청 모델"""
-    limit: int = Field(default=10, ge=1, le=100)
+    limit: int = Field(default=1000, ge=1, le=10000)
 
 
 class MappingResponse(BaseModel):
