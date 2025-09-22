@@ -123,7 +123,7 @@ class JobPostingServiceTest {
         // when & then
         assertThatThrownBy(() -> jobPostingService.getJobPosting(jobPostingId))
                 .isInstanceOf(EntityNotFoundException.class)
-                .hasMessage("JobPosting not found with JobPostingId: 999");
+                .hasMessage("Resource not found");  // 변경된 메시지
 
         verify(jobPostingRepository).findById(999L);
     }
@@ -137,7 +137,7 @@ class JobPostingServiceTest {
         // when & then
         assertThatThrownBy(() -> jobPostingService.getJobPosting(invalidJobPostingId))
                 .isInstanceOf(IllegalArgumentException.class)
-                .hasMessage("Invalid JobPosting ID format: invalid123");
+                .hasMessage("Invalid ID format");  // 변경된 메시지
 
         verify(jobPostingRepository, never()).findById(anyLong());
     }
@@ -211,7 +211,7 @@ class JobPostingServiceTest {
         // when & then
         assertThatThrownBy(() -> jobPostingService.getJobPostingByCompanyId(invalidCompanyId, page, size))
                 .isInstanceOf(IllegalArgumentException.class)
-                .hasMessage("Invalid Company ID format: abc123");
+                .hasMessage("Invalid ID format");  // 변경된 메시지
 
         verify(jobPostingRepository, never()).findByCompanyId(anyLong(), any(Pageable.class));
     }
@@ -364,7 +364,7 @@ class JobPostingServiceTest {
         // when & then
         assertThatThrownBy(() -> jobPostingService.getJobPosting(maxJobPostingId))
                 .isInstanceOf(EntityNotFoundException.class)
-                .hasMessage("JobPosting not found with JobPostingId: " + Long.MAX_VALUE);
+                .hasMessage("Resource not found");
 
         verify(jobPostingRepository).findById(Long.MAX_VALUE);
     }
