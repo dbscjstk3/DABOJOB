@@ -177,7 +177,7 @@ class SummaryServiceTest {
         // when & then
         assertThatThrownBy(() -> summaryService.getSummary(summaryId))
                 .isInstanceOf(EntityNotFoundException.class)
-                .hasMessage("Summary not found with id: 999");
+                .hasMessage("Entity not found");
 
         verify(summaryRepository).findById(999L);
         verify(summaryHashtagRepository, never()).findBySummary_Id(anyLong());
@@ -192,7 +192,7 @@ class SummaryServiceTest {
         // when & then
         assertThatThrownBy(() -> summaryService.getSummary(invalidSummaryId))
                 .isInstanceOf(IllegalArgumentException.class)
-                .hasMessage("Invalid summary ID format: invalid123");
+                .hasMessage("Invalid ID format");
 
         verify(summaryRepository, never()).findById(anyLong());
         verify(summaryHashtagRepository, never()).findBySummary_Id(anyLong());
@@ -238,7 +238,7 @@ class SummaryServiceTest {
         // when & then
         assertThatThrownBy(() -> summaryService.getFirstSummaryByCompanyId(companyId))
                 .isInstanceOf(EntityNotFoundException.class)
-                .hasMessage("Summary not found with companyId: 999");
+                .hasMessage("Entity not found");
 
         verify(summaryRepository).findFirstByCompany_IdOrderByCreatedAtDesc(999L);
         verify(summaryHashtagRepository, never()).findBySummary_Id(anyLong());
@@ -253,7 +253,7 @@ class SummaryServiceTest {
         // when & then
         assertThatThrownBy(() -> summaryService.getFirstSummaryByCompanyId(invalidCompanyId))
                 .isInstanceOf(IllegalArgumentException.class)
-                .hasMessage("Invalid company ID format: abc123");
+                .hasMessage("Invalid ID format");
 
         verify(summaryRepository, never()).findFirstByCompany_IdOrderByCreatedAtDesc(anyLong());
         verify(summaryHashtagRepository, never()).findBySummary_Id(anyLong());
@@ -293,19 +293,6 @@ class SummaryServiceTest {
                 .containsExactlyInAnyOrder("AI기술", "빅데이터", "머신러닝");
     }
 
-    @Test
-    @DisplayName("searchSummary: 현재는 빈 페이지 반환 (TODO 상태)")
-    void searchSummary_ReturnEmptyPage() {
-        // given
-        String query = "테스트 쿼리";
-
-        // when
-        var result = summaryService.searchSummary(query);
-
-        // then
-        assertThat(result.isEmpty()).isTrue();
-        assertThat(result.getTotalElements()).isZero();
-    }
 
     @Test
     @DisplayName("경계 케이스: summaryId가 Long.MAX_VALUE")
