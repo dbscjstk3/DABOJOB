@@ -33,27 +33,11 @@ public class SummaryService {
 
             List<SummaryHashtag> allSummaryHashtags = summaryHashtagRepository.findBySummary_Id(id);
 
-            Map<ChapterType, List<String>> chapterHashtags = allSummaryHashtags.stream()
-                    .collect(Collectors.groupingBy(
-                            SummaryHashtag::getChapterType,
-                            Collectors.mapping(sh -> sh.getHashtag().getName(), Collectors.toList())
-                    ));
-
-            // 빈 챕터들을 위해 모든 ChapterType 초기화
-            for (ChapterType chapterType : ChapterType.values()) {
-                chapterHashtags.putIfAbsent(chapterType, new ArrayList<>());
-            }
-
-            return SummaryResponse.of(summary, chapterHashtags);
+            return createSummaryResponse(summary, allSummaryHashtags);
 
         } catch (NumberFormatException e) {
             throw new IllegalArgumentException("Invalid summary ID format: " + summaryId);
         }
-    }
-
-    public Page<SummaryResponse> searchSummary(String query) {
-        //TODO: 엘라스틱 서치 도입 후 서치 로직 도입
-        return Page.empty();
     }
 
     public SummaryResponse getFirstSummaryByCompanyId(String companyId) {
@@ -65,21 +49,26 @@ public class SummaryService {
 
             List<SummaryHashtag> allSummaryHashtags = summaryHashtagRepository.findBySummary_Id(summary.getId());
 
-            Map<ChapterType, List<String>> chapterHashtags = allSummaryHashtags.stream()
-                    .collect(Collectors.groupingBy(
-                            SummaryHashtag::getChapterType,
-                            Collectors.mapping(sh -> sh.getHashtag().getName(), Collectors.toList())
-                    ));
-
-            // 빈 챕터들을 위해 모든 ChapterType 초기화
-            for (ChapterType chapterType : ChapterType.values()) {
-                chapterHashtags.putIfAbsent(chapterType, new ArrayList<>());
-            }
-
-            return SummaryResponse.of(summary, chapterHashtags);
+            return createSummaryResponse(summary, allSummaryHashtags);
 
         } catch (NumberFormatException e) {
             throw new IllegalArgumentException("Invalid company ID format: " + companyId);
         }
+    }
+
+    private SummaryResponse createSummaryResponse(CompanyAnalysisSummary summary,
+                                                  List<SummaryHashtag> allSummaryHashtags) {
+        Map<ChapterType, List<String>> chapterHashtags = allSummaryHashtags.stream()
+                .collect(Collectors.groupingBy(
+                        SummaryHashtag::getChapterType,
+                        Collectors.mapping(sh -> sh.getHashtag().getName(), Collectors.toList())
+                ));
+
+        // 빈 챕터들을 위해 모든 ChapterType 초기화
+        for (ChapterType chapterType : ChapterType.values()) {
+            chapterHashtags.putIfAbsent(chapterType, new ArrayList<>());
+        }
+
+        return SummaryResponse.of(summary, chapterHashtags);
     }
 }
