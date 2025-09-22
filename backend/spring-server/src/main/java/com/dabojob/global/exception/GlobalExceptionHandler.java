@@ -9,6 +9,7 @@ import java.util.Map;
 import org.hibernate.TypeMismatchException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.oauth2.core.OAuth2AuthenticationException;
 import org.springframework.web.HttpRequestMethodNotSupportedException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.MissingServletRequestParameterException;
@@ -19,6 +20,17 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 public class GlobalExceptionHandler {
 
     // 인증 인가 관련
+    @ExceptionHandler(OAuth2AuthenticationException.class)
+    public ResponseEntity<ErrorResponse> handleOAuth2AuthenticationException(OAuth2AuthenticationException e) {
+        ErrorResponse errorResponse = ErrorResponse.builder()
+                .message("OAuth authentication failed")
+                .code("OAUTH_AUTHENTICATION_ERROR")
+                .timestamp(LocalDateTime.now())
+                .build();
+
+        return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(errorResponse);
+    }
+
     @ExceptionHandler(DuplicatedEmailException.class)
     public ResponseEntity<ErrorResponse> handleDuplicatedEmailException(DuplicatedEmailException e) {
         ErrorResponse errorResponse = ErrorResponse.builder()
