@@ -5,9 +5,8 @@ import { getAllJobPostings } from './jobPostings';
 import type { NewsResponse, JobPostingResponse } from '@/lib/api';
 
 export const handlers = [
-
   // Summary Detail API 목 핸들러
-  http.get('*/api/summary/:summaryId', ({ params }) => {
+  http.get('/api/summary/:summaryId', ({ params }) => {
     const summaryId = params.summaryId as string;
 
     console.log(`🎭 MSW: Summary Detail API 호출됨 - ID: ${summaryId}`);
@@ -35,7 +34,7 @@ export const handlers = [
   }),
 
   // News API 목 핸들러
-  http.get('*/api/summary/:summaryId/news', ({ params }) => {
+  http.get('/api/summary/:summaryId/news', ({ params }) => {
     const summaryId = params.summaryId as string;
 
     console.log(`🎭 MSW: News API 호출됨 - Summary ID: ${summaryId}`);
@@ -58,7 +57,7 @@ export const handlers = [
   }),
 
   // 해시태그별 News API 목 핸들러
-  http.get('*/api/summary/:summaryId/news/:hashtagName', ({ params }) => {
+  http.get('/api/summary/:summaryId/news/:hashtagName', ({ params }) => {
     const summaryId = params.summaryId as string;
     const encodedHashtagName = params.hashtagName as string;
     const hashtagName = decodeURIComponent(encodedHashtagName);
@@ -131,7 +130,7 @@ export const handlers = [
   }),
 
   // 기간별 채용공고 조회 API 목 핸들러 (더 구체적인 패턴을 먼저 정의)
-  http.get('*/api/job-posting/calendar', ({ request }) => {
+  http.get('/api/job-posting/calendar', ({ request }) => {
     const url = new URL(request.url);
     const startDate = url.searchParams.get('startDate');
     const endDate = url.searchParams.get('endDate');
@@ -170,7 +169,7 @@ export const handlers = [
   }),
 
   // JobPosting API 목 핸들러 (더 일반적인 패턴을 나중에 정의)
-  http.get('*/api/job-posting/:jobPostingId', ({ params }) => {
+  http.get('/api/job-posting/:jobPostingId', ({ params }) => {
     const jobPostingId = params.jobPostingId as string;
 
     // 목 데이터 - 실제로는 jobPostingId에 따라 다른 데이터 반환

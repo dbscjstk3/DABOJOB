@@ -63,9 +63,9 @@ export const API_ENDPOINTS = {
       `${API_BASE_URL}/api/summary/${summaryId}/news/${encodeURIComponent(hashtagName)}`,
   },
   JOB_POSTING: {
-    DETAIL: (jobPostingId: string | number) => `${API_BASE_URL}/api/job-posting/${jobPostingId}`,
+    DETAIL: (jobPostingId: string | number) => `${API_BASE_URL}/api/job-postings/${jobPostingId}`,
     CALENDAR: (startDate: string, endDate: string) =>
-      `${API_BASE_URL}/api/job-posting/calendar?startDate=${startDate}&endDate=${endDate}`,
+      `${API_BASE_URL}/api/job-postings/calendar?startDate=${startDate}&endDate=${endDate}`,
   },
 } as const;
 
