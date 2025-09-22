@@ -41,7 +41,7 @@ async def start_saramin_crawl(
                 mapping_job_data = {
                     "job_id": f"auto_mapping_{job_id}",
                     "trigger": "post_saramin_crawling",
-                    "limit": 20,
+                    "limit": 1000,  # 크롤링된 모든 회사를 매핑
                     "submitted_at": datetime.now().isoformat()
                 }
 

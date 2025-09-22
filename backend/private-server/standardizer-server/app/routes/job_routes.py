@@ -37,9 +37,39 @@ async def get_job_status(job_id: str):
         raise HTTPException(status_code=500, detail=str(e))
 
 
+@router.get("/{job_id}/categorized")
+async def get_categorized_files(job_id: str):
+    """카테고리별 표준화된 파일 내용 조회"""
+    try:
+        from ..services.file_manager import FileManager
+
+        file_manager = FileManager()
+        categorized_files = file_manager.get_categorized_files(job_id)
+
+        if not categorized_files:
+            raise HTTPException(status_code=404, detail=f"No categorized files found for job {job_id}")
+
+        # 각 카테고리별 통계 추가
+        stats = {}
+        for category, content in categorized_files.items():
+            stats[category] = {
+                "length": len(content),
+                "exists": bool(content),
+                "preview": content[:200] + "..." if len(content) > 200 else content
+            }
+
+        return {
+            "job_id": job_id,
+            "categorized_files": categorized_files,
+            "stats": stats,
+            "total_categories": len([c for c in categorized_files.values() if c])
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Failed to get categorized files: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 # 기타 디버그용 API들은 제거됨 - 핵심 파이프라인에만 집중
-# GET /jobs - 작업 목록 조회 (불필요)
-# GET /jobs/{job_id} - 작업 상세 조회 (불필요)
-# GET /jobs/{job_id}/raw - 원본 데이터 조회 (디버그용)
-# GET /jobs/{job_id}/standardized - 표준화 데이터 조회 (디버그용)
-# GET /jobs/{job_id}/categorized - 분류 데이터 조회 (디버그용)
