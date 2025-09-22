@@ -3,26 +3,11 @@ import { CellBox } from '../atoms/CellBox';
 import { Day } from '../atoms/Day';
 import { generateCalendarCells, WEEK_DAYS } from '../../../lib/calendarUtils';
 import { cn } from '../../../lib/utils';
+import type { JobPostingResponse } from '@/lib/api';
 
 export interface CalendarGridProps {
   viewDate: Date;
-  getFilteredRecruits: (day: number) => {
-    event_type: 'job_posted' | 'job_expired';
-    job_id: string;
-    csn: string;
-    company_name: string;
-    title: string;
-    job_code: {
-      code: string;
-      name: string;
-    };
-    job_type: {
-      code: string;
-      name: string;
-    };
-    posting_date: string;
-    expiration_date: string;
-  }[];
+  getFilteredRecruits: (day: number) => JobPostingResponse[];
   expandedDays: Set<number>;
   onExpandedDaysChange: (days: Set<number>) => void;
   onOpenModal?: (day: number) => void;

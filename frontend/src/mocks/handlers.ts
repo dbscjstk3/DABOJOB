@@ -1,13 +1,26 @@
 import { http, HttpResponse } from 'msw';
 import { mockSummaryData } from './data/summary';
 import { mockNewsData } from './data/news';
+import { getAllJobPostings } from './jobPostings';
 import type { NewsResponse, JobPostingResponse } from '@/lib/api';
 
 export const handlers = [
-  // Auth API는 실제 백엔드로 보내기 위해 MSW에서 제외
+  // Auth API 목 핸들러
+  http.get('*/api/auth/me', () => {
+    console.log('🎭 MSW: Auth API 호출됨 - 사용자 정보 조회');
+
+    // 로그인되지 않은 상태로 응답
+    return HttpResponse.json(
+      { message: 'Unauthorized' },
+      {
+        status: 401,
+        statusText: 'Unauthorized',
+      },
+    );
+  }),
 
   // Summary Detail API 목 핸들러
-  http.get('/api/summary/:summaryId', ({ params }) => {
+  http.get('*/api/summary/:summaryId', ({ params }) => {
     const summaryId = params.summaryId as string;
 
     console.log(`🎭 MSW: Summary Detail API 호출됨 - ID: ${summaryId}`);
@@ -35,7 +48,7 @@ export const handlers = [
   }),
 
   // News API 목 핸들러
-  http.get('/api/summary/:summaryId/news', ({ params }) => {
+  http.get('*/api/summary/:summaryId/news', ({ params }) => {
     const summaryId = params.summaryId as string;
 
     console.log(`🎭 MSW: News API 호출됨 - Summary ID: ${summaryId}`);
@@ -58,7 +71,7 @@ export const handlers = [
   }),
 
   // 해시태그별 News API 목 핸들러
-  http.get('/api/summary/:summaryId/news/:hashtagName', ({ params }) => {
+  http.get('*/api/summary/:summaryId/news/:hashtagName', ({ params }) => {
     const summaryId = params.summaryId as string;
     const encodedHashtagName = params.hashtagName as string;
     const hashtagName = decodeURIComponent(encodedHashtagName);
@@ -130,11 +143,48 @@ export const handlers = [
     });
   }),
 
-  // JobPosting API 목 핸들러
-  http.get('/api/job-posting/:jobPostingId', ({ params }) => {
-    const jobPostingId = params.jobPostingId as string;
+  // 기간별 채용공고 조회 API 목 핸들러 (더 구체적인 패턴을 먼저 정의)
+  http.get('*/api/job-posting/calendar', ({ request }) => {
+    const url = new URL(request.url);
+    const startDate = url.searchParams.get('startDate');
+    const endDate = url.searchParams.get('endDate');
 
-    console.log(`🎭 MSW: JobPosting API 호출됨 - ID: ${jobPostingId}`);
+    if (!startDate || !endDate) {
+      return new HttpResponse(null, {
+        status: 400,
+        statusText: 'Bad Request - startDate and endDate are required',
+      });
+    }
+
+    // 모든 채용공고 데이터 가져오기
+    const allJobPostings = getAllJobPostings();
+
+    // 날짜 범위 필터링
+    const start = new Date(startDate);
+    const end = new Date(endDate);
+
+    const filteredJobPostings = allJobPostings.filter((posting) => {
+      const postingDate = new Date(posting.postingDate);
+      const deadlineDate = new Date(posting.deadlineDate);
+
+      // 공고일 또는 마감일이 지정된 기간 내에 있는지 확인
+      return (
+        (postingDate >= start && postingDate <= end) ||
+        (deadlineDate >= start && deadlineDate <= end)
+      );
+    });
+
+    return HttpResponse.json(filteredJobPostings, {
+      status: 200,
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    });
+  }),
+
+  // JobPosting API 목 핸들러 (더 일반적인 패턴을 나중에 정의)
+  http.get('*/api/job-posting/:jobPostingId', ({ params }) => {
+    const jobPostingId = params.jobPostingId as string;
 
     // 목 데이터 - 실제로는 jobPostingId에 따라 다른 데이터 반환
     const mockJobPostingData: Record<string, JobPostingResponse> = {
@@ -142,6 +192,7 @@ export const handlers = [
         jobPostingId: 1,
         companyId: 123,
         companyName: '삼성전자',
+        companyType: '대기업',
         title: 'AI 반도체 개발 엔지니어',
         url: 'https://www.saramin.co.kr/zf_user/jobs/relay/view?rec_idx=123456',
         jobSectorName: '반도체 설계',
@@ -154,6 +205,7 @@ export const handlers = [
         jobPostingId: 2,
         companyId: 456,
         companyName: 'LG전자',
+        companyType: '대기업',
         title: '전기차 SW 개발자',
         url: 'https://www.saramin.co.kr/zf_user/jobs/relay/view?rec_idx=789012',
         jobSectorName: '소프트웨어 개발',
@@ -166,6 +218,7 @@ export const handlers = [
         jobPostingId: 3,
         companyId: 789,
         companyName: 'SK하이닉스',
+        companyType: '대기업',
         title: '메모리 반도체 연구원',
         url: 'https://www.saramin.co.kr/zf_user/jobs/relay/view?rec_idx=345678',
         jobSectorName: '연구개발',
@@ -179,14 +232,11 @@ export const handlers = [
     const jobPostingData = mockJobPostingData[jobPostingId];
 
     if (!jobPostingData) {
-      console.log(`❌ MSW: JobPosting ID ${jobPostingId}에 해당하는 데이터가 없습니다.`);
       return new HttpResponse(null, {
         status: 404,
         statusText: 'Job Posting not found',
       });
     }
-
-    console.log(`✅ MSW: ${jobPostingData.companyName} - ${jobPostingData.title} 데이터 반환`);
 
     return HttpResponse.json(jobPostingData, {
       status: 200,
