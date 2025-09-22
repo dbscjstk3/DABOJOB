@@ -55,4 +55,10 @@ public class JobPostingService {
                 .map(JobPostingResponse::of)
                 .collect(Collectors.toList());
     }
+
+
+    public Page<JobPostingResponse> getJobPostings(int page, int size) {
+        Page<JobPosting> jobPostingPage = jobPostingRepository.findAll(PageRequest.of(page, size));
+        return jobPostingPage.map(JobPostingResponse::of);
+    }
 }
