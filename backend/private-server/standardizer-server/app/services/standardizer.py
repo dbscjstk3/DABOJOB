@@ -168,21 +168,48 @@ class StandardizerService:
         # 대제목 패턴: "1.", "2.", "3." 형태로 시작하는 제목들
         major_section_pattern = r'^[\s]*([0-9]+)\.\s+(.+)'
 
-        # 섹션 제목과 카테고리 매핑
+        # 섹션 제목과 카테고리 매핑 (실제 DART 구조에 맞춤)
         section_mapping = {
+            # 사업의 개요 관련
             '사업의 개요': 'business_overview',
             '회사의 개요': 'business_overview',
+            '개요': 'business_overview',
+
+            # 주요 제품 및 서비스 관련
             '주요 제품': 'products_services',
-            '제품 및 서비스': 'products_services',
             '주요제품': 'products_services',
+            '제품': 'products_services',
+            '서비스': 'products_services',
+            '제품 및 서비스': 'products_services',
+            '주요 제품 및 서비스': 'products_services',
+
+            # 매출, 수주, 원재료, 생산 관련
             '매출': 'revenue_orders',
             '수주': 'revenue_orders',
+            '수주상황': 'revenue_orders',
+            '매출 및 수주': 'revenue_orders',
+            '매출 및 수주상황': 'revenue_orders',
             '원재료': 'revenue_orders',
             '생산설비': 'revenue_orders',
+            '원재료 및 생산설비': 'revenue_orders',
+            '생산': 'revenue_orders',
+
+            # 계약 및 연구개발 관련
             '주요계약': 'contracts_rnd',
+            '계약': 'contracts_rnd',
             '연구개발': 'contracts_rnd',
+            '연구개발활동': 'contracts_rnd',
+            '주요계약 및 연구개발': 'contracts_rnd',
+            '주요계약 및 연구개발활동': 'contracts_rnd',
+            'R&D': 'contracts_rnd',
+
+            # 기타 참고사항
             '기타': 'other_references',
-            '참고사항': 'other_references'
+            '참고사항': 'other_references',
+            '기타 참고사항': 'other_references',
+            '위험관리': 'other_references',
+            '파생거래': 'other_references',
+            '위험관리 및 파생거래': 'other_references'
         }
 
         lines = content.split('\n')
