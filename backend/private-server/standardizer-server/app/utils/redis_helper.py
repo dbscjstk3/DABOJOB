@@ -193,7 +193,12 @@ class RedisHelper:
             }
 
             if data:
-                status_data.update(data)
+                # 복잡한 데이터 타입을 문자열로 변환
+                for key, value in data.items():
+                    if isinstance(value, (dict, list)):
+                        status_data[key] = json.dumps(value, ensure_ascii=False)
+                    else:
+                        status_data[key] = str(value)
 
             await asyncio.to_thread(
                 self.redis_client.hset,
