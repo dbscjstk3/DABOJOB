@@ -191,7 +191,13 @@ class StandardizerService:
         current_category = None
         last_section_number = 0
 
-        logger.info(f"Starting DART document parsing: {len(lines)} lines")
+        logger.info(f"DART 문서 파싱 시작: 총 {len(lines)}줄")
+
+        # 문서 시작 부분 로깅 (디버깅용)
+        first_20_lines = '\n'.join(lines[:20])
+        logger.info(f"문서 미리보기 (처음 20줄):\n{first_20_lines}")
+
+        total_sections_found = 0
 
         for i, line in enumerate(lines):
             line_stripped = line.strip()
@@ -206,13 +212,17 @@ class StandardizerService:
                 section_number = int(match.group(1))
                 section_title = match.group(2).strip()
 
+                logger.info(f"{i+1}번째 줄: 섹션 패턴 발견: '{line_stripped}'")
+
                 # 순차적 증가 확인
                 if section_number == 1 or section_number == last_section_number + 1:
+                    total_sections_found += 1
+
                     # 이전 섹션 저장
                     if current_section_title and current_section_content and current_category:
                         section_text = f"\n=== {current_section_title} ===\n\n" + '\n'.join(current_section_content)
                         sections_by_category[current_category].append(section_text)
-                        logger.info(f"Saved section '{current_section_title}' to category '{current_category}': {len(section_text)} chars")
+                        logger.info(f"섹션 저장 완료: '{current_section_title}' -> '{current_category}' 카테고리에 {len(section_text)}자")
 
                     # 새 섹션 시작
                     current_section_title = f"{section_number}. {section_title}"
@@ -221,16 +231,20 @@ class StandardizerService:
 
                     # 카테고리 결정
                     current_category = None
+                    matched_keyword = None
                     for keyword, category in section_mapping.items():
                         if keyword in section_title:
                             current_category = category
+                            matched_keyword = keyword
                             break
 
                     if not current_category:
                         current_category = 'other_references'
 
-                    logger.info(f"Found section #{section_number}: '{section_title}' -> category: '{current_category}'")
+                    logger.info(f"섹션 #{section_number}: '{section_title}' - 키워드 '{matched_keyword}' 매칭 -> '{current_category}' 카테고리")
                     continue
+                else:
+                    logger.warning(f"섹션 번호 {section_number}가 순차적이지 않음 (이전: {last_section_number}), 무시함")
 
             # 섹션 내용 추가
             if current_category:
@@ -240,18 +254,24 @@ class StandardizerService:
         if current_section_title and current_section_content and current_category:
             section_text = f"\n=== {current_section_title} ===\n\n" + '\n'.join(current_section_content)
             sections_by_category[current_category].append(section_text)
+            logger.info(f"마지막 섹션 저장 완료: '{current_section_title}' -> '{current_category}' 카테고리에 {len(section_text)}자")
 
         # 각 카테고리의 섹션들을 하나로 병합
         result = {}
         for category, sections in sections_by_category.items():
             if sections:
                 result[category] = '\n\n'.join(sections)
+                logger.info(f"카테고리 '{category}': {len(sections)}개 섹션, 총 {len(result[category])}자")
             else:
                 result[category] = ""
+                logger.info(f"카테고리 '{category}': 비어있음")
 
         # 아무 섹션도 분류되지 않았다면 전체를 other_references로
         if not any(result.values()):
+            logger.warning(f"어떤 섹션도 분류되지 않음! 전체 내용을 other_references에 저장")
             result['other_references'] = content
+
+        logger.info(f"DART 파싱 완료: {total_sections_found}개 섹션 발견, {sum(1 for v in result.values() if v)}개 카테고리에 내용 저장됨")
 
         return result
 
@@ -268,19 +288,23 @@ class StandardizerService:
         """
         try:
             # 1. DART 문서를 섹션별로 파싱 및 분류
+            logger.info(f"{company_name} 회사의 DART 문서 파싱 시작")
             sections_by_category = self.parse_dart_sections(content)
 
             # 2. 각 카테고리별 내용 표준화
             result = {}
             for category, section_content in sections_by_category.items():
                 if section_content:
+                    logger.info(f"'{category}' 카테고리 표준화 시작: {len(section_content)}자")
                     # 표준화 수행
                     standardized = await self._standardize_content(section_content)
                     result[category] = standardized
-                    logger.info(f"Category '{category}' standardized: {len(standardized)} chars")
+                    logger.info(f"'{category}' 카테고리 표준화 완료: {len(standardized)}자")
                 else:
                     result[category] = ""
+                    logger.info(f"'{category}' 카테고리: 내용 없음")
 
+            logger.info(f"{company_name} 회사 DART 문서 분류 및 표준화 완료")
             return result
 
         except Exception as e:
