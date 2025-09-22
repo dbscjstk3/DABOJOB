@@ -465,7 +465,7 @@ class BackgroundWorker:
         """워커 상태 반환"""
         return {
             "running": self.running,
-            "active_workers": list(self.worker_tasks.keys()),
+            "active_workers": ", ".join(self.worker_tasks.keys()),
             "worker_count": len(self.worker_tasks),
             "services": {
                 "standardizer": "initialized" if self.standardizer_service else "not_initialized",
