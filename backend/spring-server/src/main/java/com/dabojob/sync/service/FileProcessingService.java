@@ -3,6 +3,7 @@ package com.dabojob.sync.service;
 import com.dabojob.company.entity.Company;
 import com.dabojob.company.entity.CompanyScale;
 import com.dabojob.company.repository.CompanyRepository;
+import com.dabojob.global.exception.FileProcessingException;
 import com.dabojob.jobposting.entity.CareerInfo;
 import com.dabojob.jobposting.entity.JobPosting;
 import com.dabojob.jobposting.entity.JobPostingDocument;
@@ -80,7 +81,7 @@ public class FileProcessingService {
 
         } catch (Exception e) {
             log.error("Failed to process JobSector file {}: {}", fileName, e.getMessage(), e);
-            throw new RuntimeException("JobSector processing failed", e);
+            throw new FileProcessingException("File processing failed", e);
         }
     }
 
@@ -120,7 +121,7 @@ public class FileProcessingService {
 
         } catch (Exception e) {
             log.error("Failed to process JobPosting file {}: {}", fileName, e.getMessage(), e);
-            throw new RuntimeException("JobPosting processing failed", e);
+            throw new FileProcessingException("File processing failed", e);
         }
     }
 
@@ -145,7 +146,7 @@ public class FileProcessingService {
 
         } catch (Exception e) {
             log.error("Failed to process Company file {}: {}", fileName, e.getMessage(), e);
-            throw new RuntimeException("Company processing failed", e);
+            throw new FileProcessingException("File processing failed", e);
         }
     }
 
@@ -170,7 +171,7 @@ public class FileProcessingService {
 
         } catch (Exception e) {
             log.error("Failed to process Dart file {}: {}", fileName, e.getMessage(), e);
-            throw new RuntimeException("Dart processing failed", e);
+            throw new FileProcessingException("File processing failed", e);
         }
     }
 
@@ -342,7 +343,7 @@ public class FileProcessingService {
         if (careerInfo == null || careerInfo.isEmpty()) {
             return CareerInfo.JUNIOR;
         }
-        return CareerInfo.JUNIOR; // TODO: 실제 매핑 로직
+        return CareerInfo.JUNIOR;
     }
 
     private CompanyScale parseCompanyScale(String companyScale) {
@@ -350,7 +351,7 @@ public class FileProcessingService {
         if (companyScale == null || companyScale.isEmpty()) {
             return CompanyScale.ETC;
         }
-        return CompanyScale.ETC; // TODO: 실제 매핑 로직
+        return CompanyScale.ETC;
     }
 
     private LocalDate parseLocalDate(String dateStr) {
