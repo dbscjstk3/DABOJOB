@@ -52,12 +52,12 @@ class MappingStatsResponse(BaseModel):
     """매핑 통계 응답 모델"""
     total_companies: int
     unmapped: int
-    pending: int
-    processing: int
-    suggested: int
-    verified: int
-    rejected: int
-    failed: int
+    suggested: Optional[int] = 0
+    verified: Optional[int] = 0
+    failed: Optional[int] = 0
+    pending: Optional[int] = 0
+    processing: Optional[int] = 0
+    rejected: Optional[int] = 0
 
 
 @router.get("/stats", response_model=MappingStatsResponse)
