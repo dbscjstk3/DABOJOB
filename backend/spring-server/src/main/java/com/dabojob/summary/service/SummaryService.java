@@ -29,31 +29,19 @@ public class SummaryService {
             Long id = Long.parseLong(summaryId);
 
             CompanyAnalysisSummary summary = summaryRepository.findById(id)
-                    .orElseThrow(() -> new EntityNotFoundException("Summary not found with id: " + summaryId));
+                    .orElseThrow(() -> {
+                        log.error("Summary not found with ID: {}", id);
+                        return new EntityNotFoundException("Entity not found");
+                    });
 
             List<SummaryHashtag> allSummaryHashtags = summaryHashtagRepository.findBySummary_Id(id);
 
-            Map<ChapterType, List<String>> chapterHashtags = allSummaryHashtags.stream()
-                    .collect(Collectors.groupingBy(
-                            SummaryHashtag::getChapterType,
-                            Collectors.mapping(sh -> sh.getHashtag().getName(), Collectors.toList())
-                    ));
-
-            // 빈 챕터들을 위해 모든 ChapterType 초기화
-            for (ChapterType chapterType : ChapterType.values()) {
-                chapterHashtags.putIfAbsent(chapterType, new ArrayList<>());
-            }
-
-            return SummaryResponse.of(summary, chapterHashtags);
+            return createSummaryResponse(summary, allSummaryHashtags);
 
         } catch (NumberFormatException e) {
-            throw new IllegalArgumentException("Invalid summary ID format: " + summaryId);
+            log.error("Invalid summary ID format: {}", summaryId, e); // 상세한 로그
+            throw new IllegalArgumentException("Invalid ID format"); // 간단한 메시지
         }
-    }
-
-    public Page<SummaryResponse> searchSummary(String query) {
-        //TODO: 엘라스틱 서치 도입 후 서치 로직 도입
-        return Page.empty();
     }
 
     public SummaryResponse getFirstSummaryByCompanyId(String companyId) {
@@ -61,25 +49,34 @@ public class SummaryService {
             Long parsedCompanyId = Long.parseLong(companyId);
 
             CompanyAnalysisSummary summary = summaryRepository.findFirstByCompany_IdOrderByCreatedAtDesc(parsedCompanyId)
-                    .orElseThrow(() -> new EntityNotFoundException("Summary not found with companyId: " + companyId));
+                    .orElseThrow(() -> {
+                        log.error("Summary not found with companyID: {}", parsedCompanyId);
+                        return new EntityNotFoundException("Entity not found");
+                    });
 
             List<SummaryHashtag> allSummaryHashtags = summaryHashtagRepository.findBySummary_Id(summary.getId());
 
-            Map<ChapterType, List<String>> chapterHashtags = allSummaryHashtags.stream()
-                    .collect(Collectors.groupingBy(
-                            SummaryHashtag::getChapterType,
-                            Collectors.mapping(sh -> sh.getHashtag().getName(), Collectors.toList())
-                    ));
-
-            // 빈 챕터들을 위해 모든 ChapterType 초기화
-            for (ChapterType chapterType : ChapterType.values()) {
-                chapterHashtags.putIfAbsent(chapterType, new ArrayList<>());
-            }
-
-            return SummaryResponse.of(summary, chapterHashtags);
+            return createSummaryResponse(summary, allSummaryHashtags);
 
         } catch (NumberFormatException e) {
-            throw new IllegalArgumentException("Invalid company ID format: " + companyId);
+            log.error("Invalid company ID format: {}", companyId, e);
+            throw new IllegalArgumentException("Invalid ID format");
         }
+    }
+
+    private SummaryResponse createSummaryResponse(CompanyAnalysisSummary summary,
+                                                  List<SummaryHashtag> allSummaryHashtags) {
+        Map<ChapterType, List<String>> chapterHashtags = allSummaryHashtags.stream()
+                .collect(Collectors.groupingBy(
+                        SummaryHashtag::getChapterType,
+                        Collectors.mapping(sh -> sh.getHashtag().getName(), Collectors.toList())
+                ));
+
+        // 빈 챕터들을 위해 모든 ChapterType 초기화
+        for (ChapterType chapterType : ChapterType.values()) {
+            chapterHashtags.putIfAbsent(chapterType, new ArrayList<>());
+        }
+
+        return SummaryResponse.of(summary, chapterHashtags);
     }
 }

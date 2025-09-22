@@ -1,6 +1,7 @@
 package com.dabojob.jobposting.service;
 
 import com.dabojob.config.SearchConfig;
+import com.dabojob.global.exception.SearchServiceException;
 import com.dabojob.jobposting.dto.JobPostingResponse;
 import com.dabojob.jobposting.entity.JobPostingDocument;
 
@@ -27,32 +28,39 @@ public class JobPostingSearchService {
 
     // 기존 메서드들 아래에 추가
     public Page<JobPostingResponse> autocompleteTitles(String prefix, int size) {
-        log.info("Title autocomplete with prefix: '{}'", prefix);
+        try {
+            log.info("Title autocomplete with prefix: '{}'", prefix);
 
-        if (!StringUtils.hasText(prefix) || prefix.length() < 2) {
-            return Page.empty();
+            if (!StringUtils.hasText(prefix) || prefix.length() < 2) {
+                return Page.empty();
+            }
+
+            int adjustedSize = Math.min(size <= 0 ? 10 : size, 20);
+            Pageable pageable = PageRequest.of(0, adjustedSize);
+
+            return jobPostingSearchRepository.findTitleAutocomplete(prefix, pageable)
+                    .map(JobPostingDocument::toResponse);
+        } catch (Exception e) {
+            log.error("Autocomplete failed for prefix: '{}', size: {}", prefix, size, e); // 상세한 로그
+            throw new SearchServiceException("Autocomplete operation failed", e); // 간단한 메시지
         }
-
-        int adjustedSize = Math.min(size <= 0 ? 10 : size, 20);
-        Pageable pageable = PageRequest.of(0, adjustedSize);
-
-        return jobPostingSearchRepository.findTitleAutocomplete(prefix, pageable)
-                .map(JobPostingDocument::toResponse);
     }
 
     public Page<JobPostingResponse> search(String searchString, int page, int size) {
-        log.info("Searching with keyword: '{}', page: {}, size: {}", searchString, page, size);
+        try {
+            log.info("Searching with keyword: '{}', page: {}, size: {}", searchString, page, size);
 
-        // 페이지 크기 검증 및 조정
-        int adjustedSize = validateAndAdjustPageSize(size);
-        Pageable pageable = createPageable(page, adjustedSize);
+            int adjustedSize = validateAndAdjustPageSize(size);
+            Pageable pageable = createPageable(page, adjustedSize);
 
-        if (StringUtils.hasText(searchString)) {
-            // 복잡한 가중치 검색
-            return searchWithWeights(searchString, pageable);
-        } else {
-            // 전체 조회 (최신순)
-            return jobPostingSearchRepository.findAll(pageable).map(JobPostingDocument::toResponse);
+            if (StringUtils.hasText(searchString)) {
+                return searchWithWeights(searchString, pageable);
+            } else {
+                return jobPostingSearchRepository.findAll(pageable).map(JobPostingDocument::toResponse);
+            }
+        } catch (Exception e) {
+            log.error("Search failed for query: '{}', page: {}, size: {}", searchString, page, size, e); // 상세한 로그
+            throw new SearchServiceException("Search operation failed", e); // 간단한 메시지
         }
     }
 
@@ -68,24 +76,6 @@ public class JobPostingSearchService {
         ).map(JobPostingDocument::toResponse);
     }
 
-    // 간단한 검색들을 위한 편의 메소드들
-    public Page<JobPostingResponse> findByCompany(String companyName, int page, int size) {
-        Pageable pageable = createPageable(page, validateAndAdjustPageSize(size));
-        return jobPostingSearchRepository.findByCompanyNameContaining(companyName, pageable)
-                .map(JobPostingDocument::toResponse);
-    }
-
-    public Page<JobPostingResponse> findByJobSector(String sectorName, int page, int size) {
-        Pageable pageable = createPageable(page, validateAndAdjustPageSize(size));
-        return jobPostingSearchRepository.findByJobSectorName(sectorName, pageable)
-                .map(JobPostingDocument::toResponse);
-    }
-
-    public Page<JobPostingResponse> findByCareer(String careerInfo, int page, int size) {
-        Pageable pageable = createPageable(page, validateAndAdjustPageSize(size));
-        return jobPostingSearchRepository.findByCareerInfo(careerInfo, pageable)
-                .map(JobPostingDocument::toResponse);
-    }
 
     private int validateAndAdjustPageSize(int size) {
         // 최대 크기 제한

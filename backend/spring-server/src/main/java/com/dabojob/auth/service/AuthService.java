@@ -30,7 +30,7 @@ public class AuthService {
     public TokenResponse refreshTokenFromCookie(HttpServletRequest request, HttpServletResponse response) {
         String refreshToken = cookieService.extractRefreshToken(request);
         if (refreshToken == null) {
-            throw new UnauthorizedException("Refresh Token 쿠키가 없습니다.");
+            throw new UnauthorizedException("Refresh token cookie not found");
         }
 
         validateRefreshToken(refreshToken);
@@ -64,19 +64,19 @@ public class AuthService {
 
     private void validateRefreshToken(String refreshToken) {
         if (!refreshTokenService.validateRefreshToken(refreshToken)) {
-            throw new UnauthorizedException("유효하지 않은 Refresh Token입니다.");
+            throw new UnauthorizedException("Invalid refresh token");
         }
     }
 
     @Transactional
     public UserInfoResponse getCurrentUser(Authentication authentication) {
         if (authentication == null || authentication.getPrincipal() == null) {
-            throw new UnauthorizedException("인증이 필요합니다.");
+            throw new UnauthorizedException("Authentication required");
         }
 
         Long userId = (Long) authentication.getPrincipal();
         User user = userRepository.findById(userId)
-                .orElseThrow(() -> new UnauthorizedException("사용자를 찾을 수 없습니다."));
+                .orElseThrow(() -> new UnauthorizedException("User not found"));
 
         return UserInfoResponse.builder()
                 .id(user.getId())

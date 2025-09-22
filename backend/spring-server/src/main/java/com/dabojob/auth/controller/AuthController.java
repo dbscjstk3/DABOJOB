@@ -26,10 +26,16 @@ public class AuthController {
 
     private final AuthService authService;
 
+    // 수정 코드
     @GetMapping("/login/{provider}")
     public void loginRedirect(@PathVariable String provider, HttpServletResponse response) throws IOException {
+        if (!isValidProvider(provider)) {
+            log.error("Unsupported OAuth provider: {}", provider);
+            throw new IllegalArgumentException("Unsupported OAuth provider");
+        }
         response.sendRedirect("/oauth2/authorization/" + provider);
     }
+
 
     @PostMapping("/refresh")
     public ResponseEntity<TokenResponse> refreshToken(HttpServletRequest request, HttpServletResponse response) {
@@ -48,5 +54,10 @@ public class AuthController {
     public ResponseEntity<UserInfoResponse> getCurrentUser(Authentication authentication) {
         UserInfoResponse userInfo = authService.getCurrentUser(authentication);
         return ResponseEntity.ok(userInfo);
+    }
+
+
+    private boolean isValidProvider(String provider) {
+        return provider.equals("google") || provider.equals("ssafy");
     }
 }

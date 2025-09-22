@@ -3,6 +3,7 @@ package com.dabojob.sync.service;
 import com.dabojob.company.entity.Company;
 import com.dabojob.company.entity.CompanyScale;
 import com.dabojob.company.repository.CompanyRepository;
+import com.dabojob.global.exception.FileProcessingException;
 import com.dabojob.jobposting.entity.CareerInfo;
 import com.dabojob.jobposting.entity.JobPosting;
 import com.dabojob.jobposting.entity.JobPostingDocument;
@@ -38,6 +39,7 @@ import java.util.List;
 import java.util.Optional;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -80,7 +82,7 @@ public class FileProcessingService {
 
         } catch (Exception e) {
             log.error("Failed to process JobSector file {}: {}", fileName, e.getMessage(), e);
-            throw new RuntimeException("JobSector processing failed", e);
+            throw new FileProcessingException("File processing failed", e);
         }
     }
 
@@ -120,7 +122,7 @@ public class FileProcessingService {
 
         } catch (Exception e) {
             log.error("Failed to process JobPosting file {}: {}", fileName, e.getMessage(), e);
-            throw new RuntimeException("JobPosting processing failed", e);
+            throw new FileProcessingException("File processing failed", e);
         }
     }
 
@@ -145,7 +147,7 @@ public class FileProcessingService {
 
         } catch (Exception e) {
             log.error("Failed to process Company file {}: {}", fileName, e.getMessage(), e);
-            throw new RuntimeException("Company processing failed", e);
+            throw new FileProcessingException("File processing failed", e);
         }
     }
 
@@ -170,7 +172,7 @@ public class FileProcessingService {
 
         } catch (Exception e) {
             log.error("Failed to process Dart file {}: {}", fileName, e.getMessage(), e);
-            throw new RuntimeException("Dart processing failed", e);
+            throw new FileProcessingException("File processing failed", e);
         }
     }
 
@@ -253,10 +255,17 @@ public class FileProcessingService {
             return existing.get();
         }
 
-        Hashtag newHashtag = Hashtag.builder()
-                .name(hashtagName)
-                .build();
-        return hashtagRepository.save(newHashtag);
+        try {
+            // 새로 생성
+            Hashtag newHashtag = Hashtag.builder()
+                    .name(hashtagName)
+                    .build();
+            return hashtagRepository.save(newHashtag);
+        } catch (DataIntegrityViolationException e) {
+            // 다른 스레드가 이미 생성했으니 다시 조회
+            return hashtagRepository.findByName(hashtagName)
+                    .orElseThrow(() -> new RuntimeException("Hashtag not found after creation: " + hashtagName));
+        }
     }
 
     private SummaryHashtag findSummaryHashtag(CompanyAnalysisSummary summary, Hashtag hashtag, ChapterType chapterType) {
@@ -342,7 +351,7 @@ public class FileProcessingService {
         if (careerInfo == null || careerInfo.isEmpty()) {
             return CareerInfo.JUNIOR;
         }
-        return CareerInfo.JUNIOR; // TODO: 실제 매핑 로직
+        return CareerInfo.JUNIOR;
     }
 
     private CompanyScale parseCompanyScale(String companyScale) {
@@ -350,7 +359,7 @@ public class FileProcessingService {
         if (companyScale == null || companyScale.isEmpty()) {
             return CompanyScale.ETC;
         }
-        return CompanyScale.ETC; // TODO: 실제 매핑 로직
+        return CompanyScale.ETC;
     }
 
     private LocalDate parseLocalDate(String dateStr) {

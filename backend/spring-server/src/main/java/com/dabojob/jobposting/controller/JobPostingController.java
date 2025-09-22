@@ -18,7 +18,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 @Slf4j
 @RestController
-@RequestMapping("/api/job-posting")
+@RequestMapping("/api/job-postings")
 @RequiredArgsConstructor
 public class JobPostingController {
 
@@ -37,23 +37,31 @@ public class JobPostingController {
         return ResponseEntity.ok(jobPostingResponses);
     }
 
-    @GetMapping("/company/{companyId}")
-    public ResponseEntity<Page<JobPostingResponse>> getJobPostingByCompanyId(@PathVariable String companyId,
-                                                                             @RequestParam(defaultValue = "0") int page,
-                                                                             @RequestParam(defaultValue = "20") int size){
-        Page<JobPostingResponse> jobPostingResponses = jobPostingService.getJobPostingByCompanyId(companyId,page,size);
-        return ResponseEntity.ok(jobPostingResponses);
+    @GetMapping
+    public ResponseEntity<Page<JobPostingResponse>> getJobPostings(
+            @RequestParam(required = false) String companyId,
+            @RequestParam(required = false) String search,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size
+    ) {
+        if (search != null) {
+            // 검색어가 있으면 ES 사용
+            return ResponseEntity.ok(
+                    jobPostingSearchService.search(search, page, size)
+            );
+        } else if (companyId != null) {
+            return ResponseEntity.ok(
+                    jobPostingService.getJobPostingByCompanyId(companyId, page, size)
+            );
+        } else{
+            return ResponseEntity.ok(
+                    jobPostingService.getJobPostings(page,size)
+            );
+        }
     }
 
-    @GetMapping("/search")
-    public ResponseEntity<Page<JobPostingResponse>> searchJobPosting(@RequestParam String searchString,
-                                                                     @RequestParam(defaultValue = "0") int page,
-                                                                     @RequestParam(defaultValue = "10") int size){
-        Page<JobPostingResponse> jobPostingResponses = jobPostingSearchService.search(searchString, page ,size );
-        return ResponseEntity.ok(jobPostingResponses);
-    }
 
-    @GetMapping("/search/autocomplete")
+    @GetMapping("/suggestions")
     public ResponseEntity<Page<JobPostingResponse>> autocompleteTitles(@RequestParam String prefix,
                                                                        @RequestParam(defaultValue = "10") int size) {
         Page<JobPostingResponse> suggestions = jobPostingSearchService.autocompleteTitles(prefix, size);

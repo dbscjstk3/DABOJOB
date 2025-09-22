@@ -31,6 +31,7 @@ import lombok.Setter;
 public class CompanyAnalysisSummary extends BaseTimeEntity {
 
     @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
     @ManyToOne(fetch = FetchType.LAZY)
