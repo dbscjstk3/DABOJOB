@@ -283,12 +283,21 @@ class BackgroundWorker:
 
             dart_corp_name = job_data.get("dart_corp_name")
             company_name = job_data.get("company_name")
+            mapping_id = job_data.get("mapping_id")
 
             if not self.dart_extractor:
                 raise Exception("DART extractor not available")
 
             if not dart_corp_name:
                 raise Exception(f"No DART corp name provided for {company_name}")
+
+            # 중복 방지: 이미 추출된 mapping_id인지 확인
+            if mapping_id:
+                existing_status = await redis_helper.get_job_status(f"dart_extract_{mapping_id}")
+                if existing_status and existing_status.get("status") == "completed":
+                    logger.info(f"⏭️ DART extraction already completed for mapping_id {mapping_id}, skipping")
+                    await redis_helper.ack_job(stream_id)
+                    return
 
             logger.info(f"🔍 Extracting DART report for: {dart_corp_name}")
 
@@ -306,7 +315,10 @@ class BackgroundWorker:
                 "extracted_at": datetime.now().isoformat()
             }
 
+            # 일반 job_id와 mapping_id 기반 상태 모두 저장
             await redis_helper.update_job_status(job_id, "completed", result)
+            if mapping_id:
+                await redis_helper.update_job_status(f"dart_extract_{mapping_id}", "completed", result)
 
             # DART 추출 성공 시 자동으로 표준화 작업 시작
             if extracted_content:
@@ -343,6 +355,15 @@ class BackgroundWorker:
 
             content = job_data.get("dart_content", "")
             title = job_data.get("company_name", "")
+            mapping_id = job_data.get("mapping_id")
+
+            # 중복 방지: 이미 표준화된 mapping_id인지 확인
+            if mapping_id:
+                existing_status = await redis_helper.get_job_status(f"standardize_{mapping_id}")
+                if existing_status and existing_status.get("status") == "completed":
+                    logger.info(f"⏭️ Standardization already completed for mapping_id {mapping_id}, skipping")
+                    await redis_helper.ack_job(stream_id)
+                    return
 
             if content:
                 # DART 문서 전체를 5개 카테고리로 분류 및 표준화
@@ -388,7 +409,10 @@ class BackgroundWorker:
                     "processing_time": datetime.now().isoformat()
                 }
 
+                # 일반 job_id와 mapping_id 기반 상태 모두 저장
                 await redis_helper.update_job_status(job_id, "completed", result)
+                if mapping_id:
+                    await redis_helper.update_job_status(f"standardize_{mapping_id}", "completed", result)
                 logger.info(f"✅ Standardization completed for {title}: {len(file_paths)} categories processed")
             else:
                 await redis_helper.update_job_status(job_id, "failed", {"error": "No content provided"})
