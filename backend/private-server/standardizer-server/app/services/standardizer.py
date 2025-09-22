@@ -147,38 +147,171 @@ class StandardizerService:
         
         return None
     
+    def parse_dart_sections(self, content: str) -> Dict[str, str]:
+        """
+        DART 문서를 섹션별로 파싱하여 5개 카테고리로 분류
+
+        Args:
+            content (str): 전체 DART 문서 내용
+
+        Returns:
+            dict: {카테고리: 해당_섹션_내용}
+        """
+        sections_by_category = {
+            'business_overview': [],
+            'products_services': [],
+            'revenue_orders': [],
+            'contracts_rnd': [],
+            'other_references': []
+        }
+
+        # 섹션 구분 패턴들
+        section_patterns = [
+            r'(?:^|\n)((?:\d+\.?\s*)?(?:사업의?\s*개요|회사\s*개요|사업\s*내용)[^\n]*)',
+            r'(?:^|\n)((?:\d+\.?\s*)?(?:주요\s*제품|제품.*서비스|주요.*서비스)[^\n]*)',
+            r'(?:^|\n)((?:\d+\.?\s*)?(?:매출|수주|원재료|생산설비)[^\n]*)',
+            r'(?:^|\n)((?:\d+\.?\s*)?(?:주요.*계약|연구개발|R&D)[^\n]*)',
+            r'(?:^|\n)((?:\d+\.?\s*)?(?:위험관리|파생거래|기타.*참고)[^\n]*)',
+        ]
+
+        lines = content.split('\n')
+        current_section_title = None
+        current_section_content = []
+        current_category = None
+
+        for i, line in enumerate(lines):
+            line_stripped = line.strip()
+            if not line_stripped:
+                if current_section_content:
+                    current_section_content.append('')
+                continue
+
+            # 섹션 제목인지 확인
+            found_section = False
+            for pattern in section_patterns:
+                match = re.search(pattern, line, re.IGNORECASE)
+                if match:
+                    # 이전 섹션 저장
+                    if current_section_title and current_section_content and current_category:
+                        section_text = f"\n=== {current_section_title} ===\n\n" + '\n'.join(current_section_content)
+                        sections_by_category[current_category].append(section_text)
+
+                    # 새 섹션 시작
+                    current_section_title = line_stripped
+                    current_section_content = []
+
+                    # 제목으로 카테고리 매핑
+                    current_category = self.classify_by_title_mapping(current_section_title)
+                    if not current_category:
+                        # 패턴 기반 분류
+                        if '사업' in pattern or '개요' in pattern:
+                            current_category = 'business_overview'
+                        elif '제품' in pattern or '서비스' in pattern:
+                            current_category = 'products_services'
+                        elif '매출' in pattern or '수주' in pattern or '원재료' in pattern:
+                            current_category = 'revenue_orders'
+                        elif '계약' in pattern or '연구' in pattern:
+                            current_category = 'contracts_rnd'
+                        else:
+                            current_category = 'other_references'
+
+                    found_section = True
+                    break
+
+            if not found_section and current_category:
+                # 현재 섹션에 내용 추가
+                current_section_content.append(line)
+
+        # 마지막 섹션 저장
+        if current_section_title and current_section_content and current_category:
+            section_text = f"\n=== {current_section_title} ===\n\n" + '\n'.join(current_section_content)
+            sections_by_category[current_category].append(section_text)
+
+        # 각 카테고리의 섹션들을 하나로 병합
+        result = {}
+        for category, sections in sections_by_category.items():
+            if sections:
+                result[category] = '\n\n'.join(sections)
+            else:
+                result[category] = ""
+
+        # 아무 섹션도 분류되지 않았다면 전체를 other_references로
+        if not any(result.values()):
+            result['other_references'] = content
+
+        return result
+
+    async def classify_and_standardize_all_sections(self, company_name: str, content: str) -> Dict[str, str]:
+        """
+        DART 문서 전체를 5개 카테고리로 분류하고 각각 표준화
+
+        Args:
+            company_name (str): 회사명
+            content (str): 전체 DART 문서 내용
+
+        Returns:
+            dict: {카테고리: 표준화된_내용}
+        """
+        try:
+            # 1. DART 문서를 섹션별로 파싱 및 분류
+            sections_by_category = self.parse_dart_sections(content)
+
+            # 2. 각 카테고리별 내용 표준화
+            result = {}
+            for category, section_content in sections_by_category.items():
+                if section_content:
+                    # 표준화 수행
+                    standardized = await self._standardize_content(section_content)
+                    result[category] = standardized
+                    logger.info(f"Category '{category}' standardized: {len(standardized)} chars")
+                else:
+                    result[category] = ""
+
+            return result
+
+        except Exception as e:
+            logger.error(f"Failed to classify and standardize all sections: {e}")
+            # 실패 시 전체를 other_references로
+            return {
+                'business_overview': "",
+                'products_services': "",
+                'revenue_orders': "",
+                'contracts_rnd': "",
+                'other_references': content
+            }
+
     async def classify_and_standardize(self, title: str, content: str) -> Tuple[str, str]:
         """
         텍스트를 5개 카테고리로 분류하고 표준화 처리
         1단계: 제목 기반 매핑 시도
         2단계: 매핑 실패 시 LLM 분류
-        
+
         Args:
             title (str): 챕터 제목
             content (str): 챕터 내용
-            
+
         Returns:
             tuple: (카테고리명, 표준화된 텍스트)
         """
         try:
             # 1단계: 제목 기반 매핑 시도
             category = self.classify_by_title_mapping(title)
-            
+
             if category:
                 logger.info(f"Chapter '{title}' mapped directly to: {category}")
             else:
                 # 2단계: LLM 분류 (매핑 실패 시만)
                 logger.info(f"Chapter '{title}' not found in mapping, using LLM classification")
                 category = await self._classify_with_llm(title, content)
-            
+
             # 표준화 수행 (LLM 호출 없이 Python으로 처리)
             standardized_content = await self._standardize_content(content)
-            
+
             # 챕터 제목을 포함한 최종 텍스트
             final_content = f"\n\n=== {title} ===\n\n{standardized_content}"
-            
+
             return category, final_content
-            
+
         except Exception as e:
             logger.error(f"Text classification and standardization failed: {e}")
             # 실패 시 기본값 반환
