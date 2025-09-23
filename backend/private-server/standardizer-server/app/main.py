@@ -149,6 +149,13 @@ app.include_router(dart_routes.router)
 app.include_router(crawler_routes.router)
 app.include_router(mapping_routes.router)
 
+# 재요약 관리 라우터 추가
+try:
+    from .routes.admin_resummary_routes import router as admin_resummary_router
+    app.include_router(admin_resummary_router)
+except ImportError as e:
+    logger.warning(f"Admin resummary routes not available: {e}")
+
 
 if __name__ == "__main__":
     import uvicorn

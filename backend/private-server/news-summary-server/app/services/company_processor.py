@@ -107,5 +107,79 @@ class CompanyProcessor:
         # }
         pass
 
+    async def process_hashtag_completion_versioned(self, mapping_id: int, version: int, category: str, hashtags: List[str]):
+        """버전별 해시태그 완료 처리 (재요약용)"""
+        try:
+            logger.info(f"Processing hashtag completion for mapping_id: {mapping_id} v{version}, category: {category}")
+
+            # 버전별 기업 분석 데이터 생성
+            analysis_summary = await self._create_versioned_analysis_summary(mapping_id, version)
+
+            if analysis_summary:
+                logger.info(f"Successfully created versioned analysis summary for mapping_id: {mapping_id} v{version}")
+
+                # 필요시 S3 업로드 (버전별)
+                s3_key = f"analysis_summaries/v{version}/{mapping_id}_analysis.json"
+                await self._upload_to_s3(analysis_summary, s3_key)
+
+            else:
+                logger.warning(f"Failed to create analysis summary for mapping_id: {mapping_id} v{version}")
+
+        except Exception as e:
+            logger.error(f"Error processing versioned hashtag completion: {e}")
+
+    async def _create_versioned_analysis_summary(self, mapping_id: int, version: int) -> Optional[Dict[str, Any]]:
+        """버전별 분석 요약 생성"""
+        try:
+            # 버전별 데이터 조회
+            version_data_query = """
+            SELECT
+                sv.mapping_id,
+                sv.version_number,
+                cas.business_overview,
+                cas.products_service,
+                cas.sales_contracts,
+                cas.rnd_activities,
+                cas.other_notes,
+                COUNT(DISTINCT sh.hashtag_id) as total_hashtags,
+                COUNT(DISTINCT ns.news_id) as total_news
+            FROM summary_versions sv
+            LEFT JOIN company_analysis_summaries cas ON sv.version_id = cas.version_id
+            LEFT JOIN summary_hashtags sh ON sv.version_id = sh.version_id
+            LEFT JOIN news_summaries ns ON sv.version_id = ns.version_id
+            WHERE sv.mapping_id = %s AND sv.version_number = %s
+            GROUP BY sv.version_id
+            """
+
+            async with database.get_connection() as cursor:
+                await cursor.execute(version_data_query, (mapping_id, version))
+                result = await cursor.fetchone()
+
+                if not result:
+                    logger.warning(f"No versioned data found for mapping_id: {mapping_id} v{version}")
+                    return None
+
+                # 분석 요약 데이터 구성
+                analysis_summary = {
+                    "mapping_id": mapping_id,
+                    "version": version,
+                    "generated_at": datetime.now().isoformat(),
+                    "total_hashtags": result[7],
+                    "total_news": result[8],
+                    "analysis": {
+                        "business_overview": result[2] or "No data available",
+                        "products_service": result[3] or "No data available",
+                        "sales_contracts": result[4] or "No data available",
+                        "rnd_activities": result[5] or "No data available",
+                        "other_notes": result[6] or "No data available"
+                    }
+                }
+
+                return analysis_summary
+
+        except Exception as e:
+            logger.error(f"Failed to create versioned analysis summary: {e}")
+            return None
+
 # 전역 인스턴스
 company_processor = CompanyProcessor()

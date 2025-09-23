@@ -734,7 +734,7 @@ class ResummaryService:
 
     async def _set_resummary_active_flag(self, mapping_id: int, version: int):
         """재요약 활성 플래그 설정"""
-        await self.redis_client.set(f"resummary:active:{mapping_id}", f"v{version}", ex=86400)
+        self.redis_client.set(f"resummary:active:{mapping_id}", f"v{version}", ex=86400)
 
     async def _add_to_resummary_queue(self, mapping_id: int, version: int, priority: str):
         """재요약 큐에 추가"""
@@ -744,7 +744,7 @@ class ResummaryService:
             "priority": priority,
             "queued_at": datetime.utcnow().isoformat()
         }
-        await self.redis_client.lpush("resummary:queue", json.dumps(queue_data))
+        self.redis_client.lpush("resummary:queue", json.dumps(queue_data))
 
     async def _calculate_estimated_completion(self) -> datetime:
         """예상 완료 시간 계산"""
@@ -755,8 +755,8 @@ class ResummaryService:
         """재요약 진행률 조회"""
         try:
             # Redis에서 진행률 정보 조회
-            summary_progress = await self.redis_client.get(f"summary:progress:{mapping_id}:v{version}")
-            news_progress = await self.redis_client.get(f"completed:{mapping_id}:v{version}")
+            summary_progress = self.redis_client.get(f"summary:progress:{mapping_id}:v{version}")
+            news_progress = self.redis_client.get(f"completed:{mapping_id}:v{version}")
 
             return {
                 "summary_progress": summary_progress or "0/5",
