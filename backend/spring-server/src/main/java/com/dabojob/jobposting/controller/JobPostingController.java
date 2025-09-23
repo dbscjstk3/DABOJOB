@@ -33,9 +33,11 @@ public class JobPostingController {
     @GetMapping("/{jobPostingId}")
     public ResponseEntity<JobPostingResponse> getJobPosting(@PathVariable String jobPostingId,
                                                             Authentication authentication) {
-        String userId = authentication.getName();
+        if (jobPostingId == null) {
+            String userId = authentication.getName();
+            viewCountService.incrementViewCount(jobPostingId,userId);
+        }
 
-        viewCountService.incrementViewCount(jobPostingId,userId);
         JobPostingResponse jobPostingResponse =  jobPostingService.getJobPosting(jobPostingId);
         return ResponseEntity.ok(jobPostingResponse);
     }
@@ -56,8 +58,11 @@ public class JobPostingController {
     ) {
         if (search != null) {
             // 검색어가 있으면 저장 후 ES 사용
-            String userId = authentication.getName();
-            searchHistoryService.addSearchHistory(userId, search);
+            if (authentication != null) {
+                String userId = authentication.getName();
+                searchHistoryService.addSearchHistory(userId, search);
+            }
+
 
             return ResponseEntity.ok(
                     jobPostingSearchService.search(search, page, size)
