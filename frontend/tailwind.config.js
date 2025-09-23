@@ -6,7 +6,7 @@ export default {
       colors: {
         daboja: {
           default: '#099AEE',
-          tag: '#E3E3E3',
+          tag: '#e8ebfe',
           gray: {
             light: '#F1F5F9', // slate-100과 동일
             default: '#F1F5F9', // 기본 회색
