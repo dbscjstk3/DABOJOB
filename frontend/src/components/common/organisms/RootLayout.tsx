@@ -128,7 +128,7 @@ export function RootLayout() {
           useNewAutocomplete={true} // 새 자동완성 사용
         />
       )}
-      <main className="w-full flex-1">
+      <main className="w-full flex-1 flex flex-col">
         <Outlet />
       </main>
       {!isLoginPage && <Footer></Footer>}

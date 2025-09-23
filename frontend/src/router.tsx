@@ -4,12 +4,13 @@ import LoginPage from './pages/LoginPage';
 import CalendarPage from './pages/CalendarPage';
 import CalendarDetailPage from './pages/CalendarDetailPage';
 import SearchDetailPage from './pages/SearchDetailPage';
+import NotFoundPage from './pages/NotFoundPage';
 import { useAuthStore } from './stores/useAuthStore';
 import { RootLayout } from './components/common/organisms/RootLayout';
 
 const rootRoute = createRootRoute({
   component: RootLayout,
-  notFoundComponent: () => <div>404 Not Found</div>,
+  notFoundComponent: NotFoundPage,
 });
 
 const calendarListRoute = createRoute({
