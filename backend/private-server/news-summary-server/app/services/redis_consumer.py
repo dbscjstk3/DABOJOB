@@ -212,13 +212,20 @@ class RedisConsumer:
             return abs(hash(f"{job_id}_{chapter}_{hashtag}")) % 1000000
 
     async def _increment_counter_and_check_completion(self, job_id: int):
-        """Counter 증가 및 완료 체크"""
+        """Counter 증가 및 완료 체크 (재요약 충돌 방지)"""
+
+        # ✅ 재요약 중인지 확인 (기존 로직 보호)
+        resummary_active = self.client.get(f"resummary:active:{job_id}")
+        if resummary_active:
+            logger.info(f"Job {job_id} is in resummary mode ({resummary_active}), skipping normal completion")
+            return  # 재요약 중이면 기존 완료 로직 건너뜀
+
         counter_key = f"completed:{job_id}"
-        
+
         # Counter 증가
         current_count = self.client.incr(counter_key)
         self.client.expire(counter_key, 86400)  # 24시간 후 만료
-        
+
         logger.info(f"Job {job_id} progress: {current_count}/5")
 
         # 상태 업데이트: 진행률 (기존 로직에 영향 없음)

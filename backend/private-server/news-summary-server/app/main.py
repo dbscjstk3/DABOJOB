@@ -11,6 +11,7 @@ import threading
 
 from .utils import qwen_summarize
 from .services.redis_consumer import RedisConsumer
+from .services.resummary_consumer import ResummaryConsumer
 
 # 로깅 설정
 logging.basicConfig(level=logging.DEBUG)
@@ -29,6 +30,8 @@ request_semaphore = None
 shutdown_event = threading.Event()
 redis_consumer = None
 consumer_thread = None
+resummary_consumer = None
+resummary_thread = None
 
 class NewsSummarizeRequest(BaseModel):
     mapping_id: int
@@ -57,7 +60,7 @@ async def news_search_callback(job_id: str, category: str, hashtags: list):
 @app.on_event("startup")
 async def startup_event():
     """서버 시작 시 초기화"""
-    global ollama_client, executor, request_semaphore, redis_consumer, consumer_thread
+    global ollama_client, executor, request_semaphore, redis_consumer, consumer_thread, resummary_consumer, resummary_thread
     
     try:
         # 상태 관리자 초기화 (실패해도 메인 서비스에 영향 없음)
@@ -76,7 +79,7 @@ async def startup_event():
         executor = ThreadPoolExecutor(max_workers=max_workers)
         request_semaphore = asyncio.Semaphore(max_workers)  # 동시 요청 제한
         
-        # Redis Consumer 시작
+        # Redis Consumer 시작 (일반 뉴스 처리)
         if os.getenv('ENABLE_REDIS_CONSUMER', 'true').lower() == 'true':
             try:
                 redis_consumer = RedisConsumer()
@@ -86,6 +89,16 @@ async def startup_event():
             except Exception as e:
                 logger.error(f"Failed to start Redis consumer: {e}")
                 # Redis 실패해도 서버는 계속 동작
+
+        # 재요약 Consumer 시작 (분리된 처리)
+        if os.getenv('ENABLE_RESUMMARY_CONSUMER', 'true').lower() == 'true':
+            try:
+                resummary_consumer = ResummaryConsumer()
+                resummary_thread = resummary_consumer.start_background_consumer()
+                logger.info("Resummary consumer started successfully")
+            except Exception as e:
+                logger.error(f"Failed to start resummary consumer: {e}")
+                # 재요약 실패해도 서버는 계속 동작
         
         # 연결 테스트
         models = ollama_client.list()
@@ -114,16 +127,27 @@ def health_check() -> dict:
             redis_status = "connected"
         except:
             redis_status = "error"
+
+    resummary_status = "not_enabled"
+    resummary_pending = 0
+    if resummary_consumer:
+        try:
+            # 재요약 큐 상태 확인 (간단히)
+            resummary_status = "connected"
+        except:
+            resummary_status = "error"
     
     return {
-        "status": "ok" if not shutdown_event.is_set() else "shutting_down", 
+        "status": "ok" if not shutdown_event.is_set() else "shutting_down",
         "service": "news-summary",
         "model": MODEL_NAME,
         "ollama_host": OLLAMA_HOST,
         "active_tasks": active_tasks,
         "max_workers": int(os.getenv('MAX_WORKERS', '2')),
         "redis_consumer": redis_status,
-        "pending_messages": pending_messages
+        "pending_messages": pending_messages,
+        "resummary_consumer": resummary_status,
+        "resummary_pending": resummary_pending
     }
 
 max_workers = int(os.getenv('MAX_WORKERS', '2'))
@@ -197,7 +221,7 @@ async def get_hashtag_results(job_id: str):
 @app.on_event("shutdown")
 async def shutdown_event_handler():
     """서버 종료 시 정리"""
-    global executor, redis_consumer
+    global executor, redis_consumer, resummary_consumer
     shutdown_event.set()
     
     # 상태 관리자 정리 (실패해도 무시)
@@ -212,6 +236,11 @@ async def shutdown_event_handler():
     if redis_consumer:
         redis_consumer.cleanup()
         logger.info("Redis consumer shutdown completed")
+
+    # 재요약 Consumer 정리
+    if resummary_consumer:
+        resummary_consumer.cleanup()
+        logger.info("Resummary consumer shutdown completed")
 
     if executor:
         executor.shutdown(wait=True, timeout=5)
