@@ -175,16 +175,19 @@ def _ollama_call_sync(ollama_client, model_name: str, prompt: str, temperature: 
 @measure_performance("1단계: 청크별 요약")
 async def _summarize_chunk(ollama_client, model_name: str, text: str, target_length: int, executor: ThreadPoolExecutor = None) -> str:
     """단일 텍스트 청크 요약 (1단계)"""
-    prompt = f"""회사 정보를 간단히 요약해라.
+    prompt = f"""다음 회사 정보를 정확하고 자연스러운 한국어로 요약해주세요.
 
-핵심만:
-- 회사가 무엇을 만드는지
-- 어떤 사업을 하는지
-- 시장에서의 위치
-- 자연스러운 문장으로
-- 한국어만
+요약 지침:
+1. 회사의 주력 사업과 제품/서비스를 명확히 서술
+2. 완전한 문장으로 구성하여 읽기 쉽게 작성
+3. 전문 용어는 정확히 사용하되 이해하기 쉽게 설명
+4. 일본어나 다른 언어 섞지 말고 순 한국어로만 작성
+5. "요약해보겠습니다", "다음과 같습니다" 등 불필요한 도입부 제거
 
-{text}"""
+회사 정보:
+{text}
+
+위 정보를 바탕으로 핵심 내용만 간결하고 자연스럽게 요약하세요."""
     
     try:
         if executor:
@@ -231,15 +234,20 @@ async def _integrate_summaries(ollama_client, model_name: str, summaries: List[s
     
     context = category_contexts.get(category, "회사의 핵심 사업 내용과 특징")
     
-    prompt = f"""{context}을 간단히 요약해라.
+    prompt = f"""다음 회사 정보에서 {context}에 대해 정확하고 자연스러운 한국어로 요약해주세요.
 
-핵심만:
-- 회사가 무엇을 하는지
-- 어떤 특징이 있는지
-- 자연스러운 문장으로
-- 한국어만
+요약 지침:
+1. 핵심 내용을 명확하고 구체적으로 서술
+2. 완전한 문장으로 구성하여 읽기 쉽게 작성
+3. 전문 용어와 제품명은 정확히 표기
+4. 일본어나 다른 언어 섞지 말고 순 한국어로만 작성
+5. "요약해보겠습니다", "핵심 내용은 다음과 같습니다" 등 불필요한 도입부 제거
+6. 중복된 내용은 통합하여 간결하게 정리
 
-{combined_text}"""
+회사 정보:
+{combined_text}
+
+위 정보를 바탕으로 {context}에 대해 핵심만 간결하고 자연스럽게 요약하세요."""
     
     try:
         if executor:
