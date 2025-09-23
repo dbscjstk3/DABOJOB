@@ -18,13 +18,23 @@ spring:
     uris: ${SPRING_ELASTICSEARCH_URIS:http://elasticsearch:9200}
     connection-timeout: 5s
     socket-timeout: 30s
-
   data:
     elasticsearch:
       client:
         reactive:
           connection-timeout: 5s
-          socket-timeout: 10s
+    redis:
+      host: ${SPRING_REDIS_HOST:localhost}
+      port: ${SPRING_REDIS_PORT:6379}
+      password: ${SPRING_REDIS_PASSWORD:root}  # 비밀번호가 없으면 빈 값
+      timeout: ${SPRING_REDIS_TIMEOUT:2000ms}
+      lettuce:
+        pool:
+          max-active: ${SPRING_REDIS_MAX_ACTIVE:8}
+          max-wait: ${SPRING_REDIS_MAX_WAIT:-1ms}
+          max-idle: ${SPRING_REDIS_MAX_IDLE:8}
+          min-idle: ${SPRING_REDIS_MIN_IDLE:0}
+
   jackson:
     serialization:
       write-dates-as-timestamps: false
@@ -76,6 +86,9 @@ management:
       probes:
         enabled: true
       show-details: never           # 상세정보 숨김(운영기 기본)
+  health:
+    elasticsearch:
+      enabled: false
 
 jwt:
   secret-key: ${JWT_SECRET_KEY:}
