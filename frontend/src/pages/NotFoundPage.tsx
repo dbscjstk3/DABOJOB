@@ -3,7 +3,7 @@ import errorImage from '@/assets/img/error404.png?format=webp&quality=80';
 
 const NotFoundPage = () => {
   return (
-    <div className="flex-1 flex items-center justify-center bg-gray-50">
+    <div className="w-full flex-1 flex items-center justify-center bg-gray-50">
       <div className="text-center px-4">
         <img src={errorImage} alt="404 에러" className="w-auto h-64 mx-auto" />
 
