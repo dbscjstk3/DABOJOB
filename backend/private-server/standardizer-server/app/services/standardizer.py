@@ -220,10 +220,6 @@ class StandardizerService:
 
         logger.info(f"DART 문서 파싱 시작: 총 {len(lines)}줄")
 
-        # 문서 시작 부분 로깅 (디버깅용)
-        first_20_lines = '\n'.join(lines[:20])
-        logger.info(f"문서 미리보기 (처음 20줄):\n{first_20_lines}")
-
         total_sections_found = 0
 
         for i, line in enumerate(lines):
@@ -242,7 +238,8 @@ class StandardizerService:
                 logger.info(f"{i+1}번째 줄: 섹션 패턴 발견: '{line_stripped}'")
 
                 # 순차적 증가 확인
-                if section_number == 1 or section_number == last_section_number + 1:
+                # 첫 번째 1번만 허용하고, 그 이후는 반드시 순차 증가만 허용
+                if (section_number == 1 and last_section_number == 0) or section_number == last_section_number + 1:
                     total_sections_found += 1
 
                     # 이전 섹션 저장
@@ -254,6 +251,7 @@ class StandardizerService:
                     # 새 섹션 시작
                     current_section_title = f"{section_number}. {section_title}"
                     current_section_content = []
+                    # 순차적으로 section_number 업데이트
                     last_section_number = section_number
 
                     # 카테고리 결정

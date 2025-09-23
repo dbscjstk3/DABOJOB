@@ -9,7 +9,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from .routes import job_routes, dart_routes, crawler_routes, mapping_routes
+from .routes import job_routes, dart_routes, crawler_routes, mapping_routes, admin_calendar_routes
 from .workers.background_worker import BackgroundWorker
 from .services.standardizer import StandardizerService
 from .database import init_db
@@ -18,6 +18,15 @@ from .crawlers.crawler_scheduler import CrawlerScheduler
 # 로깅 설정
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
+
+# health 체크 로그 필터 (너무 많은 로그 방지)
+class HealthCheckFilter(logging.Filter):
+    def filter(self, record):
+        return "/health" not in record.getMessage()
+
+# uvicorn 로거에 필터 적용
+uvicorn_logger = logging.getLogger("uvicorn.access")
+uvicorn_logger.addFilter(HealthCheckFilter())
 
 # 서비스 인스턴스
 standardizer_service = StandardizerService()
@@ -46,6 +55,14 @@ async def lifespan(app: FastAPI):
         # 표준화 서비스 초기화
         await standardizer_service.initialize()
         logger.info("Standardizer service initialized")
+
+        # 상태 관리자 초기화 (실패해도 메인 서비스에 영향 없음)
+        try:
+            from .shared.status_integration import standardizer_status
+            await standardizer_status.initialize()
+            logger.info("Status manager initialized")
+        except Exception as e:
+            logger.warning(f"Status manager initialization failed (non-critical): {e}")
 
         # 백그라운드 워커 시작
         await background_worker.initialize()
@@ -81,6 +98,14 @@ async def lifespan(app: FastAPI):
         # StandardizerService 정리
         await standardizer_service.shutdown()
         logger.info("Standardizer service shutdown completed")
+
+        # 상태 관리자 정리 (실패해도 무시)
+        try:
+            from .shared.status_integration import standardizer_status
+            await standardizer_status.close()
+            logger.info("Status manager closed")
+        except:
+            pass
 
         logger.info("Application shutdown completed")
 
@@ -132,6 +157,14 @@ app.include_router(job_routes.router)
 app.include_router(dart_routes.router)
 app.include_router(crawler_routes.router)
 app.include_router(mapping_routes.router)
+app.include_router(admin_calendar_routes.router)
+
+# 재요약 관리 라우터 추가
+try:
+    from .routes.admin_resummary_routes import router as admin_resummary_router
+    app.include_router(admin_resummary_router)
+except ImportError as e:
+    logger.warning(f"Admin resummary routes not available: {e}")
 
 
 if __name__ == "__main__":

@@ -788,5 +788,77 @@ class NewsService:
         except:
             return datetime.now()
 
+    async def search_and_process_news_versioned(
+        self,
+        mapping_id: int,
+        version: int,
+        hashtag_id: int,
+        summary_id: int,
+        hashtag: str,
+        company_name: str = "",
+        limit: int = 50
+    ) -> int:
+        """버전별 뉴스 검색 및 처리 (재요약용)"""
+        try:
+            logger.info(f"Starting versioned news search for hashtag: {hashtag} (v{version})")
+
+            # 기존 로직과 동일하지만 version_id 추가해서 저장
+            relevant_articles = await self._search_news_api(hashtag, limit=limit)
+
+            if not relevant_articles:
+                logger.warning(f"No news found for hashtag: {hashtag} (v{version})")
+                return 0
+
+            # 버전별 저장
+            saved_count = await self._save_raw_news_versioned(
+                mapping_id=mapping_id,
+                version=version,
+                hashtag_id=hashtag_id,
+                summary_id=summary_id,
+                news_list=relevant_articles
+            )
+
+            logger.info(f"Processed {saved_count} news articles for hashtag: {hashtag} (v{version})")
+            return saved_count
+
+        except Exception as e:
+            logger.error(f"Error in versioned news search for {hashtag} (v{version}): {e}")
+            return 0
+
+    async def _save_raw_news_versioned(self, mapping_id: int, version: int, hashtag_id: int, summary_id: int,
+                                     news_list: List[Dict]) -> int:
+        """버전별 Raw 뉴스 저장"""
+        insert_query = """
+        INSERT INTO news_summaries (
+            version_id, mapping_id, hashtag_id, summary_id,
+            news_title, news_url, news_created_at, status
+        ) SELECT sv.version_id, %s, %s, %s, %s, %s, %s, 'raw'
+        FROM summary_versions sv
+        WHERE sv.mapping_id = %s AND sv.version_number = %s
+        ON DUPLICATE KEY UPDATE
+            news_title = VALUES(news_title),
+            updated_at = NOW()
+        """
+
+        saved_count = 0
+        async with database.get_connection() as cursor:
+            for news in news_list:
+                try:
+                    await cursor.execute(insert_query, (
+                        mapping_id,
+                        hashtag_id,
+                        summary_id,
+                        news['title'][:500],
+                        news['url'][:1000],
+                        news['pub_date'],
+                        mapping_id,
+                        version
+                    ))
+                    saved_count += 1
+                except Exception as e:
+                    logger.error(f"Error saving versioned news: {e}")
+
+        return saved_count
+
 # 전역 인스턴스
 news_service = NewsService()

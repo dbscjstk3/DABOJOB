@@ -42,7 +42,6 @@ services:
       - .env.private
     environment:
       - TZ=Asia/Seoul
-      - DATABASE_URL=mysql+pymysql://${MYSQL_USER}:${MYSQL_PASSWORD}@mysql:3306/${MYSQL_DATABASE}
       - DATABASE_URL=mysql+pymysql://${MYSQL_USER}:${MYSQL_PASSWORD}@mysql:3306/${MYSQL_DATABASE}?charset=utf8mb4
       - ENABLE_CRAWLER_SCHEDULER=${ENABLE_CRAWLER_SCHEDULER:-false}
       - DISPLAY=:99

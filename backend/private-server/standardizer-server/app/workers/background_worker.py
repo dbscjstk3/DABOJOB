@@ -207,7 +207,7 @@ class BackgroundWorker:
                 mapping_job_data = {
                     "job_id": f"auto_mapping_{job_id}",
                     "trigger": "post_crawling",
-                    "limit": 20,
+                    "limit": 1000,
                     "submitted_at": datetime.now().isoformat()
                 }
 
@@ -229,21 +229,22 @@ class BackgroundWorker:
         try:
             logger.info(f"Processing mapping job: {job_id}")
 
-            limit = job_data.get("limit", 10)
+            limit = job_data.get("limit", 1000)
             result = await self.company_mapper.batch_process_mappings(limit)
 
             await redis_helper.update_job_status(job_id, "completed", result)
 
             # 매핑 성공한 회사들에 대해 자동으로 DART 문서 추출 시작
-            if result.get("suggested", 0) > 0:
-                logger.info(f"🎯 {result.get('suggested')} companies mapped successfully. Starting DART extraction...")
+            total_mapped = result.get("suggested", 0) + result.get("verified", 0)
+            if total_mapped > 0:
+                logger.info(f"🎯 {total_mapped} companies mapped successfully (verified: {result.get('verified', 0)}, suggested: {result.get('suggested', 0)}). Starting DART extraction...")
 
                 # 성공적으로 매핑된 회사들 가져오기
                 db = SessionLocal()
                 try:
-                    # 신뢰도 95% 이상만 자동 추출
+                    # 신뢰도 95% 이상 또는 verified 상태인 회사들만 자동 추출
                     high_confidence_mappings = db.query(CompanyDartMapping).filter(
-                        CompanyDartMapping.mapping_status == MappingStatus.suggested,
+                        CompanyDartMapping.mapping_status.in_([MappingStatus.suggested, MappingStatus.verified]),
                         CompanyDartMapping.confidence_score >= 95,
                         CompanyDartMapping.dart_corp_code.isnot(None)
                     ).all()
