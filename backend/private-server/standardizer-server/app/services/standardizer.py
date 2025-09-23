@@ -220,10 +220,6 @@ class StandardizerService:
 
         logger.info(f"DART 문서 파싱 시작: 총 {len(lines)}줄")
 
-        # 문서 시작 부분 로깅 (디버깅용)
-        first_20_lines = '\n'.join(lines[:20])
-        logger.info(f"문서 미리보기 (처음 20줄):\n{first_20_lines}")
-
         total_sections_found = 0
 
         for i, line in enumerate(lines):

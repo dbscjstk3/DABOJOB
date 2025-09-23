@@ -15,6 +15,15 @@ from .workers.summary_worker import SummaryWorker
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
+# health 체크 로그 필터 (너무 많은 로그 방지)
+class HealthCheckFilter(logging.Filter):
+    def filter(self, record):
+        return "/health" not in record.getMessage()
+
+# uvicorn 로거에 필터 적용
+uvicorn_logger = logging.getLogger("uvicorn.access")
+uvicorn_logger.addFilter(HealthCheckFilter())
+
 # FastAPI 앱 생성
 app = FastAPI(
     title="Summary Server",

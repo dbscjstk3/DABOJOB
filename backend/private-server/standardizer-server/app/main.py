@@ -19,6 +19,15 @@ from .crawlers.crawler_scheduler import CrawlerScheduler
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
+# health 체크 로그 필터 (너무 많은 로그 방지)
+class HealthCheckFilter(logging.Filter):
+    def filter(self, record):
+        return "/health" not in record.getMessage()
+
+# uvicorn 로거에 필터 적용
+uvicorn_logger = logging.getLogger("uvicorn.access")
+uvicorn_logger.addFilter(HealthCheckFilter())
+
 # 서비스 인스턴스
 standardizer_service = StandardizerService()
 background_worker = BackgroundWorker()

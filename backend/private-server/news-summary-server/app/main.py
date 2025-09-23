@@ -17,6 +17,15 @@ from .services.resummary_consumer import ResummaryConsumer
 logging.basicConfig(level=logging.DEBUG)
 logger = logging.getLogger(__name__)
 
+# health 체크 로그 필터 (너무 많은 로그 방지)
+class HealthCheckFilter(logging.Filter):
+    def filter(self, record):
+        return "/health" not in record.getMessage()
+
+# uvicorn 로거에 필터 적용
+uvicorn_logger = logging.getLogger("uvicorn.access")
+uvicorn_logger.addFilter(HealthCheckFilter())
+
 app = FastAPI(title="news-summary-server")
 
 # 환경변수에서 올바른 이름으로 가져오기
