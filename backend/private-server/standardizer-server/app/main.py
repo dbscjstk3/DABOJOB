@@ -9,7 +9,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from .routes import job_routes, dart_routes, crawler_routes, mapping_routes
+from .routes import job_routes, dart_routes, crawler_routes, mapping_routes, admin_calendar_routes
 from .workers.background_worker import BackgroundWorker
 from .services.standardizer import StandardizerService
 from .database import init_db
@@ -157,6 +157,7 @@ app.include_router(job_routes.router)
 app.include_router(dart_routes.router)
 app.include_router(crawler_routes.router)
 app.include_router(mapping_routes.router)
+app.include_router(admin_calendar_routes.router)
 
 # 재요약 관리 라우터 추가
 try:

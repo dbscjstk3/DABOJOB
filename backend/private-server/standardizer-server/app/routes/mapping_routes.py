@@ -68,11 +68,23 @@ class MappingStatsResponse(BaseModel):
 
 
 @router.get("/stats", response_model=MappingStatsResponse)
-async def get_mapping_stats(db: Session = Depends(get_db)):
-    """매핑 통계 조회"""
+async def get_mapping_stats(
+    year: int = Query(default=None, description="연도 (예: 2025)"),
+    month: int = Query(default=None, ge=1, le=12, description="월 (1-12)"),
+    db: Session = Depends(get_db)
+):
+    """매핑 통계 조회 (월별 필터링 가능)"""
     try:
-        stats = mapping_service.get_mapping_stats(db)
-        return MappingStatsResponse(**stats)
+        stats = mapping_service.get_mapping_stats(db, year=year, month=month)
+        result = MappingStatsResponse(**stats)
+
+        # 월별 조회인 경우 year, month 정보 추가
+        if year and month:
+            result_dict = result.dict()
+            result_dict.update({"year": year, "month": month})
+            return result_dict
+
+        return result
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 

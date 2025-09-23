@@ -329,15 +329,45 @@ null
 
         return stats
 
-    def get_mapping_stats(self, db: Session) -> Dict[str, int]:
-        """매핑 통계 조회"""
+    def get_mapping_stats(self, db: Session, year: int = None, month: int = None) -> Dict[str, int]:
+        """매핑 통계 조회 (월별 필터링 가능)"""
         try:
-            from sqlalchemy import func
+            from sqlalchemy import func, extract, and_
 
-            total_companies = db.query(Company).count()
-            unmapped = len(self.get_unmapped_companies(db, limit=10000))
+            # 기본 쿼리
+            company_query = db.query(Company)
+            mapping_query = db.query(CompanyDartMapping.mapping_status, func.count())
 
-            stats = db.query(CompanyDartMapping.mapping_status, func.count()).group_by(CompanyDartMapping.mapping_status).all()
+            # 월별 필터링
+            if year and month:
+                # 해당 월에 생성된 회사들만 조회
+                company_query = company_query.filter(
+                    and_(
+                        extract('year', Company.created_at) == year,
+                        extract('month', Company.created_at) == month
+                    )
+                )
+
+                # 해당 월에 생성된 매핑들만 조회
+                mapping_query = mapping_query.join(Company).filter(
+                    and_(
+                        extract('year', Company.created_at) == year,
+                        extract('month', Company.created_at) == month
+                    )
+                )
+
+            total_companies = company_query.count()
+
+            # unmapped 계산 (해당 월 회사 중 매핑이 없는 것들)
+            if year and month:
+                unmapped_companies = company_query.outerjoin(CompanyDartMapping).filter(
+                    CompanyDartMapping.company_id.is_(None)
+                ).all()
+                unmapped = len(unmapped_companies)
+            else:
+                unmapped = len(self.get_unmapped_companies(db, limit=10000))
+
+            stats = mapping_query.group_by(CompanyDartMapping.mapping_status).all()
             result = {"total_companies": total_companies, "unmapped": unmapped}
 
             for status, count in stats:
