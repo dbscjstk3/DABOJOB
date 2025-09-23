@@ -207,7 +207,7 @@ class BackgroundWorker:
                 mapping_job_data = {
                     "job_id": f"auto_mapping_{job_id}",
                     "trigger": "post_crawling",
-                    "limit": 20,
+                    "limit": 1000,
                     "submitted_at": datetime.now().isoformat()
                 }
 
@@ -229,7 +229,7 @@ class BackgroundWorker:
         try:
             logger.info(f"Processing mapping job: {job_id}")
 
-            limit = job_data.get("limit", 10)
+            limit = job_data.get("limit", 1000)
             result = await self.company_mapper.batch_process_mappings(limit)
 
             await redis_helper.update_job_status(job_id, "completed", result)
