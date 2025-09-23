@@ -1,18 +1,11 @@
 import React from 'react';
-import {
-  createRouter,
-  createRootRoute,
-  createRoute,
-  useNavigate,
-  redirect,
-} from '@tanstack/react-router';
+import { createRouter, createRootRoute, createRoute, useNavigate } from '@tanstack/react-router';
 import LoginPage from './pages/LoginPage';
 import CalendarPage from './pages/CalendarPage';
 import CalendarDetailPage from './pages/CalendarDetailPage';
 import SearchDetailPage from './pages/SearchDetailPage';
 import NotFoundPage from './pages/NotFoundPage';
 import { useAuthStore } from './stores/useAuthStore';
-import { useModalStore } from './stores/useModalStore';
 import { RootLayout } from './components/common/organisms/RootLayout';
 
 const rootRoute = createRootRoute({
@@ -30,16 +23,16 @@ const calendarListRoute = createRoute({
 const calendarDetailRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/calendar/$id',
-  beforeLoad: ({ location }) => {
-    const authed = useAuthStore.getState().isAuthed;
-    if (!authed) {
-      // 모달 열고 홈으로 리다이렉트
-      useModalStore
-        .getState()
-        .openLoginModal(location.href, '캘린더 상세 정보를 확인하려면 로그인 해주세요');
-      throw redirect({ to: '/' });
-    }
-  },
+  // beforeLoad: ({ location }) => {
+  //   const authed = useAuthStore.getState().isAuthed;
+  //   if (!authed) {
+  //     // 모달 열고 홈으로 리다이렉트
+  //     useModalStore
+  //       .getState()
+  //       .openLoginModal(location.href, '캘린더 상세 정보를 확인하려면 로그인 해주세요');
+  //     throw redirect({ to: '/' });
+  //   }
+  // },
   component: CalendarDetailPage,
   validateSearch: (search: Record<string, unknown>) => {
     return {
