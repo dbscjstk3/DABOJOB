@@ -6,15 +6,16 @@ import com.dabojob.jobposting.repository.JobPostingRepository;
 import jakarta.persistence.EntityNotFoundException;
 
 import java.time.LocalDate;
-import java.time.ZoneId;
 import java.util.List;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class JobPostingService {
@@ -23,15 +24,19 @@ public class JobPostingService {
 
     public JobPostingResponse getJobPosting(String jobPostingId) {
         try {
-            Long parsedJobPostingId = Long.parseLong(jobPostingId);
+            Long parsedId = Long.parseLong(jobPostingId);
 
-            JobPosting jobPosting = jobPostingRepository.findByJobPostingId(parsedJobPostingId)
-                    .orElseThrow(() -> new EntityNotFoundException("JobPosting not found with JobPostingId: " + jobPostingId));
+            JobPosting jobPosting = jobPostingRepository.findById(parsedId)
+                    .orElseThrow(() -> {
+                        log.error("JobPosting not found with ID: {}", jobPostingId);
+                        return new EntityNotFoundException("Resource not found");
+                    });
 
             return JobPostingResponse.of(jobPosting);
 
         } catch (NumberFormatException e) {
-            throw new IllegalArgumentException("Invalid JobPosting ID format: " + jobPostingId);
+            log.error("Invalid JobPosting ID format: {}", jobPostingId, e);
+            throw new IllegalArgumentException("Invalid ID format");
         }
     }
 
@@ -45,18 +50,22 @@ public class JobPostingService {
             return jobPostingPage.map(JobPostingResponse::of);
 
         } catch (NumberFormatException e) {
-            throw new IllegalArgumentException("Invalid Company ID format: " + companyId);
+            log.error("Invalid Company ID format: {}", companyId, e);
+            throw new IllegalArgumentException("Invalid ID format");
         }
     }
 
     public List<JobPostingResponse> getJobPostingsByDate(LocalDate startDate, LocalDate endDate) {
-        long startTimestamp = startDate.atStartOfDay(ZoneId.systemDefault()).toEpochSecond();
-        long endTimestamp = endDate.atTime(23, 59, 59).atZone(ZoneId.systemDefault()).toEpochSecond();
-
-        List<JobPosting> jobPostings = jobPostingRepository.findByDateRange(startTimestamp, endTimestamp);
+        List<JobPosting> jobPostings = jobPostingRepository.findByDateRange(startDate, endDate);
 
         return jobPostings.stream()
                 .map(JobPostingResponse::of)
                 .collect(Collectors.toList());
+    }
+
+
+    public Page<JobPostingResponse> getJobPostings(int page, int size) {
+        Page<JobPosting> jobPostingPage = jobPostingRepository.findAll(PageRequest.of(page, size));
+        return jobPostingPage.map(JobPostingResponse::of);
     }
 }

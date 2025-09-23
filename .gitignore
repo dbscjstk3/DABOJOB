@@ -94,3 +94,5 @@ out/
 .cache/
 
 !gradle/wrapper/gradle-wrapper.jar
+
+.claude/

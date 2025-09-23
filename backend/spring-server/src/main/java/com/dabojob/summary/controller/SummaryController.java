@@ -17,7 +17,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 @Slf4j
 @RestController
-@RequestMapping("/api/summary")
+@RequestMapping("/api/summaries")
 @RequiredArgsConstructor
 public class SummaryController {
 
@@ -31,10 +31,10 @@ public class SummaryController {
         return ResponseEntity.ok(summaryResponse);
     }
 
-    @GetMapping("/search")
-    public ResponseEntity<Page<SummaryResponse>> searchSummary(@RequestParam String query){
-        Page<SummaryResponse> summaryDTOs = summaryService.searchSummary(query);
-        return ResponseEntity.ok(summaryDTOs);
+    @GetMapping("/companies/{companyId}")
+    public ResponseEntity<SummaryResponse> getSummaryByCompanyId(@PathVariable String companyId){
+        SummaryResponse summaryResponse = summaryService.getFirstSummaryByCompanyId(companyId);
+        return ResponseEntity.ok(summaryResponse);
     }
 
     @GetMapping("/{summaryId}/news")
