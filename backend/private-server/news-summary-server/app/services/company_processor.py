@@ -3,7 +3,8 @@
 Redis에서 해시태그 수신 시 EC2 로컬 파일을 읽어서 DB에 저장 + S3 업로드
 """
 import logging
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional, List
+from datetime import datetime
 from ..file_manager import FileManager
 from ..database import database
 from .s3_service import s3_service

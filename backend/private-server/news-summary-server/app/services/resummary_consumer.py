@@ -70,6 +70,7 @@ class ResummaryConsumer:
 
     async def process_resummary_message(self, message: Dict[str, Any]) -> bool:
         """재요약 메시지 처리"""
+        job_id = None  # 초기화
         try:
             job_id = message.get('job_id')
             version = message.get('version', 2)
@@ -101,8 +102,8 @@ class ResummaryConsumer:
         except Exception as e:
             logger.error(f"Failed to process resummary message: {e}")
 
-            # 상태 업데이트: 실패
-            if STATUS_AVAILABLE:
+            # 상태 업데이트: 실패 (job_id가 None일 수 있으므로 체크)
+            if STATUS_AVAILABLE and job_id is not None:
                 try:
                     await news_status.update_news_status(
                         mapping_id=int(job_id),

@@ -4,10 +4,8 @@
 import enum
 from datetime import datetime
 from sqlalchemy import Column, String, Integer, BigInteger, DateTime, Text, Enum, ForeignKey, JSON, DECIMAL
-from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import relationship
-
-Base = declarative_base()
+from ..database import Base
 
 class SummaryStatus(enum.Enum):
     processing = "processing"
@@ -21,6 +19,10 @@ class ResummaryRequestStatus(enum.Enum):
     completed = "completed"
     failed = "failed"
     cancelled = "cancelled"
+
+class NewsStatus(enum.Enum):
+    raw = "raw"
+    completed = "completed"
 
 class SummaryVersion(Base):
     """요약 버전 관리 테이블"""
@@ -113,7 +115,7 @@ class NewsSummary(Base):
     news_content = Column(Text, comment='뉴스 요약')
     company_name = Column(String(200), comment='기업명')
 
-    status = Column(Enum('raw', 'completed', name='news_status'), default='raw', comment='처리 상태')
+    status = Column(Enum(NewsStatus), default=NewsStatus.raw, comment='처리 상태')
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
