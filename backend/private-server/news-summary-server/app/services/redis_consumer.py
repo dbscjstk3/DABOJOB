@@ -101,32 +101,48 @@ class RedisConsumer:
             else:
                 hashtags = hashtags_json
 
-            logger.info(f"Processing hashtags for job {job_id}, chapter {chapter}: {hashtags}")
+            # job_id에서 mapping_id 추출 (summary_18_20250923_161001 -> 18)
+            mapping_id = None
+            try:
+                if job_id.startswith('summary_'):
+                    # summary_18_20250923_161001 -> 18
+                    mapping_id = int(job_id.split('_')[1])
+                elif job_id.startswith('mapping_'):
+                    # mapping_18 -> 18
+                    mapping_id = int(job_id.split('_')[1])
+                else:
+                    # 직접 숫자인 경우
+                    mapping_id = int(job_id)
+            except (ValueError, IndexError):
+                logger.error(f"Failed to extract mapping_id from job_id: {job_id}")
+                return False
+
+            logger.info(f"Processing hashtags for job {job_id} (mapping_id: {mapping_id}), chapter {chapter}: {hashtags}")
 
             # 상태 업데이트: 처리 시작 (기존 로직에 영향 없음)
             if STATUS_AVAILABLE:
                 try:
                     await news_status.update_news_status(
-                        mapping_id=int(job_id),
+                        mapping_id=mapping_id,
                         status=JobStatus.NEWS_PROCESSING,
                         hashtags_count=len(hashtags),
                         chapters_completed=0
                     )
                 except:
                     pass
-            
+
             # 해시태그를 DB에 저장 (summary_id는 임시로 0 사용)
-            await database.save_hashtags(job_id, 0, str(chapter), hashtags)
+            await database.save_hashtags(mapping_id, 0, str(chapter), hashtags)
             
             # 뉴스 검색 실행
             total_news_count = 0
             for hashtag in hashtags:
                 try:
                     # 해시태그를 DB에 저장하고 ID 가져오기
-                    hashtag_id = await self._save_and_get_hashtag_id(job_id, chapter, hashtag)
+                    hashtag_id = await self._save_and_get_hashtag_id(mapping_id, chapter, hashtag)
 
                     news_count = await news_service.search_and_process_news(
-                        mapping_id=job_id,
+                        mapping_id=mapping_id,
                         hashtag_id=hashtag_id,
                         summary_id=0,  # 임시
                         hashtag=hashtag,
@@ -136,15 +152,15 @@ class RedisConsumer:
                     logger.info(f"Found {news_count} news for hashtag: {hashtag} (hashtag_id: {hashtag_id})")
                 except Exception as e:
                     logger.error(f"Error searching news for hashtag {hashtag}: {e}")
-            
+
             logger.info(f"Total news found for job {job_id}, chapter {chapter}: {total_news_count}")
-            
+
             # 뉴스 검색 콜백 함수 호출 (추가 처리가 있다면)
             if self.news_search_callback:
                 await self.news_search_callback(job_id, chapter, hashtags)
-            
+
             # Counter 증가 및 완료 체크
-            await self._increment_counter_and_check_completion(job_id)
+            await self._increment_counter_and_check_completion(mapping_id)
             
             # 처리 결과를 Redis에 저장 (옵션)
             result_key = f"news:result:{job_id}:{chapter}"
@@ -168,11 +184,22 @@ class RedisConsumer:
                 try:
                     job_id = message.get('job_id')
                     if job_id:
-                        await news_status.update_news_status(
-                            mapping_id=int(job_id),
-                            status=JobStatus.NEWS_FAILED,
-                            error_message=str(e)
-                        )
+                        # job_id에서 mapping_id 추출
+                        try:
+                            if job_id.startswith('summary_'):
+                                mapping_id = int(job_id.split('_')[1])
+                            elif job_id.startswith('mapping_'):
+                                mapping_id = int(job_id.split('_')[1])
+                            else:
+                                mapping_id = int(job_id)
+
+                            await news_status.update_news_status(
+                                mapping_id=mapping_id,
+                                status=JobStatus.NEWS_FAILED,
+                                error_message=str(e)
+                            )
+                        except:
+                            pass
                 except:
                     pass
 
@@ -211,22 +238,22 @@ class RedisConsumer:
             # 에러 시 해시태그 이름으로 고유 ID 생성
             return abs(hash(f"{job_id}_{chapter}_{hashtag}")) % 1000000
 
-    async def _increment_counter_and_check_completion(self, job_id: int):
+    async def _increment_counter_and_check_completion(self, mapping_id: int):
         """Counter 증가 및 완료 체크 (재요약 충돌 방지)"""
 
         # ✅ 재요약 중인지 확인 (기존 로직 보호)
-        resummary_active = self.client.get(f"resummary:active:{job_id}")
+        resummary_active = self.client.get(f"resummary:active:{mapping_id}")
         if resummary_active:
-            logger.info(f"Job {job_id} is in resummary mode ({resummary_active}), skipping normal completion")
+            logger.info(f"Job {mapping_id} is in resummary mode ({resummary_active}), skipping normal completion")
             return  # 재요약 중이면 기존 완료 로직 건너뜀
 
-        counter_key = f"completed:{job_id}"
+        counter_key = f"completed:{mapping_id}"
 
         # Counter 증가
         current_count = self.client.incr(counter_key)
         self.client.expire(counter_key, 86400)  # 24시간 후 만료
 
-        logger.info(f"Job {job_id} progress: {current_count}/5")
+        logger.info(f"Job {mapping_id} progress: {current_count}/5")
 
         # 상태 업데이트: 진행률 (기존 로직에 영향 없음)
         if STATUS_AVAILABLE:
@@ -234,14 +261,14 @@ class RedisConsumer:
                 if current_count >= 5:
                     # 모든 챕터 완료
                     await news_status.update_news_status(
-                        mapping_id=int(job_id),
+                        mapping_id=mapping_id,
                         status=JobStatus.NEWS_COMPLETED,
                         chapters_completed=current_count
                     )
                 else:
                     # 진행 중
                     await news_status.update_news_status(
-                        mapping_id=int(job_id),
+                        mapping_id=mapping_id,
                         status=JobStatus.NEWS_PROCESSING,
                         chapters_completed=current_count
                     )
@@ -250,8 +277,8 @@ class RedisConsumer:
 
         # 5개 챕터 모두 완료 시 기업 분석 데이터 처리
         if current_count >= 5:
-            logger.info(f"All chapters completed for job {job_id}, processing company analysis")
-            await company_processor.process_hashtag_completion(job_id, 'all', [])
+            logger.info(f"All chapters completed for job {mapping_id}, processing company analysis")
+            await company_processor.process_hashtag_completion(mapping_id, 'all', [])
 
             # Counter 삭제 (선택사항)
             self.client.delete(counter_key)
