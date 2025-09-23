@@ -14,6 +14,14 @@ from .company_processor import company_processor
 from .news_service import news_service
 from ..database import database
 
+# 상태 관리 추가 (기존 로직에 영향 없음)
+try:
+    from ..shared.status_integration import news_status
+    from ..shared.status_manager import JobStatus
+    STATUS_AVAILABLE = True
+except ImportError:
+    STATUS_AVAILABLE = False
+
 logger = logging.getLogger(__name__)
 
 class RedisConsumer:
@@ -84,16 +92,28 @@ class RedisConsumer:
         try:
             # 해시태그 메시지 처리
             job_id = message.get('job_id')
-            chapter = message.get('chapter')
+            chapter = message.get('category')  # Summary 서버에서 'category'로 전송
             hashtags_json = message.get('hashtags', '[]')
-            
+
             # JSON 파싱
             if isinstance(hashtags_json, str):
                 hashtags = json.loads(hashtags_json)
             else:
                 hashtags = hashtags_json
-            
+
             logger.info(f"Processing hashtags for job {job_id}, chapter {chapter}: {hashtags}")
+
+            # 상태 업데이트: 처리 시작 (기존 로직에 영향 없음)
+            if STATUS_AVAILABLE:
+                try:
+                    await news_status.update_news_status(
+                        mapping_id=int(job_id),
+                        status=JobStatus.NEWS_PROCESSING,
+                        hashtags_count=len(hashtags),
+                        chapters_completed=0
+                    )
+                except:
+                    pass
             
             # 해시태그를 DB에 저장 (summary_id는 임시로 0 사용)
             await database.save_hashtags(job_id, 0, str(chapter), hashtags)
@@ -142,6 +162,20 @@ class RedisConsumer:
             
         except Exception as e:
             logger.error(f"Failed to process message: {e}")
+
+            # 상태 업데이트: 실패 (기존 로직에 영향 없음)
+            if STATUS_AVAILABLE:
+                try:
+                    job_id = message.get('job_id')
+                    if job_id:
+                        await news_status.update_news_status(
+                            mapping_id=int(job_id),
+                            status=JobStatus.NEWS_FAILED,
+                            error_message=str(e)
+                        )
+                except:
+                    pass
+
             return False
 
     async def _save_and_get_hashtag_id(self, job_id: int, chapter: int, hashtag: str) -> int:
@@ -186,12 +220,32 @@ class RedisConsumer:
         self.client.expire(counter_key, 86400)  # 24시간 후 만료
         
         logger.info(f"Job {job_id} progress: {current_count}/5")
-        
+
+        # 상태 업데이트: 진행률 (기존 로직에 영향 없음)
+        if STATUS_AVAILABLE:
+            try:
+                if current_count >= 5:
+                    # 모든 챕터 완료
+                    await news_status.update_news_status(
+                        mapping_id=int(job_id),
+                        status=JobStatus.NEWS_COMPLETED,
+                        chapters_completed=current_count
+                    )
+                else:
+                    # 진행 중
+                    await news_status.update_news_status(
+                        mapping_id=int(job_id),
+                        status=JobStatus.NEWS_PROCESSING,
+                        chapters_completed=current_count
+                    )
+            except:
+                pass
+
         # 5개 챕터 모두 완료 시 기업 분석 데이터 처리
         if current_count >= 5:
             logger.info(f"All chapters completed for job {job_id}, processing company analysis")
             await company_processor.process_hashtag_completion(job_id, 'all', [])
-            
+
             # Counter 삭제 (선택사항)
             self.client.delete(counter_key)
     

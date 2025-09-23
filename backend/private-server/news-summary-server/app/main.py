@@ -60,9 +60,17 @@ async def startup_event():
     global ollama_client, executor, request_semaphore, redis_consumer, consumer_thread
     
     try:
+        # 상태 관리자 초기화 (실패해도 메인 서비스에 영향 없음)
+        try:
+            from .shared.status_integration import news_status
+            await news_status.initialize()
+            logger.info("Status manager initialized")
+        except Exception as e:
+            logger.warning(f"Status manager initialization failed (non-critical): {e}")
+
         host = OLLAMA_HOST if OLLAMA_HOST.startswith('http') else f'http://{OLLAMA_HOST}'
         ollama_client = ollama.Client(host=host)
-        
+
         # 동시 처리 제한을 위한 설정
         max_workers = int(os.getenv('MAX_WORKERS', '2'))  # 동시 처리 수 제한
         executor = ThreadPoolExecutor(max_workers=max_workers)
@@ -192,11 +200,19 @@ async def shutdown_event_handler():
     global executor, redis_consumer
     shutdown_event.set()
     
+    # 상태 관리자 정리 (실패해도 무시)
+    try:
+        from .shared.status_integration import news_status
+        await news_status.close()
+        logger.info("Status manager closed")
+    except:
+        pass
+
     # Redis Consumer 정리
     if redis_consumer:
         redis_consumer.cleanup()
         logger.info("Redis consumer shutdown completed")
-    
+
     if executor:
         executor.shutdown(wait=True, timeout=5)
         logger.info("Executor shutdown completed")

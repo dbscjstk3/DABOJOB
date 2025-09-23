@@ -16,6 +16,14 @@ from sqlalchemy import and_
 from ..models.crawler_models import Company, CompanyDartMapping, MappingStatus
 from ..database import SessionLocal
 
+# 상태 관리 추가 (기존 로직에 영향 없음)
+try:
+    from ..shared.status_integration import standardizer_status
+    from ..shared.status_manager import JobStatus
+    STATUS_AVAILABLE = True
+except ImportError:
+    STATUS_AVAILABLE = False
+
 logger = logging.getLogger(__name__)
 
 
@@ -42,9 +50,10 @@ class CompanyMappingService:
     def get_unmapped_companies(self, db: Session, limit: int = 50) -> List[Company]:
         """매핑되지 않은 회사 및 실패한 매핑 회사 목록 조회"""
         try:
-            # 성공적으로 매핑된 회사들 (verified, suggested 상태)만 제외
+            # 완전히 매핑 완료된 회사들 (verified 상태)만 제외
+            # suggested, failed 상태는 아직 처리가 필요한 상태이므로 포함
             successfully_mapped_ids = db.query(CompanyDartMapping.company_id).filter(
-                CompanyDartMapping.mapping_status.in_([MappingStatus.verified, MappingStatus.suggested])
+                CompanyDartMapping.mapping_status == MappingStatus.verified
             )
 
             return db.query(Company).filter(
@@ -56,6 +65,16 @@ class CompanyMappingService:
 
     async def suggest_dart_mapping(self, company: Company) -> Optional[Dict[str, Any]]:
         """GPT를 사용한 DART 매핑 제안"""
+        # 상태 업데이트: 처리 시작 (기존 로직에 영향 없음)
+        if STATUS_AVAILABLE:
+            try:
+                await standardizer_status.update_mapping_status(
+                    mapping_id=company.company_id,
+                    status=JobStatus.MAPPING_PROCESSING
+                )
+            except:
+                pass  # 상태 업데이트 실패해도 메인 로직 계속 진행
+
         if not self.openai_client:
             logger.warning("OpenAI client not available for mapping")
             return None
@@ -112,12 +131,58 @@ null
             content = response.choices[0].message.content
             if content and content.strip() != "null":
                 import json
-                return json.loads(content)
+                suggestion = json.loads(content)
+
+                # 상태 업데이트: 성공 (기존 로직에 영향 없음)
+                if STATUS_AVAILABLE:
+                    try:
+                        confidence = suggestion.get("confidence", 0)
+                        if confidence >= 95:
+                            status = JobStatus.MAPPING_VERIFIED
+                        elif confidence >= 80:
+                            status = JobStatus.MAPPING_SUGGESTED
+                        else:
+                            status = JobStatus.MAPPING_FAILED
+
+                        await standardizer_status.update_mapping_status(
+                            mapping_id=company.company_id,
+                            status=status,
+                            confidence_score=confidence,
+                            dart_corp_code=suggestion.get("dart_corp_code"),
+                            dart_corp_name=suggestion.get("dart_corp_name")
+                        )
+                    except:
+                        pass  # 상태 업데이트 실패해도 메인 로직 계속 진행
+
+                return suggestion
+
+            # 상태 업데이트: 실패 (기존 로직에 영향 없음)
+            if STATUS_AVAILABLE:
+                try:
+                    await standardizer_status.update_mapping_status(
+                        mapping_id=company.company_id,
+                        status=JobStatus.MAPPING_FAILED,
+                        error_message="No mapping found by GPT"
+                    )
+                except:
+                    pass
 
             return None
 
         except Exception as e:
             logger.error(f"Failed to suggest DART mapping for {company.company_name}: {e}")
+
+            # 상태 업데이트: 오류 (기존 로직에 영향 없음)
+            if STATUS_AVAILABLE:
+                try:
+                    await standardizer_status.update_mapping_status(
+                        mapping_id=company.company_id,
+                        status=JobStatus.MAPPING_FAILED,
+                        error_message=str(e)
+                    )
+                except:
+                    pass
+
             return None
 
     async def batch_process_mappings(self, limit: int = 10) -> Dict[str, int]:
@@ -161,16 +226,25 @@ null
                             corp_code = suggestion.get("dart_corp_code", "N/A")
                             confidence = suggestion.get("confidence", 0)
 
-                            logger.info(f"   ✅ GPT Success: {corp_name} (Code: {corp_code}, Confidence: {confidence}%)")
+                            # 신뢰도 기반 상태 결정
+                            if confidence >= 95:
+                                status = MappingStatus.verified
+                                logger.info(f"   ✅ HIGH CONFIDENCE: {corp_name} (Code: {corp_code}, Confidence: {confidence}%) - AUTO APPROVED")
+                            elif confidence >= 80:
+                                status = MappingStatus.suggested
+                                logger.info(f"   ⚠️ MEDIUM CONFIDENCE: {corp_name} (Code: {corp_code}, Confidence: {confidence}%) - NEEDS REVIEW")
+                            else:
+                                status = MappingStatus.failed
+                                logger.info(f"   ❌ LOW CONFIDENCE: {corp_name} (Code: {corp_code}, Confidence: {confidence}%) - NEEDS MANUAL INPUT")
 
                             if existing_mapping:
-                                # 기존 실패한 매핑 업데이트
+                                # 기존 매핑 업데이트
                                 logger.info(f"   🔄 Updating existing mapping (ID: {existing_mapping.mapping_id})")
                                 existing_mapping.dart_corp_name = suggestion.get("dart_corp_name")
                                 existing_mapping.dart_corp_code = suggestion.get("dart_corp_code")
                                 existing_mapping.dart_stock_code = suggestion.get("dart_stock_code")
-                                existing_mapping.mapping_status = MappingStatus.suggested
-                                existing_mapping.confidence_score = suggestion.get("confidence", 0)
+                                existing_mapping.mapping_status = status
+                                existing_mapping.confidence_score = confidence
                                 existing_mapping.gpt_response = str(suggestion)
                                 existing_mapping.processed_at = datetime.utcnow()
                             else:
@@ -183,12 +257,17 @@ null
                                     dart_corp_name=suggestion.get("dart_corp_name"),
                                     dart_corp_code=suggestion.get("dart_corp_code"),
                                     dart_stock_code=suggestion.get("dart_stock_code"),
-                                    mapping_status=MappingStatus.suggested,
-                                    confidence_score=suggestion.get("confidence", 0),
+                                    mapping_status=status,
+                                    confidence_score=confidence,
                                     gpt_response=str(suggestion)
                                 )
                                 db.add(mapping)
-                            stats["suggested"] += 1
+
+                            # 통계 업데이트
+                            if status == MappingStatus.verified:
+                                stats["verified"] = stats.get("verified", 0) + 1
+                            else:
+                                stats["suggested"] += 1
                         else:
                             logger.warning(f"   ❌ GPT Failed: No mapping found for {company.company_name}")
 
@@ -242,9 +321,11 @@ null
         logger.info(f"🎉 Batch mapping completed!")
         logger.info(f"📊 Final Stats:")
         logger.info(f"   - Total Processed: {stats['processed']}")
-        logger.info(f"   - Successfully Mapped: {stats['suggested']}")
-        logger.info(f"   - Failed: {stats['failed']}")
-        logger.info(f"   - Success Rate: {(stats['suggested']/stats['processed']*100):.1f}%" if stats['processed'] > 0 else "   - Success Rate: 0%")
+        logger.info(f"   - Auto Verified (95%+): {stats.get('verified', 0)}")
+        logger.info(f"   - Needs Review (80-94%): {stats['suggested']}")
+        logger.info(f"   - Failed/Manual (<80%): {stats['failed']}")
+        total_success = stats.get('verified', 0) + stats['suggested']
+        logger.info(f"   - Overall Success Rate: {(total_success/stats['processed']*100):.1f}%" if stats['processed'] > 0 else "   - Success Rate: 0%")
 
         return stats
 
@@ -268,35 +349,13 @@ null
             raise Exception(f"Failed to get mapping stats: {e}")
 
     def get_pending_mappings(self, db: Session, limit: int = 50) -> List[CompanyDartMapping]:
-        """대기 중인 매핑 목록 조회"""
+        """대기 중인 매핑 목록 조회 (suggested + failed 상태)"""
         try:
             return db.query(CompanyDartMapping).filter(
-                CompanyDartMapping.mapping_status == MappingStatus.suggested
+                CompanyDartMapping.mapping_status.in_([MappingStatus.suggested, MappingStatus.failed])
             ).order_by(CompanyDartMapping.confidence_score.desc()).limit(limit).all()
         except Exception as e:
             logger.error(f"Failed to get pending mappings: {e}")
             raise Exception(f"Failed to get pending mappings: {e}")
 
-    def verify_mapping(self, db: Session, mapping_id: int, verified_by: str,
-                      is_correct: bool, notes: Optional[str] = None) -> bool:
-        """매핑 검증"""
-        try:
-            mapping = db.query(CompanyDartMapping).filter(
-                CompanyDartMapping.mapping_id == mapping_id
-            ).first()
 
-            if not mapping:
-                return False
-
-            mapping.mapping_status = MappingStatus.verified if is_correct else MappingStatus.failed
-            mapping.verified_by = verified_by
-            mapping.verified_at = datetime.utcnow()
-            if notes:
-                mapping.manual_notes = notes
-
-            db.commit()
-            return True
-        except Exception as e:
-            logger.error(f"Failed to verify mapping {mapping_id}: {e}")
-            db.rollback()
-            raise Exception(f"Failed to verify mapping: {e}")

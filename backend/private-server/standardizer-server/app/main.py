@@ -47,6 +47,14 @@ async def lifespan(app: FastAPI):
         await standardizer_service.initialize()
         logger.info("Standardizer service initialized")
 
+        # 상태 관리자 초기화 (실패해도 메인 서비스에 영향 없음)
+        try:
+            from .shared.status_integration import standardizer_status
+            await standardizer_status.initialize()
+            logger.info("Status manager initialized")
+        except Exception as e:
+            logger.warning(f"Status manager initialization failed (non-critical): {e}")
+
         # 백그라운드 워커 시작
         await background_worker.initialize()
         asyncio.create_task(background_worker.start())
@@ -81,6 +89,14 @@ async def lifespan(app: FastAPI):
         # StandardizerService 정리
         await standardizer_service.shutdown()
         logger.info("Standardizer service shutdown completed")
+
+        # 상태 관리자 정리 (실패해도 무시)
+        try:
+            from .shared.status_integration import standardizer_status
+            await standardizer_status.close()
+            logger.info("Status manager closed")
+        except:
+            pass
 
         logger.info("Application shutdown completed")
 

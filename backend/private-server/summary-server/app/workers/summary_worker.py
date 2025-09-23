@@ -15,6 +15,14 @@ from ..services.redis_publisher import RedisPublisher
 from ..utils import qwen_summarize_long
 import ollama
 
+# 상태 관리 추가 (기존 로직에 영향 없음)
+try:
+    from ..shared.status_integration import summary_status
+    from ..shared.status_manager import JobStatus
+    STATUS_AVAILABLE = True
+except ImportError:
+    STATUS_AVAILABLE = False
+
 logger = logging.getLogger(__name__)
 
 class SummaryWorker:
@@ -95,7 +103,20 @@ class SummaryWorker:
         
         try:
             logger.info(f"Processing category summarization: job_id={job_id}, category={category}")
-            
+
+            # 상태 업데이트: 처리 시작 (기존 로직에 영향 없음)
+            if STATUS_AVAILABLE:
+                try:
+                    completed_count = len(self.job_completion_tracker.get(job_id, set()))
+                    await summary_status.update_summary_status(
+                        mapping_id=int(job_id),
+                        status=JobStatus.SUMMARY_PROCESSING,
+                        categories_completed=completed_count,
+                        category=category
+                    )
+                except:
+                    pass
+
             # 1. 카테고리 요약 시작 상태 업데이트
             await self.redis_client.update_job_status(
                 job_id,
@@ -133,7 +154,19 @@ class SummaryWorker:
             
         except Exception as e:
             logger.error(f"Category summarization failed: job_id={job_id}, category={category}, error: {e}")
-            
+
+            # 상태 업데이트: 실패 (기존 로직에 영향 없음)
+            if STATUS_AVAILABLE:
+                try:
+                    await summary_status.update_summary_status(
+                        mapping_id=int(job_id),
+                        status=JobStatus.SUMMARY_FAILED,
+                        error_message=str(e),
+                        category=category
+                    )
+                except:
+                    pass
+
             await self.redis_client.update_job_status(
                 job_id,
                 "category_summarization_failed",
@@ -190,6 +223,26 @@ class SummaryWorker:
             completed_categories = self.job_completion_tracker[job_id]
 
             logger.info(f"Job {job_id}: {len(completed_categories)}/{len(self.category_configs)} categories completed")
+
+            # 상태 업데이트: 진행률 업데이트 (기존 로직에 영향 없음)
+            if STATUS_AVAILABLE:
+                try:
+                    if len(completed_categories) >= len(self.category_configs):
+                        # 모든 카테고리 완료
+                        await summary_status.update_summary_status(
+                            mapping_id=int(job_id),
+                            status=JobStatus.SUMMARY_COMPLETED,
+                            categories_completed=len(completed_categories)
+                        )
+                    else:
+                        # 진행 중
+                        await summary_status.update_summary_status(
+                            mapping_id=int(job_id),
+                            status=JobStatus.SUMMARY_PROCESSING,
+                            categories_completed=len(completed_categories)
+                        )
+                except:
+                    pass
 
             # 모든 카테고리가 완료되었는지 확인
             if len(completed_categories) >= len(self.category_configs):
