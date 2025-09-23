@@ -1,26 +1,29 @@
+import { Link } from '@tanstack/react-router';
 import { Button } from '../components/common/atoms/Button';
 import { Typography } from '../components/common/atoms/Typography';
 import { API_ENDPOINTS } from '../lib/api';
 import DABOJOB_logo from '../assets/logo/DABOJOB_logo.svg';
 import SSAFY_logo from '../assets/logo/ssafyLogo.png';
 import GOOGLE_logo from '../assets/logo/googleLogo.svg';
+import mascot from '../assets/img/daboja_mascot.png?format=webp&quality=80';
 
 export default function LoginPage() {
   return (
-    <div className="min-h-screen w-full bg-gradient-to-br from-blue-50 via-slate-50 to-indigo-100 flex items-center justify-center px-4 py-16 relative overflow-hidden">
+    <div className="flex-1 w-full bg-gradient-to-br from-blue-50 via-slate-50 to-indigo-100 flex items-center justify-center px-4 relative">
       {/* 배경 장식 요소들 */}
       <div className="absolute top-20 left-10 w-20 h-20 bg-blue-200/30 rounded-full blur-xl"></div>
       <div className="absolute bottom-20 right-10 w-32 h-32 bg-indigo-200/30 rounded-full blur-xl"></div>
       <div className="absolute top-1/2 left-1/4 w-16 h-16 bg-purple-200/30 rounded-full blur-lg"></div>
 
-      <div className="mx-auto grid max-w-5xl grid-cols-1 overflow-hidden rounded-3xl bg-white shadow-2xl border border-slate-200 md:grid-cols-2 h-auto md:h-[600px] w-full animate-in fade-in slide-in-from-bottom-3 duration-300 relative z-10">
+      <div className="mx-auto grid max-w-5xl grid-cols-1 overflow-hidden rounded-3xl bg-white shadow-2xl md:grid-cols-2 h-auto md:h-[600px] w-full animate-in fade-in slide-in-from-bottom-3 duration-300 relative z-10">
         {/* 모바일용 상단 비주얼 영역 */}
         <div className="relative block md:hidden h-56">
-          <img
+          {/* <img
             alt="login visual"
             src="https://images.unsplash.com/photo-1521737604893-d14cc237f11d?q=80&w=1470&auto=format&fit=crop"
             className="h-full w-full object-cover"
-          />
+          /> */}
+          <img src={mascot} alt="daboja mascot" className="h-full w-full object-cover" />
           <div className="absolute inset-0 bg-slate-900/20" />
           <div className="absolute bottom-4 left-4 right-4 text-white text-center">
             <Typography as="div" variant="subtitle" weight="semibold" color="white">
@@ -33,12 +36,14 @@ export default function LoginPage() {
         </div>
 
         {/* 좌측 비주얼 영역 (데스크톱) */}
-        <div className="relative hidden md:block">
-          <img
+        <div className="relative hidden md:block overflow-hidden">
+          {/* <img
             alt="login visual"
             src="https://images.unsplash.com/photo-1521737604893-d14cc237f11d?q=80&w=1470&auto=format&fit=crop"
             className="h-full w-full object-cover"
-          />
+          /> */}
+          <img src={mascot} alt="daboja mascot" className="h-full w-full object-cover" />
+
           <div className="absolute inset-0 bg-slate-900/20" />
           <div className="absolute bottom-6 left-6 right-6 text-white">
             <Typography as="div" variant="subtitle" weight="semibold" color="white">
@@ -51,22 +56,27 @@ export default function LoginPage() {
         </div>
 
         {/* 우측 액션 영역 */}
-        <div className="p-8 md:p-12">
-          <div className="flex items-center gap-3">
+        <div className="p-8 md:p-12 flex flex-col justify-center">
+          {/* <div className="flex items-center gap-3">
             <img
               src={DABOJOB_logo}
               alt="DABOJOB : ) 다보자"
               className="h-12 md:h-10 lg:h-12 w-auto"
             />
+          </div> */}
+          <div className="flex items-center gap-2">
+            <Link to="/" className="hover:opacity-80 transition-opacity">
+              <img src={DABOJOB_logo} alt="DABOJOB" className="h-7 w-auto" />
+            </Link>
+            {/* <Typography as="h2" variant="title" weight="bold" className="text-slate-900">
+              로그인
+            </Typography> */}
           </div>
-          <Typography as="h2" variant="title" weight="bold" className="mt-24 text-slate-900">
-            로그인
-          </Typography>
-          <Typography variant="default" color="gray" className="mt-2">
+          <Typography variant="default" color="gray" className="mt-2 mb-8">
             소셜 계정으로 간편하게 로그인하세요.
           </Typography>
 
-          <div className="!mt-4 md:mt-28 grid gap-5" style={{ marginTop: '4px' }}>
+          <div className="grid gap-5">
             <Button
               variant="outlined"
               size="lg"
