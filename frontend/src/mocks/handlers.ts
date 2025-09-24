@@ -249,6 +249,25 @@ export const handlers = [
     });
   }),
 
+  // 인기 공고 API 목 핸들러
+  http.get('/api/job-postings/hot', () => {
+    console.log('🎭 MSW: 인기 공고 API 호출됨');
+
+    // 최근 7일간 많이 클릭된 공고들의 jobPostingId 배열
+    const hotJobPostingIds = [1, 5, 8, 2, 12, 7, 3, 11, 9, 17];
+
+    console.log(
+      `✅ MSW: 인기 공고 ID ${hotJobPostingIds.length}개 반환: [${hotJobPostingIds.join(', ')}]`,
+    );
+
+    return HttpResponse.json(hotJobPostingIds, {
+      status: 200,
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    });
+  }),
+
   // JobPosting API 목 핸들러 (단수형) - 더 구체적인 패턴들 뒤에 배치
   http.get('/api/job-postings/:jobPostingId', ({ params }) => {
     const jobPostingId = params.jobPostingId as string;
@@ -259,7 +278,7 @@ export const handlers = [
     const mockJobPostingData: Record<string, JobPostingResponse> = {
       '1': {
         jobPostingId: 1,
-        companyId: 123,
+        companyId: 1,
         companyName: '삼성전자',
         companyType: '대기업',
         title: 'AI 반도체 개발 엔지니어',
@@ -271,9 +290,9 @@ export const handlers = [
         deadlineDate: '2025-12-31',
       },
       '2': {
-        jobPostingId: 2,
-        companyId: 456,
-        companyName: 'LG전자',
+        jobPostingId: 17,
+        companyId: 9002,
+        companyName: '현대자동차',
         companyType: '대기업',
         title: '전기차 SW 개발자',
         url: 'https://www.saramin.co.kr/zf_user/jobs/relay/view?rec_idx=789012',
@@ -284,9 +303,9 @@ export const handlers = [
         deadlineDate: '2024-12-25',
       },
       '3': {
-        jobPostingId: 3,
-        companyId: 789,
-        companyName: 'SK하이닉스',
+        jobPostingId: 2,
+        companyId: 2,
+        companyName: 'LG전자',
         companyType: '대기업',
         title: '메모리 반도체 연구원',
         url: 'https://www.saramin.co.kr/zf_user/jobs/relay/view?rec_idx=345678',
@@ -295,6 +314,97 @@ export const handlers = [
         careerInfo: '경력무관',
         postingDate: '2024-12-20',
         deadlineDate: '2025-02-28',
+      },
+      '5': {
+        jobPostingId: 5,
+        companyId: 9005,
+        companyName: '네이버',
+        companyType: '대기업',
+        title: '백엔드 개발자',
+        url: 'https://www.saramin.co.kr/zf_user/jobs/relay/view?rec_idx=111111',
+        jobSectorName: '백엔드 개발',
+        jobSectorCategory: 'IT/서비스',
+        careerInfo: '경력 2년 이상',
+        postingDate: '2024-12-18',
+        deadlineDate: '2025-01-15',
+      },
+      '7': {
+        jobPostingId: 7,
+        companyId: 9007,
+        companyName: '카카오',
+        companyType: '대기업',
+        title: '프론트엔드 개발자',
+        url: 'https://www.saramin.co.kr/zf_user/jobs/relay/view?rec_idx=222222',
+        jobSectorName: '프론트엔드 개발',
+        jobSectorCategory: 'IT/서비스',
+        careerInfo: '신입',
+        postingDate: '2024-12-16',
+        deadlineDate: '2025-01-10',
+      },
+      '8': {
+        jobPostingId: 8,
+        companyId: 9008,
+        companyName: '토스',
+        companyType: '중견기업',
+        title: '풀스택 개발자',
+        url: 'https://www.saramin.co.kr/zf_user/jobs/relay/view?rec_idx=333333',
+        jobSectorName: '풀스택 개발',
+        jobSectorCategory: 'IT/서비스',
+        careerInfo: '경력 1년 이상',
+        postingDate: '2024-12-14',
+        deadlineDate: '2025-01-20',
+      },
+      '9': {
+        jobPostingId: 9,
+        companyId: 9009,
+        companyName: '배달의민족',
+        companyType: '중견기업',
+        title: '모바일 앱 개발자',
+        url: 'https://www.saramin.co.kr/zf_user/jobs/relay/view?rec_idx=444444',
+        jobSectorName: '모바일 개발',
+        jobSectorCategory: 'IT/서비스',
+        careerInfo: '경력 3년 이상',
+        postingDate: '2024-12-12',
+        deadlineDate: '2025-01-25',
+      },
+      '11': {
+        jobPostingId: 11,
+        companyId: 9011,
+        companyName: '당근마켓',
+        companyType: '중견기업',
+        title: '데이터 엔지니어',
+        url: 'https://www.saramin.co.kr/zf_user/jobs/relay/view?rec_idx=555555',
+        jobSectorName: '데이터 엔지니어',
+        jobSectorCategory: 'IT/서비스',
+        careerInfo: '경력 2년 이상',
+        postingDate: '2024-12-11',
+        deadlineDate: '2025-01-30',
+      },
+      '12': {
+        jobPostingId: 12,
+        companyId: 9012,
+        companyName: '쿠팡',
+        companyType: '대기업',
+        title: '클라우드 엔지니어',
+        url: 'https://www.saramin.co.kr/zf_user/jobs/relay/view?rec_idx=666666',
+        jobSectorName: '클라우드 엔지니어',
+        jobSectorCategory: 'IT/서비스',
+        careerInfo: '경력 4년 이상',
+        postingDate: '2024-12-09',
+        deadlineDate: '2025-02-05',
+      },
+      '17': {
+        jobPostingId: 3,
+        companyId: 3,
+        companyName: 'SK하이닉스',
+        companyType: '대기업',
+        title: 'AI 연구원',
+        url: 'https://www.saramin.co.kr/zf_user/jobs/relay/view?rec_idx=777777',
+        jobSectorName: 'AI 연구',
+        jobSectorCategory: '연구/R&D',
+        careerInfo: '박사',
+        postingDate: '2024-12-08',
+        deadlineDate: '2025-02-10',
       },
     };
 

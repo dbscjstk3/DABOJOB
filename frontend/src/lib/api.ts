@@ -121,6 +121,7 @@ export const API_ENDPOINTS = {
     },
     CALENDAR: (startDate: string, endDate: string) =>
       `${API_BASE_URL}/api/job-postings/calendar?startDate=${startDate}&endDate=${endDate}`,
+    HOT: `${API_BASE_URL}/api/job-postings/hot`,
   },
 } as const;
 
@@ -284,6 +285,24 @@ export const fetchJobPostingsByDateRange = async (
 
   if (!response.ok) {
     throw new Error(`Failed to fetch job postings by date range: ${response.status}`);
+  }
+
+  const data = await response.json();
+  return data;
+};
+
+// 인기 공고 API 호출 함수
+export const fetchHotJobPostings = async (): Promise<number[]> => {
+  const response = await fetch(API_ENDPOINTS.JOB_POSTING.HOT, {
+    method: 'GET',
+    credentials: 'include', // Cookie 포함
+    headers: {
+      'Content-Type': 'application/json',
+    },
+  });
+
+  if (!response.ok) {
+    throw new Error(`Failed to fetch hot job postings: ${response.status}`);
   }
 
   const data = await response.json();
