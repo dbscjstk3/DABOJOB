@@ -23,7 +23,6 @@ export default function SearchResultCard({
   experienceLevel,
   period,
   jobCategory,
-  url,
   className = '',
   companyId,
   jobPostingId,
@@ -37,13 +36,6 @@ export default function SearchResultCard({
       params: { id: String(companyId) },
       search: { jobPostingId: String(jobPostingId) },
     });
-  };
-
-  const handleTitleClick = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    if (url) {
-      window.open(url, '_blank');
-    }
   };
 
   return (
@@ -72,8 +64,8 @@ export default function SearchResultCard({
         </Typography>
 
         {/* 제목 */}
-        <div className="flex-1" onClick={handleTitleClick}>
-          <ResultTitleLink title={title} url={url} className="text-base" />
+        <div className="flex-1">
+          <ResultTitleLink title={title} className="text-base" />
         </div>
 
         {/* 신입/경력 */}
