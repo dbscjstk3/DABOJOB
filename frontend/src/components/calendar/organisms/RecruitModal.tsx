@@ -1,4 +1,5 @@
 import React from 'react';
+import { useNavigate } from '@tanstack/react-router';
 import { Typography } from '../../common/atoms/Typography';
 import { RecruitBadge } from '../atoms/RecruitBadge';
 import { Button } from '../../common/atoms/Button';
@@ -24,7 +25,18 @@ export const RecruitModal: React.FC<RecruitModalProps> = ({
   selectedYear,
   onDateChange,
 }) => {
+  const navigate = useNavigate();
+
   if (!isOpen) return null;
+
+  // 기업 상세페이지로 이동하는 함수 (companyId를 summaryId로 사용)
+  const handleCompanyClick = (companyId: number, jobPostingId: number) => {
+    navigate({
+      to: '/calendar/$id',
+      params: { id: companyId.toString() },
+      search: { jobPostingId: jobPostingId.toString() },
+    });
+  };
 
   const getCompanyTypeClass = (companyType: string) => {
     switch (companyType) {
@@ -124,10 +136,19 @@ export const RecruitModal: React.FC<RecruitModalProps> = ({
               </Typography>
               <div className="space-y-3">
                 {postingRecruits.map((recruit, index) => (
-                  <div key={index} className="p-4 bg-blue-50 rounded-lg border border-blue-200">
+                  <div
+                    key={index}
+                    className="p-4 bg-blue-50 rounded-lg border border-blue-200 cursor-pointer hover:bg-blue-100 hover:shadow-md transition-all duration-200 ease-in-out"
+                    onClick={() => handleCompanyClick(recruit.companyId, recruit.jobPostingId)}
+                  >
                     <div className="flex items-start justify-between mb-2">
                       <div className="flex-1">
-                        <Typography variant="default" weight="bold" color="black" className="mb-1">
+                        <Typography
+                          variant="default"
+                          weight="bold"
+                          color="black"
+                          className="mb-1 hover:text-blue-600 hover:underline transition-all duration-200 ease-in-out"
+                        >
                           {recruit.companyName}
                         </Typography>
                         <Typography variant="recruits" color="black" className="mb-2">
@@ -175,10 +196,19 @@ export const RecruitModal: React.FC<RecruitModalProps> = ({
               </Typography>
               <div className="space-y-3">
                 {expirationRecruits.map((recruit, index) => (
-                  <div key={index} className="p-4 bg-red-50 rounded-lg border border-red-200">
+                  <div
+                    key={index}
+                    className="p-4 bg-red-50 rounded-lg border border-red-200 cursor-pointer hover:bg-red-100 hover:shadow-md transition-all duration-200 ease-in-out"
+                    onClick={() => handleCompanyClick(recruit.companyId, recruit.jobPostingId)}
+                  >
                     <div className="flex items-start justify-between mb-2">
                       <div className="flex-1">
-                        <Typography variant="default" weight="bold" color="black" className="mb-1">
+                        <Typography
+                          variant="default"
+                          weight="bold"
+                          color="black"
+                          className="mb-1 hover:text-blue-600 hover:underline transition-all duration-200 ease-in-out"
+                        >
                           {recruit.companyName}
                         </Typography>
                         <Typography variant="recruits" color="black" className="mb-2">
@@ -228,14 +258,18 @@ export const RecruitModal: React.FC<RecruitModalProps> = ({
                 </Typography>
                 <div className="space-y-3">
                   {allRecruits.map((recruit, index) => (
-                    <div key={index} className="p-4 bg-blue-50 rounded-lg border border-blue-200">
+                    <div
+                      key={index}
+                      className="p-4 bg-blue-50 rounded-lg border border-blue-200 cursor-pointer hover:bg-blue-100 hover:shadow-md transition-all duration-200 ease-in-out"
+                      onClick={() => handleCompanyClick(recruit.companyId, recruit.jobPostingId)}
+                    >
                       <div className="flex items-start justify-between mb-2">
                         <div className="flex-1">
                           <Typography
                             variant="default"
                             weight="bold"
                             color="black"
-                            className="mb-1"
+                            className="mb-1 hover:text-blue-600 hover:underline transition-all duration-200 ease-in-out"
                           >
                             {recruit.companyName}
                           </Typography>
