@@ -115,31 +115,6 @@ async def approve_job(job_id: int) -> Dict[str, Any]:
         logger.error(f"Error approving job {job_id}: {e}")
         raise HTTPException(status_code=500, detail=f"Failed to approve job: {str(e)}")
 
-@router.post("/jobs/{job_id}/reject")
-async def reject_job(job_id: int) -> Dict[str, Any]:
-    """job 거부 (상태를 processing으로 되돌림)"""
-    try:
-        current_status = await database.get_job_processing_status(job_id)
-        if current_status is None:
-            raise HTTPException(status_code=404, detail="Job not found")
-
-        if current_status != "completed":
-            raise HTTPException(
-                status_code=400,
-                detail=f"Job status must be 'completed' but is '{current_status}'"
-            )
-
-        success = await database.update_job_processing_status(job_id, "processing")
-        if not success:
-            raise HTTPException(status_code=500, detail="Failed to update job status")
-
-        logger.info(f"Job {job_id} rejected and status reset to processing")
-
-        return {
-            "job_id": job_id,
-            "status": "processing",
-            "message": "Job rejected and reset to processing"
-        }
 
     except HTTPException:
         raise
@@ -351,3 +326,118 @@ async def get_pending_messages() -> Dict[str, Any]:
     except Exception as e:
         logger.error(f"Error getting pending messages: {e}")
         raise HTTPException(status_code=500, detail=str(e))
+
+@router.post("/jobs/{job_id}/reprocessing")
+async def start_job_reprocessing(job_id: int, force: bool = False) -> Dict[str, Any]:
+    """
+    Job을 재처리 상태로 변경하고 관련 데이터 삭제
+
+    Args:
+        job_id: 재처리할 job ID
+        force: 강제 실행 여부 (기본: False)
+    """
+    try:
+        # 1. 재처리 가능 여부 확인 (force가 아닌 경우에만)
+        if not force:
+            eligibility = await database.get_job_reprocessing_eligibility(job_id)
+            if not eligibility.get("eligible", False):
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"Job {job_id} is not eligible for reprocessing: {eligibility.get('reason', 'Unknown reason')}"
+                )
+
+        # 2. 재처리 시작 및 데이터 정리
+        cleanup_stats = await database.start_job_reprocessing(job_id)
+
+        # 3. Redis stream에서 해당 job_id 관련 메시지들 정리
+        stream_cleanup_stats = {"removed_messages": 0, "acked_pending": 0}
+        try:
+            from ..main import redis_consumer
+            if redis_consumer and redis_consumer.client:
+                # job_id 패턴들 (다양한 형태 대응)
+                job_patterns = [
+                    str(job_id),
+                    f"summary_{job_id}",
+                    f"mapping_{job_id}"
+                ]
+
+                # 3-1. stream:news에서 해당 job_id 메시지 찾기 및 제거
+                # 최근 1000개 메시지를 확인 (너무 많이 확인하지 않도록 제한)
+                try:
+                    messages = redis_consumer.client.xrange("stream:news", count=1000)
+                    messages_to_delete = []
+
+                    for message_id, data in messages:
+                        message_job_id = data.get('job_id', '')
+                        # job_id가 매치되는 메시지 식별
+                        if any(pattern in message_job_id for pattern in job_patterns):
+                            messages_to_delete.append(message_id)
+
+                    # 식별된 메시지들 삭제
+                    if messages_to_delete:
+                        deleted_count = redis_consumer.client.xdel("stream:news", *messages_to_delete)
+                        stream_cleanup_stats["removed_messages"] = deleted_count
+                        logger.info(f"Removed {deleted_count} messages from stream:news for job {job_id}")
+
+                except Exception as e:
+                    logger.warning(f"Failed to clean stream messages for job {job_id}: {e}")
+
+                # 3-2. pending 메시지에서 해당 job_id 찾아서 ACK
+                try:
+                    pending_messages = redis_consumer.client.xpending_range(
+                        "stream:news",
+                        "summary-group",
+                        min='-',
+                        max='+',
+                        count=100
+                    )
+
+                    pending_to_ack = []
+                    for pending_msg in pending_messages:
+                        message_id = pending_msg['message_id']
+                        try:
+                            # 메시지 내용 확인
+                            message_data = redis_consumer.client.xrange("stream:news", message_id, message_id)
+                            if message_data:
+                                _, data = message_data[0]
+                                message_job_id = data.get('job_id', '')
+                                if any(pattern in message_job_id for pattern in job_patterns):
+                                    pending_to_ack.append(message_id)
+                        except:
+                            pass
+
+                    # pending 메시지 ACK
+                    if pending_to_ack:
+                        acked_count = redis_consumer.client.xack("stream:news", "summary-group", *pending_to_ack)
+                        stream_cleanup_stats["acked_pending"] = acked_count
+                        logger.info(f"ACKed {acked_count} pending messages for job {job_id}")
+
+                except Exception as e:
+                    logger.warning(f"Failed to clean pending messages for job {job_id}: {e}")
+
+        except Exception as e:
+            logger.warning(f"Failed to access Redis for stream cleanup: {e}")
+
+        logger.info(f"Job {job_id} reprocessing started successfully")
+
+        return {
+            "success": True,
+            "message": f"Job {job_id} has been marked for reprocessing",
+            "cleanup_stats": cleanup_stats,
+            "stream_cleanup": stream_cleanup_stats,
+            "next_steps": [
+                "Job status changed to 'reprocessing'",
+                "Related database data has been cleaned up",
+                "Redis stream messages for this job have been removed",
+                "Job is ready for summary-server processing"
+            ]
+        }
+
+    except HTTPException:
+        raise
+    except ValueError as e:
+        logger.error(f"Validation error for job {job_id} reprocessing: {e}")
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        logger.error(f"Error starting reprocessing for job {job_id}: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to start reprocessing: {str(e)}")
