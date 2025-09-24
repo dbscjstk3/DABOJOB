@@ -45,8 +45,12 @@ export default function SearchDetailPage() {
     });
   };
   return (
-    <div className="w-4/5 p-4 space-y-4">
-      <Typography variant="title" weight="bold" className="mt-5">
+    <div className="w-full max-w-5xl mx-auto px-4 md:px-6 lg:px-8 space-y-4">
+      <Typography
+        variant="title"
+        weight="bold"
+        className="mt-3 md:mt-5 text-lg md:text-xl lg:text-2xl"
+      >
         {query ? `"${query}" 검색 결과` : '검색'}
       </Typography>
 
