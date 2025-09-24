@@ -7,11 +7,21 @@ from datetime import datetime
 from fastapi import APIRouter, HTTPException, Depends, Query
 from sqlalchemy.orm import Session
 from sqlalchemy import extract, and_
+from pydantic import BaseModel
 
 from ..database import get_db
 from ..models.crawler_models import JobPosting, Company, CompanyDartMapping, MappingStatus
 
 router = APIRouter(prefix="/api/admin/calendar", tags=["Admin Calendar"])
+
+
+# Pydantic 모델 정의
+class RemapRequest(BaseModel):
+    """회사 재매핑 요청 모델"""
+    dart_corp_name: str
+    dart_corp_code: str
+    dart_stock_code: Optional[str] = None
+    manual_notes: Optional[str] = None
 
 
 @router.get("/companies")
@@ -82,13 +92,13 @@ async def get_monthly_companies(
             result["companies"].append({
                 "company_id": company_data.company_id,
                 "company_name": company_data.company_name,
-                "mapping_status": company_data.mapping_status.value if company_data.mapping_status else "unmapped",
+                "mapping_status": company_data.mapping_status.value if company_data.mapping_status else "pending",
                 "mapping_id": company_data.mapping_id,
                 "first_posting_date": company_data.first_posting_date.isoformat() if company_data.first_posting_date else None,
                 "last_posting_date": company_data.last_posting_date.isoformat() if company_data.last_posting_date else None,
                 "job_count": company_data.job_count,
                 "mapping_created_at": company_data.mapping_created_at.isoformat() if company_data.mapping_created_at else None,
-                "can_remap": company_data.mapping_status.value in ["failed", "suggested", "unmapped"] if company_data.mapping_status else True,
+                "can_remap": company_data.mapping_status.value in ["failed", "suggested"] if company_data.mapping_status else True,
                 "job_postings": job_list
             })
 
@@ -155,10 +165,10 @@ async def get_job_posting_detail(
                 "can_remap": mapping.mapping_status.value in ["failed", "suggested"]
             }
         else:
-            # 매핑이 없는 경우 (unmapped)
+            # 매핑이 없는 경우 (pending)
             result["company_mapping"] = {
                 "mapping_id": None,
-                "mapping_status": "unmapped",
+                "mapping_status": "pending",
                 "dart_corp_name": None,
                 "dart_corp_code": None,
                 "dart_stock_code": None,
@@ -182,10 +192,7 @@ async def get_job_posting_detail(
 @router.post("/companies/{company_id}/remap")
 async def remap_company(
     company_id: int,
-    dart_corp_name: str,
-    dart_corp_code: str,
-    dart_stock_code: str = None,
-    manual_notes: str = None,
+    request: RemapRequest,  # Request Body로 받기
     db: Session = Depends(get_db)
 ):
     """회사 수동 재매핑 (해당 회사의 모든 채용공고에 적용)"""
@@ -205,12 +212,12 @@ async def remap_company(
 
         if existing_mapping:
             # 기존 매핑 업데이트
-            existing_mapping.dart_corp_name = dart_corp_name
-            existing_mapping.dart_corp_code = dart_corp_code
-            existing_mapping.dart_stock_code = dart_stock_code
+            existing_mapping.dart_corp_name = request.dart_corp_name
+            existing_mapping.dart_corp_code = request.dart_corp_code
+            existing_mapping.dart_stock_code = request.dart_stock_code
             existing_mapping.mapping_status = MappingStatus.verified
             existing_mapping.confidence_score = 100
-            existing_mapping.manual_notes = manual_notes
+            existing_mapping.manual_notes = request.manual_notes
             existing_mapping.verified_at = datetime.utcnow()
             existing_mapping.verified_by = "admin_manual"
             existing_mapping.updated_at = datetime.utcnow()
@@ -220,13 +227,13 @@ async def remap_company(
                 company_id=company.company_id,
                 crawled_company_name=company.company_name,
                 crawled_company_url=company.company_url,
-                dart_corp_name=dart_corp_name,
-                dart_corp_code=dart_corp_code,
-                dart_stock_code=dart_stock_code,
+                dart_corp_name=request.dart_corp_name,
+                dart_corp_code=request.dart_corp_code,
+                dart_stock_code=request.dart_stock_code,
                 mapping_status=MappingStatus.verified,
                 confidence_score=100,
                 gpt_response="Manual mapping by admin",
-                manual_notes=manual_notes,
+                manual_notes=request.manual_notes,
                 processed_at=datetime.utcnow(),
                 verified_at=datetime.utcnow(),
                 verified_by="admin_manual"
@@ -237,12 +244,13 @@ async def remap_company(
 
         return {
             "status": "success",
-            "message": f"{company.company_name} → {dart_corp_name} 매핑이 완료되었습니다 ({job_count}개 채용공고에 적용)",
+            "message": f"{company.company_name} → {request.dart_corp_name} 매핑이 완료되었습니다 ({job_count}개 채용공고에 적용)",
             "mapping": {
                 "company_id": company.company_id,
                 "company_name": company.company_name,
-                "dart_corp_name": dart_corp_name,
-                "dart_corp_code": dart_corp_code,
+                "dart_corp_name": request.dart_corp_name,
+                "dart_corp_code": request.dart_corp_code,
+                "dart_stock_code": request.dart_stock_code,
                 "job_count": job_count,
                 "confidence_score": 100,
                 "verified_by": "admin_manual",
@@ -251,6 +259,7 @@ async def remap_company(
         }
 
     except HTTPException:
+        db.rollback()  # HTTPException 시에도 롤백
         raise
     except Exception as e:
         db.rollback()
