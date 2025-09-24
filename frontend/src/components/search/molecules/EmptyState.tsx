@@ -1,6 +1,6 @@
 import Typography from '@/components/common/atoms/Typography';
-import { Search } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import searchImage from '@/assets/img/search.png?format=webp&quality=80';
 
 interface EmptyStateProps {
   searchTerm?: string;
@@ -11,7 +11,7 @@ export default function EmptyState({ searchTerm, className = '' }: EmptyStatePro
   return (
     <div className={cn('py-16 text-center', className)}>
       <div className="flex justify-center mb-4">
-        <Search className="h-12 w-12 text-gray-400" />
+        <img src={searchImage} alt="검색" className="h-24 w-24 object-contain" />
       </div>
 
       <Typography variant="subtitle" weight="semibold" className="mb-2 text-center">
@@ -19,7 +19,7 @@ export default function EmptyState({ searchTerm, className = '' }: EmptyStatePro
       </Typography>
 
       <Typography variant="default" color="gray" className="text-center">
-        다른 검색어로 시도해보시거나 검색 조건을 변경해주세요
+        다른 기업명 / 공고명 으로 시도해보세요!
       </Typography>
     </div>
   );

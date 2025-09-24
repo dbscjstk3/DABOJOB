@@ -3,6 +3,7 @@ import { useEffect } from 'react';
 import { Header } from './Header';
 import type { SearchItem } from '../molecules/SearchResult';
 import { Footer } from './Footer';
+import { LoginRequiredModal } from './LoginRequiredModal';
 import { useAuthStore } from '../../../stores/useAuthStore';
 import { API_ENDPOINTS } from '../../../lib/api';
 
@@ -128,10 +129,13 @@ export function RootLayout() {
           useNewAutocomplete={true} // 새 자동완성 사용
         />
       )}
-      <main className="w-full flex-1">
+      <main className="w-full flex-1 flex flex-col items-center">
         <Outlet />
       </main>
       {!isLoginPage && <Footer></Footer>}
+
+      {/* 로그인 필요 모달 */}
+      <LoginRequiredModal />
     </div>
   );
 }
