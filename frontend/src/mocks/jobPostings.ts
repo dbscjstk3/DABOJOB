@@ -7,8 +7,8 @@ import type { JobPostingResponse } from '@/lib/api';
 export const getAllJobPostings = (): JobPostingResponse[] => {
   return [
     {
-      jobPostingId: 100,
-      companyId: 9001,
+      jobPostingId: 1,
+      companyId: 1,
       companyName: '삼성전자',
       companyType: '대기업',
       title: '프론트엔드 엔지니어',
@@ -33,8 +33,8 @@ export const getAllJobPostings = (): JobPostingResponse[] => {
       deadlineDate: '2025-09-21',
     },
     {
-      jobPostingId: 102,
-      companyId: 9003,
+      jobPostingId: 2,
+      companyId: 2,
       companyName: 'LG전자',
       companyType: '대기업',
       title: '데이터 엔지니어',
@@ -46,8 +46,8 @@ export const getAllJobPostings = (): JobPostingResponse[] => {
       deadlineDate: '2025-09-22',
     },
     {
-      jobPostingId: 103,
-      companyId: 9004,
+      jobPostingId: 3,
+      companyId: 3,
       companyName: 'SK하이닉스',
       companyType: '대기업',
       title: '클라우드 서비스 개발자',

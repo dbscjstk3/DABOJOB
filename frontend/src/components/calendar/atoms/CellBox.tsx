@@ -133,6 +133,8 @@ export const CellBox: React.FC<CellBoxProps> = ({
                         key={idx}
                         type={isPostingDate ? 'start' : 'end'}
                         company={item.companyName}
+                        companyId={item.companyId}
+                        jobPostingId={item.jobPostingId}
                       />
                     );
                   })}
