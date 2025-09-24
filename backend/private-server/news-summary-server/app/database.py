@@ -427,11 +427,10 @@ class Database:
                     check_query = """
                     SELECT hashtag_id FROM summary_hashtags
                     WHERE mapping_id = %s AND chapter = %s AND hashtag = %s
-                    AND version_id = (SELECT version_id FROM summary_versions WHERE mapping_id = %s AND version_number = %s)
                     """
 
                     async with self.get_connection() as cursor:
-                        await cursor.execute(check_query, (mapping_id, chapter, hashtag, mapping_id, version))
+                        await cursor.execute(check_query, (mapping_id, chapter, hashtag))
                         existing = await cursor.fetchone()
 
                         if existing:
@@ -439,13 +438,11 @@ class Database:
 
                         # 새 해시태그 저장
                         insert_query = """
-                        INSERT INTO summary_hashtags (mapping_id, summary_id, chapter, hashtag, version_id)
-                        SELECT %s, %s, %s, %s, sv.version_id
-                        FROM summary_versions sv
-                        WHERE sv.mapping_id = %s AND sv.version_number = %s
+                        INSERT INTO summary_hashtags (mapping_id, summary_id, chapter, hashtag)
+                        VALUES (%s, %s, %s, %s)
                         """
 
-                        await cursor.execute(insert_query, (mapping_id, summary_id, chapter, hashtag, mapping_id, version))
+                        await cursor.execute(insert_query, (mapping_id, summary_id, chapter, hashtag))
                         saved_count += 1
 
                 except Exception as e:
@@ -615,22 +612,13 @@ class Database:
 
                 # 3. 뉴스 요약 데이터 삭제
                 delete_news_summary_query = """
-                DELETE FROM news_summary
+                DELETE FROM news_summaries
                 WHERE mapping_id = %s
                 """
                 await cursor.execute(delete_news_summary_query, (job_id,))
                 deleted_news_summaries = cursor.rowcount
 
-                # 4. 해시태그 관련 뉴스 삭제
-                delete_hashtag_news_query = """
-                DELETE hn FROM hashtag_news hn
-                INNER JOIN summary_hashtags sh ON hn.hashtag_id = sh.hashtag_id
-                WHERE sh.mapping_id = %s
-                """
-                await cursor.execute(delete_hashtag_news_query, (job_id,))
-                deleted_hashtag_news = cursor.rowcount
-
-                # 5. 요약 해시태그 삭제
+                # 4. 요약 해시태그 삭제
                 delete_hashtags_query = """
                 DELETE FROM summary_hashtags
                 WHERE mapping_id = %s
@@ -654,7 +642,6 @@ class Database:
                     "previous_status": current_status,
                     "new_status": "reprocessing",
                     "deleted_news_summaries": deleted_news_summaries,
-                    "deleted_hashtag_news": deleted_hashtag_news,
                     "deleted_hashtags": deleted_hashtags,
                     "deleted_summaries": deleted_summaries,
                     "cleanup_timestamp": datetime.now().isoformat()
@@ -699,7 +686,7 @@ class Database:
                 data_counts = {}
 
                 # 뉴스 요약 개수
-                await cursor.execute("SELECT COUNT(*) FROM news_summary WHERE mapping_id = %s", (job_id,))
+                await cursor.execute("SELECT COUNT(*) FROM news_summaries WHERE mapping_id = %s", (job_id,))
                 result = await cursor.fetchone()
                 data_counts['news_summaries'] = result[0] if result else 0
 
@@ -710,8 +697,8 @@ class Database:
 
                 # 해시태그 관련 뉴스 개수
                 await cursor.execute("""
-                    SELECT COUNT(*) FROM hashtag_news hn
-                    INNER JOIN summary_hashtags sh ON hn.hashtag_id = sh.hashtag_id
+                    SELECT COUNT(*) FROM news_summaries ns
+                    INNER JOIN summary_hashtags sh ON ns.hashtag_id = sh.hashtag_id
                     WHERE sh.mapping_id = %s
                 """, (job_id,))
                 result = await cursor.fetchone()
