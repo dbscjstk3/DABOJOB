@@ -109,7 +109,7 @@ class Database:
         create_company_summaries = """
         CREATE TABLE IF NOT EXISTS company_analysis_summaries (
             summary_id BIGINT AUTO_INCREMENT PRIMARY KEY,
-            job_id BIGINT NOT NULL COMMENT '매핑 고유 아이디', 
+            job_id BIGINT NOT NULL COMMENT '매핑 고유 아이디',
             business_overview TEXT NULL COMMENT '1. 사업의 개요',
             products_service TEXT NULL COMMENT '2. 주요 제품 및 서비스',
             sales_contracts TEXT NULL COMMENT '4. 매출 및 수주 상황',
@@ -117,10 +117,21 @@ class Database:
             other_notes TEXT NULL COMMENT '7. 기타 참고사항',
             created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
             updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-            
+
             INDEX idx_job_id (job_id),
             INDEX idx_summary_id (summary_id),
             UNIQUE KEY uk_mapping_summary (job_id, summary_id)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+        """
+
+        create_job_processing = """
+        CREATE TABLE IF NOT EXISTS job_processing (
+            job_id BIGINT PRIMARY KEY COMMENT '공고 ID',
+            status ENUM('processing', 'completed', 'finished', 'reprocessing') NOT NULL DEFAULT 'processing' COMMENT '처리 상태',
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+
+            INDEX idx_status (status)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
         """
     
@@ -128,6 +139,7 @@ class Database:
             await cursor.execute(create_news_table)
             await cursor.execute(create_summary_hashtags)
             await cursor.execute(create_company_summaries)
+            await cursor.execute(create_job_processing)
 
             # 인덱스 교체: (기존) uk_mapping_chapter_hashtag → (신규) uk_job_chapter_hashtag
             # 기존 인덱스 드롭 (있을 때만)
@@ -460,6 +472,269 @@ class Database:
                 (v,) = await cursor.fetchone()
                 stats[k] = int(v or 0)
         return stats
+
+    async def create_job_processing(self, job_id: int) -> None:
+        """job_processing 레코드 생성"""
+        query = """
+        INSERT INTO job_processing (job_id, status)
+        VALUES (%s, 'processing')
+        ON DUPLICATE KEY UPDATE updated_at = NOW()
+        """
+        async with self.get_connection() as cursor:
+            await cursor.execute(query, (job_id,))
+            logger.info(f"Created job_processing record for job_id={job_id}")
+
+    async def update_job_processing_status(self, job_id: int, status: str) -> bool:
+        """job_processing 상태 업데이트"""
+        query = """
+        UPDATE job_processing
+        SET status = %s, updated_at = NOW()
+        WHERE job_id = %s
+        """
+        async with self.get_connection() as cursor:
+            await cursor.execute(query, (status, job_id))
+            success = cursor.rowcount > 0
+            if success:
+                logger.info(f"Updated job_id={job_id} status to {status}")
+            return success
+
+    async def get_job_processing_status(self, job_id: int) -> Optional[str]:
+        """job_processing 상태 조회"""
+        query = """
+        SELECT status FROM job_processing WHERE job_id = %s
+        """
+        async with self.get_connection() as cursor:
+            await cursor.execute(query, (job_id,))
+            result = await cursor.fetchone()
+            return result[0] if result else None
+
+    async def get_jobs_by_status(self, status: str) -> List[Dict[str, Any]]:
+        """특정 상태의 job 목록 조회"""
+        query = """
+        SELECT job_id, status, created_at, updated_at
+        FROM job_processing
+        WHERE status = %s
+        ORDER BY updated_at DESC
+        """
+        async with self.get_connection() as cursor:
+            await cursor.execute(query, (status,))
+            rows = await cursor.fetchall()
+            columns = [desc[0] for desc in cursor.description]
+            return [dict(zip(columns, row)) for row in rows]
+
+    async def get_all_job_processing(self) -> List[Dict[str, Any]]:
+        """모든 job_processing 레코드 조회"""
+        query = """
+        SELECT job_id, status, created_at, updated_at
+        FROM job_processing
+        ORDER BY updated_at DESC
+        """
+        async with self.get_connection() as cursor:
+            await cursor.execute(query)
+            rows = await cursor.fetchall()
+            columns = [desc[0] for desc in cursor.description]
+            return [dict(zip(columns, row)) for row in rows]
+
+    async def cleanup_job_chapter_data(self, job_id: int, chapter: str) -> None:
+        """특정 job_id + chapter의 기존 데이터 클린업 (재요약용)"""
+        try:
+            async with self.get_connection() as cursor:
+                # 1. 해당 챕터의 기존 해시태그 ID들 조회
+                hashtag_query = """
+                SELECT hashtag_id FROM summary_hashtags
+                WHERE job_id = %s AND chapter = %s
+                """
+                await cursor.execute(hashtag_query, (job_id, chapter))
+                hashtag_ids = [row[0] for row in await cursor.fetchall()]
+
+                if hashtag_ids:
+                    # 2. 해당 해시태그들의 뉴스 데이터 삭제
+                    placeholders = ",".join(["%s"] * len(hashtag_ids))
+                    news_delete_query = f"""
+                    DELETE FROM news_summaries
+                    WHERE job_id = %s AND hashtag_id IN ({placeholders})
+                    """
+                    await cursor.execute(news_delete_query, [job_id] + hashtag_ids)
+                    deleted_news = cursor.rowcount
+
+                    # 3. 해당 챕터의 해시태그 삭제
+                    hashtag_delete_query = """
+                    DELETE FROM summary_hashtags
+                    WHERE job_id = %s AND chapter = %s
+                    """
+                    await cursor.execute(hashtag_delete_query, (job_id, chapter))
+                    deleted_hashtags = cursor.rowcount
+
+                    logger.info(f"Cleaned up job {job_id} chapter {chapter}: {deleted_hashtags} hashtags, {deleted_news} news")
+                else:
+                    logger.info(f"No existing data to clean up for job {job_id} chapter {chapter}")
+
+        except Exception as e:
+            logger.error(f"Error cleaning up job {job_id} chapter {chapter}: {e}")
+            raise
+
+    async def is_reprocessing_job(self, job_id: int) -> bool:
+        """job_id가 재요약 대상인지 확인 (completed/finished 상태인 경우)"""
+        try:
+            current_status = await self.get_job_processing_status(job_id)
+            return current_status in ["completed", "finished"]
+        except Exception as e:
+            logger.error(f"Error checking reprocessing status for job {job_id}: {e}")
+            return False
+
+    async def reset_job_counter(self, job_id: int) -> None:
+        """재요약 시 Redis counter 초기화"""
+        try:
+            # Redis 클라이언트는 여기서 직접 접근하기 어려우므로
+            # redis_consumer에서 호출하도록 설계
+            logger.info(f"Job {job_id} counter reset requested")
+        except Exception as e:
+            logger.error(f"Error resetting counter for job {job_id}: {e}")
+
+    async def start_job_reprocessing(self, job_id: int) -> Dict[str, Any]:
+        """
+        Job을 reprocessing 상태로 변경하고 관련 데이터 정리
+
+        Args:
+            job_id: 재처리할 job ID
+
+        Returns:
+            정리된 데이터 통계
+        """
+        try:
+            async with self.get_connection() as cursor:
+                # 1. 현재 상태 확인
+                current_status = await self.get_job_processing_status(job_id)
+                if current_status not in ["completed", "finished"]:
+                    raise ValueError(f"Job {job_id} status '{current_status}' is not eligible for reprocessing")
+
+                logger.info(f"Starting reprocessing for job {job_id}, current status: {current_status}")
+
+                # 2. 상태를 reprocessing으로 변경
+                await self.update_job_processing_status(job_id, "reprocessing")
+
+                # 3. 뉴스 요약 데이터 삭제
+                delete_news_summary_query = """
+                DELETE FROM news_summary
+                WHERE mapping_id = %s
+                """
+                await cursor.execute(delete_news_summary_query, (job_id,))
+                deleted_news_summaries = cursor.rowcount
+
+                # 4. 해시태그 관련 뉴스 삭제
+                delete_hashtag_news_query = """
+                DELETE hn FROM hashtag_news hn
+                INNER JOIN summary_hashtags sh ON hn.hashtag_id = sh.hashtag_id
+                WHERE sh.mapping_id = %s
+                """
+                await cursor.execute(delete_hashtag_news_query, (job_id,))
+                deleted_hashtag_news = cursor.rowcount
+
+                # 5. 요약 해시태그 삭제
+                delete_hashtags_query = """
+                DELETE FROM summary_hashtags
+                WHERE mapping_id = %s
+                """
+                await cursor.execute(delete_hashtags_query, (job_id,))
+                deleted_hashtags = cursor.rowcount
+
+                # 6. 요약 데이터 삭제 (summaries 테이블이 있다면)
+                try:
+                    delete_summaries_query = """
+                    DELETE FROM summaries
+                    WHERE mapping_id = %s
+                    """
+                    await cursor.execute(delete_summaries_query, (job_id,))
+                    deleted_summaries = cursor.rowcount
+                except Exception:
+                    deleted_summaries = 0  # 테이블이 없을 수 있음
+
+                cleanup_stats = {
+                    "job_id": job_id,
+                    "previous_status": current_status,
+                    "new_status": "reprocessing",
+                    "deleted_news_summaries": deleted_news_summaries,
+                    "deleted_hashtag_news": deleted_hashtag_news,
+                    "deleted_hashtags": deleted_hashtags,
+                    "deleted_summaries": deleted_summaries,
+                    "cleanup_timestamp": datetime.now().isoformat()
+                }
+
+                logger.info(f"Reprocessing cleanup completed for job {job_id}: {cleanup_stats}")
+                return cleanup_stats
+
+        except Exception as e:
+            logger.error(f"Error starting reprocessing for job {job_id}: {e}")
+            # 실패시 원래 상태로 롤백 시도
+            try:
+                if 'current_status' in locals():
+                    await self.update_job_processing_status(job_id, current_status)
+            except:
+                pass
+            raise
+
+    async def get_job_reprocessing_eligibility(self, job_id: int) -> Dict[str, Any]:
+        """
+        Job이 reprocessing 가능한지 확인하고 관련 정보 반환
+
+        Args:
+            job_id: 확인할 job ID
+
+        Returns:
+            재처리 가능 여부 및 관련 정보
+        """
+        try:
+            async with self.get_connection() as cursor:
+                # 현재 상태 확인
+                current_status = await self.get_job_processing_status(job_id)
+
+                if not current_status:
+                    return {
+                        "eligible": False,
+                        "reason": "Job not found",
+                        "job_id": job_id
+                    }
+
+                # 관련 데이터 개수 조회
+                data_counts = {}
+
+                # 뉴스 요약 개수
+                await cursor.execute("SELECT COUNT(*) FROM news_summary WHERE mapping_id = %s", (job_id,))
+                result = await cursor.fetchone()
+                data_counts['news_summaries'] = result[0] if result else 0
+
+                # 해시태그 개수
+                await cursor.execute("SELECT COUNT(*) FROM summary_hashtags WHERE mapping_id = %s", (job_id,))
+                result = await cursor.fetchone()
+                data_counts['hashtags'] = result[0] if result else 0
+
+                # 해시태그 관련 뉴스 개수
+                await cursor.execute("""
+                    SELECT COUNT(*) FROM hashtag_news hn
+                    INNER JOIN summary_hashtags sh ON hn.hashtag_id = sh.hashtag_id
+                    WHERE sh.mapping_id = %s
+                """, (job_id,))
+                result = await cursor.fetchone()
+                data_counts['hashtag_news'] = result[0] if result else 0
+
+                eligible = current_status in ["completed", "finished"]
+
+                return {
+                    "eligible": eligible,
+                    "job_id": job_id,
+                    "current_status": current_status,
+                    "reason": "Job is eligible for reprocessing" if eligible else f"Job status '{current_status}' not eligible",
+                    "data_counts": data_counts,
+                    "estimated_deletion": sum(data_counts.values())
+                }
+
+        except Exception as e:
+            logger.error(f"Error checking reprocessing eligibility for job {job_id}: {e}")
+            return {
+                "eligible": False,
+                "job_id": job_id,
+                "reason": f"Error checking eligibility: {str(e)}"
+            }
 
 
 
