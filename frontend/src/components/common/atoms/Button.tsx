@@ -10,7 +10,7 @@ const buttonVariants = cva(
         contained:
           'bg-daboja-default text-white hover:bg-blue-700 disabled:bg-blue-300 focus-visible:ring-blue-500',
         outlined:
-          'border border-daboja-default bg-transparent hover:bg-daboja-default hover:text-white disabled:opacity-60 text-daboja-default',
+          'border border-daboja-default bg-white hover:bg-daboja-default hover:text-white disabled:opacity-60 text-daboja-default',
         tag: 'px-3 py-1 border text-blue-600 disabled:opacity-60 focus-visible:ring-slate-300',
       },
       size: {

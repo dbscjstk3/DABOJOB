@@ -4,7 +4,7 @@ import type { AutocompleteJobPosting } from '@/lib/api';
 export const mockJobPostings: AutocompleteJobPosting[] = [
   // 삼성전자
   {
-    jobPostingId: 1,
+    jobPostingId: 2,
     companyId: 1,
     companyName: '삼성전자',
     title: '백엔드 개발자 채용',

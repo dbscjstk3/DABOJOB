@@ -190,25 +190,10 @@ export default function CalendarDetailPage() {
                 {formatDeadline(jobData.deadlineDate)}
               </Typography>
 
-              {/* 회사명 */}
-              {/* <Typography variant="subtitle" weight="semibold">
-                {jobData.companyName}
-              </Typography> */}
-
-              {/* 직무 카테고리 */}
-              {/* <Typography variant="default" color="gray">
-                {jobData.jobSectorCategory} · {jobData.jobSectorName}
-              </Typography> */}
-
               {/* 공고명 */}
               <Typography variant="subtitle" weight="bold">
                 {jobData.title}
               </Typography>
-
-              {/* 경력 */}
-              {/* <Typography variant="default" color="gray">
-                {jobData.careerInfo}
-              </Typography> */}
             </div>
 
             <div className="w-full md:w-auto md:flex md:justify-end">
