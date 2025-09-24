@@ -417,6 +417,48 @@ class Database:
             logger.info(f"Updated {updated_count} hashtags with summary_id={summary_id} for job_id={job_id}")
             return updated_count
 
+    async def save_hashtags_with_version(self, mapping_id: int, version: int, summary_id: int, chapter: str, hashtags: List[str]) -> int:
+        """버전별 해시태그 저장 (재요약용)"""
+        try:
+            saved_count = 0
+            for hashtag in hashtags:
+                try:
+                    # 중복 체크 (버전별)
+                    check_query = """
+                    SELECT hashtag_id FROM summary_hashtags
+                    WHERE mapping_id = %s AND chapter = %s AND hashtag = %s
+                    AND version_id = (SELECT version_id FROM summary_versions WHERE mapping_id = %s AND version_number = %s)
+                    """
+
+                    async with self.get_connection() as cursor:
+                        await cursor.execute(check_query, (mapping_id, chapter, hashtag, mapping_id, version))
+                        existing = await cursor.fetchone()
+
+                        if existing:
+                            continue  # 이미 존재하면 스킵
+
+                        # 새 해시태그 저장
+                        insert_query = """
+                        INSERT INTO summary_hashtags (mapping_id, summary_id, chapter, hashtag, version_id)
+                        SELECT %s, %s, %s, %s, sv.version_id
+                        FROM summary_versions sv
+                        WHERE sv.mapping_id = %s AND sv.version_number = %s
+                        """
+
+                        await cursor.execute(insert_query, (mapping_id, summary_id, chapter, hashtag, mapping_id, version))
+                        saved_count += 1
+
+                except Exception as e:
+                    logger.error(f"Error saving hashtag {hashtag} (v{version}): {e}")
+                    continue
+
+            logger.info(f"Saved {saved_count} hashtags for mapping_id={mapping_id} v{version} chapter={chapter}")
+            return saved_count
+
+        except Exception as e:
+            logger.error(f"Failed to save hashtags with version: {e}")
+            return 0
+
     async def get_statistics(self) -> Dict[str, int]:
         queries = {
             "total_news": "SELECT COUNT(*) FROM news_summaries",

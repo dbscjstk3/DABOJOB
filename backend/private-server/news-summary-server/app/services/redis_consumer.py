@@ -7,17 +7,25 @@ import json
 import logging
 import asyncio
 import os
-from typing import Dict, List, Any, Optional, cast
+from typing import Dict, List, Any, Optional
 from datetime import datetime
 import threading
 from .company_processor import company_processor
 from .news_service import news_service
 from ..database import database
 
+# 상태 관리 추가 (기존 로직에 영향 없음)
+try:
+    from ..shared.status_integration import news_status
+    from ..shared.status_manager import JobStatus
+    STATUS_AVAILABLE = True
+except ImportError:
+    STATUS_AVAILABLE = False
+
 logger = logging.getLogger(__name__)
 
 class RedisConsumer:
-    def __init__(self, redis_host: Optional[str] = None, redis_port: Optional[int] = None, consumer_group: str = "summary-group"):
+    def __init__(self, redis_host: str = None, redis_port: int = None, consumer_group: str = "summary-group"):
         """
         Redis Consumer 초기화
         
@@ -31,15 +39,12 @@ class RedisConsumer:
         self.stream_key = 'stream:news'
         self.consumer_group = consumer_group
         self.consumer_name = f"{consumer_group}-{os.getpid()}"
-        self.client: Optional[redis.Redis[str]] = None
+        self.client = None
         self.running = False
         self.news_search_callback = None  # 뉴스 검색 콜백 함수
         self._connect()
         self._create_consumer_group()
     
-    # ----------------------------
-    # redis 연결/그룹
-    # ----------------------------
     def _connect(self):
         """Redis 연결"""
         try:
@@ -54,16 +59,11 @@ class RedisConsumer:
             logger.error(f"Failed to connect to Redis: {e}")
             raise
     
-    
     def _create_consumer_group(self):
         """컨슈머 그룹 생성"""
-        if not self.client:
-            logger.error("Redis client is not connected")
-            return
-
         try:
             self.client.xgroup_create(
-                self.stream_key,
+                self.stream_key, 
                 self.consumer_group,
                 id='0',
                 mkstream=True
@@ -75,67 +75,49 @@ class RedisConsumer:
             else:
                 logger.error(f"Failed to create consumer group: {e}")
     
-    
     def set_news_search_callback(self, callback):
         """뉴스 검색 콜백 함수 설정"""
         self.news_search_callback = callback
     
-    # ----------------------------
-    # 메인 처리
-    # ----------------------------
     async def process_message(self, message: Dict[str, Any]) -> bool:
         """
         메시지 처리
-
+        
         Args:
             message: 처리할 메시지
-
+            
         Returns:
             처리 성공 여부
         """
         try:
-            # hashtag_extraction_complete 메시지는 건너뛰기
-            message_type = message.get('type')
-            if message_type == 'hashtag_extraction_complete':
-                logger.info(f"Skipping hashtag_extraction_complete message for job {message.get('job_id')}")
-                return True
-
             # 해시태그 메시지 처리
-            job_id_raw = message.get('job_id')
-            chapter = message.get('category')
+            job_id = message.get('job_id')
+            chapter = message.get('category')  # Summary 서버에서 'category'로 전송
             hashtags_json = message.get('hashtags', '[]')
 
-            # 타입 검증 및 변환
-            if not job_id_raw:
-                logger.error("job_id is missing in message")
-                return False
-            job_id = int(job_id_raw)
-
-            # chapter 검증
-            if not chapter:
-                logger.error("chapter is missing in message")
-                return False
-
-            # JSON 파싱 (문자열/배열 모두 허용)
+            # JSON 파싱
             if isinstance(hashtags_json, str):
-                try:
-                    hashtags = json.loads(hashtags_json)
-                except Exception:
-                    # 콤마로만 온 경우도 방어
-                    hashtags = [x.strip() for x in hashtags_json.split(",") if x.strip()]
+                hashtags = json.loads(hashtags_json)
             else:
                 hashtags = hashtags_json
 
-            # 유효성
-            if not hashtags or not isinstance(hashtags, list):
-                logger.warning(
-                    f"No valid hashtags found for job {job_id}, chapter {chapter}"
-                )
-                # 카운터는 올려서 파이프라인 계속 흐르게
-                await self._increment_counter_and_check_completion(job_id)
-                return True
+            # job_id에서 mapping_id 추출 (summary_18_20250923_161001 -> 18)
+            mapping_id = None
+            try:
+                if job_id.startswith('summary_'):
+                    # summary_18_20250923_161001 -> 18
+                    mapping_id = int(job_id.split('_')[1])
+                elif job_id.startswith('mapping_'):
+                    # mapping_18 -> 18
+                    mapping_id = int(job_id.split('_')[1])
+                else:
+                    # 직접 숫자인 경우
+                    mapping_id = int(job_id)
+            except (ValueError, IndexError):
+                logger.error(f"Failed to extract mapping_id from job_id: {job_id}")
+                return False
 
-            logger.info(f"Processing hashtags for job {job_id}, chapter {chapter}: {hashtags}")
+            logger.info(f"Processing hashtags for job {job_id} (mapping_id: {mapping_id}), chapter {chapter}: {hashtags}")
 
             # 재요약 여부 확인 및 처리
             is_reprocessing = await database.is_reprocessing_job(job_id)
@@ -176,99 +158,82 @@ class RedisConsumer:
             
             # 6) 뉴스 검색/처리 — 항상 hashtag_id 기준으로만 수행
             total_news_count = 0
-            for raw_tag in hashtags:
-                h = (raw_tag or "").strip()
-                if not h or h not in hashtag_map:
-                    continue
-
-                hashtag_id = hashtag_map[h]
+            for hashtag in hashtags:
                 try:
+                    # 해시태그를 DB에 저장하고 ID 가져오기
+                    hashtag_id = await self._save_and_get_hashtag_id(mapping_id, chapter, hashtag)
+
                     news_count = await news_service.search_and_process_news(
-                        job_id=job_id,
+                        mapping_id=mapping_id,
                         hashtag_id=hashtag_id,
-                        summary_id=0,  # 임시(최종 리포트 만들 때 update)
-                        hashtag=h,
-                        company_name=company_name or "",  # 검색 필터/키워드
+                        summary_id=0,  # 임시
+                        hashtag=hashtag,
+                        company_name=""  # 기업명은 별도로 추출 필요
                     )
                     total_news_count += news_count
-                    logger.info(
-                        f"Found {news_count} news for hashtag: {h} (hashtag_id: {hashtag_id})"
-                    )
+                    logger.info(f"Found {news_count} news for hashtag: {hashtag} (hashtag_id: {hashtag_id})")
                 except Exception as e:
-                    logger.error(f"Error searching news for hashtag {h}: {e}")
+                    logger.error(f"Error searching news for hashtag {hashtag}: {e}")
 
-            logger.info(
-                f"Total news found for job {job_id}, chapter {chapter}: {total_news_count}"
-            )
+            logger.info(f"Total news found for job {job_id}, chapter {chapter}: {total_news_count}")
 
-            # 7) 옵셔널 콜백
+            # 뉴스 검색 콜백 함수 호출 (추가 처리가 있다면)
             if self.news_search_callback:
-                try:
-                    await self.news_search_callback(job_id, chapter, hashtags)
-                except Exception as e:
-                    logger.warning(f"news_search_callback error: {e}")
+                await self.news_search_callback(job_id, chapter, hashtags)
 
-            # 8) 진행 카운터 및 완료 체크
-            await self._increment_counter_and_check_completion(job_id)
-
-            # 9) 처리 결과 Redis 기록
-            if self.client and chapter:
-                result_key = f"news:result:{job_id}:{chapter}"
-                result_data: Dict[str, str] = {
-                    "job_id": str(job_id),
-                    "chapter": str(chapter),
-                    "hashtags": json.dumps(hashtags, ensure_ascii=False),
-                    "processed_at": datetime.now().isoformat(),
-                    "status": "processed",
-                }
-                self.client.hset(result_key, mapping=cast(Any, result_data))
-                self.client.expire(result_key, 86400)  # 24시간 후 만료
-
+            # Counter 증가 및 완료 체크
+            await self._increment_counter_and_check_completion(mapping_id)
+            
+            # 처리 결과를 Redis에 저장 (옵션)
+            result_key = f"news:result:{job_id}:{chapter}"
+            result_data = {
+                'job_id': job_id,
+                'chapter': chapter,
+                'hashtags': json.dumps(hashtags, ensure_ascii=False),
+                'processed_at': datetime.now().isoformat(),
+                'status': 'processed'
+            }
+            self.client.hset(result_key, mapping=result_data)
+            self.client.expire(result_key, 86400)  # 24시간 후 만료
+            
             return True
-
-        except Exception as e:
-            logger.error(f"Failed to process message: {e}")
-            return False
             
         except Exception as e:
             logger.error(f"Failed to process message: {e}")
+
+            # 상태 업데이트: 실패 (기존 로직에 영향 없음)
+            if STATUS_AVAILABLE:
+                try:
+                    job_id = message.get('job_id')
+                    if job_id:
+                        # job_id에서 mapping_id 추출
+                        try:
+                            if job_id.startswith('summary_'):
+                                mapping_id = int(job_id.split('_')[1])
+                            elif job_id.startswith('mapping_'):
+                                mapping_id = int(job_id.split('_')[1])
+                            else:
+                                mapping_id = int(job_id)
+
+                            await news_status.update_news_status(
+                                mapping_id=mapping_id,
+                                status=JobStatus.NEWS_FAILED,
+                                error_message=str(e)
+                            )
+                        except:
+                            pass
+                except:
+                    pass
+
             return False
 
-    async def _get_company_name(self, job_id: int) -> Optional[str]:
-        """job_id로 company_name 조회"""
-        try:
-            # job_postings에서 company_id 조회 후 companies에서 company_name 조회
-            query = """
-            SELECT c.company_name
-            FROM job_postings jp
-            JOIN companies c ON jp.company_id = c.company_id
-            WHERE jp.job_id = %s
-            LIMIT 1
-            """
-
-            async with database.get_connection() as cursor:
-                await cursor.execute(query, (job_id,))
-                result = await cursor.fetchone()
-
-                if result:
-                    company_name = result[0]
-                    logger.info(f"Found company_name for job {job_id}: {company_name}")
-                    return company_name
-                else:
-                    logger.warning(f"No company_name found for job {job_id} in job_postings/companies tables")
-                    return None
-
-        except Exception as e:
-            logger.error(f"Error getting company_name for job {job_id}: {e}")
-            return None
-
-    async def _save_and_get_hashtag_id(self, job_id: int, chapter: str, hashtag: str) -> int:
+    async def _save_and_get_hashtag_id(self, job_id: int, chapter: int, hashtag: str) -> int:
         """해시태그를 DB에 저장하고 ID 반환"""
         try:
             # 이미 존재하는 해시태그인지 확인
             query_check = """
             SELECT hashtag_id FROM summary_hashtags
-            WHERE job_id = %s AND chapter = %s AND hashtag = %s
+            WHERE mapping_id = %s AND chapter = %s AND hashtag = %s
             """
 
             async with database.get_connection() as cursor:
@@ -280,7 +245,7 @@ class RedisConsumer:
 
                 # 새로운 해시태그 저장 (summary_id는 0으로 설정, 나중에 업데이트)
                 query_insert = """
-                INSERT INTO summary_hashtags (job_id, summary_id, chapter, hashtag)
+                INSERT INTO summary_hashtags (mapping_id, summary_id, chapter, hashtag)
                 VALUES (%s, %s, %s, %s)
                 """
 
@@ -295,81 +260,45 @@ class RedisConsumer:
             # 에러 시 해시태그 이름으로 고유 ID 생성
             return abs(hash(f"{job_id}_{chapter}_{hashtag}")) % 1000000
 
+    async def _increment_counter_and_check_completion(self, mapping_id: int):
+        """Counter 증가 및 완료 체크 (재요약 충돌 방지)"""
 
-    # ----------------------------
-    # 보조 쿼리/유틸
-    # ----------------------------
-    async def _get_company_name(self, job_id: int) -> Optional[str]:
-        """job_id로 company_name 조회"""
-        try:
-            query = """
-            SELECT c.company_name
-            FROM job_postings jp
-            JOIN companies c ON jp.company_id = c.company_id
-            WHERE jp.job_id = %s
-            LIMIT 1
-            """
+        # ✅ 재요약 중인지 확인 (기존 로직 보호)
+        resummary_active = self.client.get(f"resummary:active:{mapping_id}")
+        if resummary_active:
+            logger.info(f"Job {mapping_id} is in resummary mode ({resummary_active}), skipping normal completion")
+            return  # 재요약 중이면 기존 완료 로직 건너뜀
 
-            async with database.get_connection() as cursor:
-                await cursor.execute(query, (job_id,))
-                result = await cursor.fetchone()
-
-                if result:
-                    company_name = result[0]
-                    logger.info(f"Found company_name for job {job_id}: {company_name}")
-                    return company_name
-                else:
-                    logger.warning(
-                        f"No company_name found for job {job_id} in job_postings/companies tables"
-                    )
-                    return None
-
-        except Exception as e:
-            logger.error(f"Error getting company_name for job {job_id}: {e}")
-            return None
-    
-    
-    async def _increment_counter_and_check_completion(self, job_id: int):
-        """Counter 증가 및 완료 체크"""
-        if not self.client:
-            logger.error("Redis client is not connected")
-            return
-
-        counter_key = f"completed:{job_id}"
+        counter_key = f"completed:{mapping_id}"
 
         # Counter 증가
         current_count = self.client.incr(counter_key)
         self.client.expire(counter_key, 86400)  # 24시간 후 만료
 
-        logger.info(f"Job {job_id} progress: {current_count}/5")
+        logger.info(f"Job {mapping_id} progress: {current_count}/5")
 
-        # 5개 챕터 모두 완료 시 기업 분석 데이터 처리 및 상태를 completed로 업데이트
+        # 5개 챕터 모두 완료 시 기업 분석 데이터 처리 및 S3 업로드
         if current_count >= 5:
-            logger.info(f"All chapters completed for job {job_id}, processing company analysis and updating status to completed")
+            logger.info(f"All chapters completed for job {job_id}, processing company analysis and S3 upload")
 
             # 기업 분석 데이터 처리
             await company_processor.process_hashtag_completion(job_id, 'all', [])
 
-            # job_processing 상태를 completed로 업데이트 (S3 업로드는 관리자 승인 후)
-            # 재요약의 경우 reprocessing에서 completed로 변경
+            # S3에 자동 업로드
             try:
-                current_status = await database.get_job_processing_status(job_id)
-                if current_status == "reprocessing":
-                    await database.update_job_processing_status(job_id, 'completed')
-                    logger.info(f"Updated reprocessing job {job_id} status to completed - waiting for admin approval")
+                from .s3_service import s3_service
+                uploaded_files = await s3_service.upload_job_completion_data(job_id)
+                if uploaded_files:
+                    logger.info(f"Successfully uploaded {len(uploaded_files)} files to S3 for job {job_id}: {list(uploaded_files.keys())}")
                 else:
-                    await database.update_job_processing_status(job_id, 'completed')
-                    logger.info(f"Updated job {job_id} status to completed - waiting for admin approval")
+                    logger.warning(f"No files were uploaded to S3 for job {job_id}")
             except Exception as e:
-                logger.error(f"Failed to update job processing status for job {job_id}: {e}")
+                logger.error(f"Failed to upload job completion data to S3 for job {job_id}: {e}")
 
             # Counter 삭제 (선택사항)
             self.client.delete(counter_key)
     
-    # ----------------------------
-    # 컨슈밍 루프
-    # ----------------------------
-    async def consume_async(self, max_messages: Optional[int] = None):
+    async def consume_async(self, max_messages: int = None):
         """
         비동기 방식으로 메시지 소비
         
@@ -390,13 +319,7 @@ class RedisConsumer:
                 # 디버그 로그 추가
                 logger.debug(f"Consumer {self.consumer_name} waiting for messages...")
 
-                # Redis 클라이언트 체크
-                if not self.client:
-                    logger.error("Redis client is not connected")
-                    await asyncio.sleep(1)
-                    continue
-
-                # 새로운 메시지만 읽기 (pending 메시지 처리 제거)
+                # 메시지 읽기 (블로킹, 타임아웃 1초)
                 messages = self.client.xreadgroup(
                     self.consumer_group,
                     self.consumer_name,
@@ -413,7 +336,7 @@ class RedisConsumer:
                             try:
                                 success = await self.process_message(data)
                                 
-                                if success and self.client:
+                                if success:
                                     # 메시지 처리 완료 확인
                                     self.client.xack(self.stream_key, self.consumer_group, message_id)
                                     logger.debug(f"Acknowledged message: {message_id}")
@@ -431,7 +354,6 @@ class RedisConsumer:
         
         logger.info(f"Consumer stopped. Total messages processed: {processed_count}")
     
-    
     def start_background_consumer(self):
         """백그라운드 스레드에서 컨슈머 실행"""
         def run_consumer():
@@ -448,21 +370,14 @@ class RedisConsumer:
         """컨슈머 중지"""
         self.running = False
         logger.info("Stopping consumer...")
-        
-    # ----------------------------
-    # 관리용 보조 API
-    # ----------------------------
+    
     def get_pending_messages(self) -> Dict:
         """
         펜딩 메시지 정보 조회
-
+        
         Returns:
             펜딩 메시지 정보
         """
-        if not self.client:
-            logger.error("Redis client is not connected")
-            return {}
-
         try:
             pending_info = self.client.xpending(
                 self.stream_key,
@@ -481,29 +396,25 @@ class RedisConsumer:
     def get_processed_results(self, job_id: str) -> Dict[str, Any]:
         """
         처리된 결과 조회
-
+        
         Args:
             job_id: 작업 ID
-
+            
         Returns:
             챕터별 처리 결과
         """
-        if not self.client:
-            logger.error("Redis client is not connected")
-            return {}
-
         try:
             pattern = f"news:result:{job_id}:*"
             keys = self.client.keys(pattern)
-
+            
             results = {}
             for key in keys:
                 chapter = key.split(':')[-1]
                 data = self.client.hgetall(key)
                 results[chapter] = data
-
+            
             return results
-
+            
         except Exception as e:
             logger.error(f"Failed to get processed results: {e}")
             return {}
@@ -511,22 +422,18 @@ class RedisConsumer:
     def get_job_completion_status(self, job_id: int) -> Dict[str, Any]:
         """
         작업 완료 상태 조회
-
+        
         Args:
             job_id: 작업 ID
-
+            
         Returns:
             완료 상태 정보
         """
-        if not self.client:
-            logger.error("Redis client is not connected")
-            return {}
-
         try:
             counter_key = f"completed:{job_id}"
             current_count = self.client.get(counter_key)
             current_count = int(current_count) if current_count else 0
-
+            
             return {
                 'job_id': job_id,
                 'completed_chapters': current_count,
@@ -534,7 +441,7 @@ class RedisConsumer:
                 'is_completed': current_count >= 5,
                 'progress_percentage': (current_count / 5) * 100
             }
-
+            
         except Exception as e:
             logger.error(f"Failed to get completion status for job {job_id}: {e}")
             return {}

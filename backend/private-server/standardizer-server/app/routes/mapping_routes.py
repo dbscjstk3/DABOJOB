@@ -21,13 +21,20 @@ mapping_service = CompanyMappingService()
 
 
 # Pydantic 모델
-class MappingVerifyRequest(BaseModel):
-    """매핑 검증 요청 모델"""
-    mapping_id: int
-    is_correct: bool
-    verified_by: str
+class AdminMappingUpdateRequest(BaseModel):
+    """관리자 매핑 수정 요청"""
+    dart_corp_code: Optional[str] = None
+    dart_corp_name: Optional[str] = None
+    dart_stock_code: Optional[str] = None
     notes: Optional[str] = None
 
+class AdminManualMappingRequest(BaseModel):
+    """관리자 수동 매핑 생성 요청"""
+    company_id: int
+    dart_corp_code: str
+    dart_corp_name: str
+    dart_stock_code: Optional[str] = None
+    notes: Optional[str] = None
 
 class BatchMappingRequest(BaseModel):
     """배치 매핑 요청 모델"""
@@ -61,11 +68,23 @@ class MappingStatsResponse(BaseModel):
 
 
 @router.get("/stats", response_model=MappingStatsResponse)
-async def get_mapping_stats(db: Session = Depends(get_db)):
-    """매핑 통계 조회"""
+async def get_mapping_stats(
+    year: int = Query(default=None, description="연도 (예: 2025)"),
+    month: int = Query(default=None, ge=1, le=12, description="월 (1-12)"),
+    db: Session = Depends(get_db)
+):
+    """매핑 통계 조회 (월별 필터링 가능)"""
     try:
-        stats = mapping_service.get_mapping_stats(db)
-        return MappingStatsResponse(**stats)
+        stats = mapping_service.get_mapping_stats(db, year=year, month=month)
+        result = MappingStatsResponse(**stats)
+
+        # 월별 조회인 경우 year, month 정보 추가
+        if year and month:
+            result_dict = result.dict()
+            result_dict.update({"year": year, "month": month})
+            return result_dict
+
+        return result
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -99,7 +118,7 @@ async def get_pending_mappings(
     limit: int = Query(default=50, ge=1, le=200),
     db: Session = Depends(get_db)
 ):
-    """검증 대기 중인 매핑 목록 조회"""
+    """검증 대기 중인 매핑 목록 조회 (suggested + failed 상태)"""
     try:
         mappings = mapping_service.get_pending_mappings(db, limit)
 
@@ -150,34 +169,6 @@ async def start_auto_mapping(
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@router.post("/verify")
-async def verify_mapping(
-    request: MappingVerifyRequest,
-    db: Session = Depends(get_db)
-):
-    """매핑 결과 수동 검증"""
-    try:
-        success = mapping_service.verify_mapping(
-            db=db,
-            mapping_id=request.mapping_id,
-            verified_by=request.verified_by,
-            is_correct=request.is_correct,
-            notes=request.notes
-        )
-
-        if success:
-            return {
-                "status": "success",
-                "message": "매핑이 성공적으로 검증되었습니다.",
-                "mapping_id": request.mapping_id
-            }
-        else:
-            raise HTTPException(status_code=404, detail="매핑을 찾을 수 없습니다.")
-
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
 
 
 @router.get("/mapping/{mapping_id}")
@@ -218,56 +209,215 @@ async def get_mapping_detail(
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@router.post("/manual-map")
+# ====== 관리자 전용 API ======
+
+@router.get("/admin/dashboard")
+async def get_admin_dashboard(db: Session = Depends(get_db)):
+    """관리자 대시보드 - 전체 매핑 현황"""
+    try:
+        stats = mapping_service.get_mapping_stats(db)
+
+        # 대기 중인 매핑들 (확인 필요 + 수동 입력 필요)
+        pending_review = db.query(CompanyDartMapping).filter(
+            CompanyDartMapping.mapping_status == MappingStatus.suggested
+        ).count()
+
+        pending_manual = db.query(CompanyDartMapping).filter(
+            CompanyDartMapping.mapping_status == MappingStatus.failed
+        ).count()
+
+        return {
+            "overview": {
+                "total_companies": stats.get("total_companies", 0),
+                "auto_processed": stats.get("verified", 0),  # 95% 이상
+                "needs_review": pending_review,              # 80-94%
+                "needs_manual": pending_manual,              # 80% 미만
+                "unmapped": stats.get("unmapped", 0)
+            },
+            "detailed_stats": stats
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/admin/pending-review")
+async def get_pending_review_mappings(
+    limit: int = Query(default=50, ge=1, le=200),
+    db: Session = Depends(get_db)
+):
+    """확인 필요한 매핑들 (80-94% 신뢰도)"""
+    try:
+        mappings = db.query(CompanyDartMapping).filter(
+            CompanyDartMapping.mapping_status == MappingStatus.suggested,
+            CompanyDartMapping.confidence_score >= 80,
+            CompanyDartMapping.confidence_score < 95
+        ).order_by(CompanyDartMapping.confidence_score.desc()).limit(limit).all()
+
+        return [
+            {
+                "mapping_id": mapping.mapping_id,
+                "company_id": mapping.company_id,
+                "crawled_company_name": mapping.crawled_company_name,
+                "suggested_dart_name": mapping.dart_corp_name,
+                "suggested_dart_code": mapping.dart_corp_code,
+                "confidence_score": mapping.confidence_score,
+                "created_at": mapping.created_at,
+                "type": "review_needed"
+            }
+            for mapping in mappings
+        ]
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/admin/pending-manual")
+async def get_pending_manual_mappings(
+    limit: int = Query(default=50, ge=1, le=200),
+    db: Session = Depends(get_db)
+):
+    """수동 입력 필요한 매핑들 (80% 미만 또는 실패)"""
+    try:
+        mappings = db.query(CompanyDartMapping).filter(
+            CompanyDartMapping.mapping_status == MappingStatus.failed
+        ).order_by(CompanyDartMapping.created_at.desc()).limit(limit).all()
+
+        return [
+            {
+                "mapping_id": mapping.mapping_id,
+                "company_id": mapping.company_id,
+                "crawled_company_name": mapping.crawled_company_name,
+                "company_url": mapping.crawled_company_url,
+                "suggested_dart_name": mapping.dart_corp_name or "null",
+                "confidence_score": mapping.confidence_score or 0,
+                "created_at": mapping.created_at,
+                "type": "manual_needed"
+            }
+            for mapping in mappings
+        ]
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/admin/approve/{mapping_id}")
+async def approve_mapping(mapping_id: int, db: Session = Depends(get_db)):
+    """확인 필요한 매핑 승인 (suggested → verified)"""
+    try:
+        mapping = db.query(CompanyDartMapping).filter(
+            CompanyDartMapping.mapping_id == mapping_id,
+            CompanyDartMapping.mapping_status == MappingStatus.suggested
+        ).first()
+
+        if not mapping:
+            raise HTTPException(status_code=404, detail="승인할 매핑을 찾을 수 없습니다.")
+
+        mapping.mapping_status = MappingStatus.verified
+        mapping.verified_at = datetime.utcnow()
+        mapping.verified_by = "admin_approval"
+
+        db.commit()
+
+        return {
+            "status": "success",
+            "message": "매핑이 승인되었습니다.",
+            "mapping_id": mapping_id
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.put("/admin/mapping/{mapping_id}")
+async def update_mapping(
+    mapping_id: int,
+    request: AdminMappingUpdateRequest,
+    db: Session = Depends(get_db)
+):
+    """매핑 수정 (suggested/failed → verified)"""
+    try:
+        mapping = db.query(CompanyDartMapping).filter(
+            CompanyDartMapping.mapping_id == mapping_id
+        ).first()
+
+        if not mapping:
+            raise HTTPException(status_code=404, detail="매핑을 찾을 수 없습니다.")
+
+        # 수정 사항 적용
+        if request.dart_corp_code:
+            mapping.dart_corp_code = request.dart_corp_code
+        if request.dart_corp_name:
+            mapping.dart_corp_name = request.dart_corp_name
+        if request.dart_stock_code:
+            mapping.dart_stock_code = request.dart_stock_code
+        if request.notes:
+            mapping.manual_notes = request.notes
+
+        # 수정되면 자동으로 verified 상태로
+        mapping.mapping_status = MappingStatus.verified
+        mapping.confidence_score = 100  # 관리자 수정은 100% 신뢰도
+        mapping.verified_at = datetime.utcnow()
+        mapping.verified_by = "admin_manual"
+
+        db.commit()
+
+        return {
+            "status": "success",
+            "message": "매핑이 수정되었습니다.",
+            "mapping_id": mapping_id
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/admin/manual-mapping")
 async def create_manual_mapping(
-    company_id: int,
-    dart_corp_code: Optional[str] = None,
-    dart_corp_name: Optional[str] = None,
-    dart_stock_code: Optional[str] = None,
-    verified_by: str = "manual",
-    notes: Optional[str] = None,
+    request: AdminManualMappingRequest,
     db: Session = Depends(get_db)
 ):
     """수동 매핑 생성"""
     try:
         # 회사 존재 확인
-        company = db.query(Company)\
-            .filter(Company.company_id == company_id)\
-            .first()
+        company = db.query(Company).filter(
+            Company.company_id == request.company_id
+        ).first()
 
         if not company:
             raise HTTPException(status_code=404, detail="회사를 찾을 수 없습니다.")
 
         # 기존 매핑 확인
-        existing = db.query(CompanyDartMapping)\
-            .filter(CompanyDartMapping.company_id == company_id)\
-            .first()
+        existing = db.query(CompanyDartMapping).filter(
+            CompanyDartMapping.company_id == request.company_id
+        ).first()
 
         if existing:
             # 기존 매핑 업데이트
-            existing.dart_corp_code = dart_corp_code
-            existing.dart_corp_name = dart_corp_name
-            existing.dart_stock_code = dart_stock_code
+            existing.dart_corp_code = request.dart_corp_code
+            existing.dart_corp_name = request.dart_corp_name
+            existing.dart_stock_code = request.dart_stock_code
             existing.mapping_status = MappingStatus.verified
-            existing.confidence_score = 100  # 수동 매핑은 100% 신뢰도
+            existing.confidence_score = 100
             existing.verified_at = datetime.utcnow()
-            existing.verified_by = verified_by
-            existing.manual_notes = notes
+            existing.verified_by = "admin_manual"
+            existing.manual_notes = request.notes
             mapping = existing
         else:
             # 새 매핑 생성
             mapping = CompanyDartMapping(
-                company_id=company_id,
+                company_id=request.company_id,
                 crawled_company_name=company.company_name,
                 crawled_company_url=company.company_url,
-                dart_corp_code=dart_corp_code,
-                dart_corp_name=dart_corp_name,
-                dart_stock_code=dart_stock_code,
+                dart_corp_code=request.dart_corp_code,
+                dart_corp_name=request.dart_corp_name,
+                dart_stock_code=request.dart_stock_code,
                 mapping_status=MappingStatus.verified,
                 confidence_score=100,
                 verified_at=datetime.utcnow(),
-                verified_by=verified_by,
-                manual_notes=notes
+                verified_by="admin_manual",
+                manual_notes=request.notes
             )
             db.add(mapping)
 
@@ -278,7 +428,6 @@ async def create_manual_mapping(
             "message": "수동 매핑이 생성되었습니다.",
             "mapping_id": mapping.mapping_id
         }
-
     except HTTPException:
         raise
     except Exception as e:
@@ -286,12 +435,28 @@ async def create_manual_mapping(
         raise HTTPException(status_code=500, detail=str(e))
 
 
-# 불필요한 API들 주석 처리 - 핵심 파이프라인에 불필요
+@router.delete("/admin/mapping/{mapping_id}")
+async def delete_mapping(mapping_id: int, db: Session = Depends(get_db)):
+    """매핑 삭제"""
+    try:
+        mapping = db.query(CompanyDartMapping).filter(
+            CompanyDartMapping.mapping_id == mapping_id
+        ).first()
 
-# @router.delete("/mapping/{mapping_id}")
-# async def delete_mapping(mapping_id: int, db: Session = Depends(get_db)):
-#     """매핑 삭제 (유지보수용)"""
-#     pass
+        if not mapping:
+            raise HTTPException(status_code=404, detail="매핑을 찾을 수 없습니다.")
+
+        db.delete(mapping)
+        db.commit()
+
+        return {
+            "status": "success",
+            "message": "매핑이 삭제되었습니다.",
+            "mapping_id": mapping_id
+        }
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 @router.get("/verified-companies")

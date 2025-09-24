@@ -1,6 +1,7 @@
 from sqlalchemy import create_engine
 from sqlalchemy.orm import declarative_base, sessionmaker, Session
 import os
+import redis
 from typing import Generator
 
 # 데이터베이스 URL 설정 (환경변수에서 읽기)
@@ -60,6 +61,24 @@ def init_db():
     # 모든 테이블 생성
     Base.metadata.create_all(bind=engine)
     print("Database tables created successfully")
+
+
+def get_redis_client():
+    """Redis 클라이언트 생성"""
+    redis_host = os.getenv('REDIS_HOST', 'redis')
+    redis_port = int(os.getenv('REDIS_PORT', '6379'))
+
+    try:
+        client = redis.Redis(
+            host=redis_host,
+            port=redis_port,
+            decode_responses=True
+        )
+        client.ping()  # 연결 테스트
+        return client
+    except Exception as e:
+        print(f"Failed to connect to Redis: {e}")
+        return None
 
 
 def drop_all_tables():
