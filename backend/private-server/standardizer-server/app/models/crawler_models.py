@@ -185,7 +185,7 @@ class CompanyDartMapping(Base):
     # DART 매핑 정보
     dart_corp_code = Column(String(8))      # DART 고유 기업 코드
     dart_corp_name = Column(String(255))    # DART 기업명 (정식명칭)
-    dart_stock_code = Column(String(6))     # 주식 종목 코드
+    dart_stock_code = Column(String(10))    # 주식 종목 코드 (A123456 형태)
 
     # 매핑 메타데이터
     mapping_status = Column(Enum(MappingStatus), default=MappingStatus.pending)
