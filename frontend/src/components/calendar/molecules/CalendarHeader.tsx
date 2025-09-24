@@ -1,28 +1,61 @@
 import React, { useState, useRef, useEffect } from 'react';
+import { useNavigate } from '@tanstack/react-router';
 import { IconButton } from '../../common/atoms/IconButton';
 import { Typography } from '../../common/atoms/Typography';
 import { ChevronDown } from 'lucide-react';
 import { cn } from '../../../lib/utils';
-
-// 실시간 인기 옵션
-const popularOptions = [
-  { value: '1', label: '1위 - 삼성전자' },
-  { value: '2', label: '2위 - 네이버' },
-  { value: '3', label: '3위 - 카카오' },
-  { value: '4', label: '4위 - LG전자' },
-  { value: '5', label: '5위 - 현대자동차' },
-  { value: '6', label: '6위 - SK하이닉스' },
-  { value: '7', label: '7위 - 쿠팡' },
-  { value: '8', label: '8위 - 토스' },
-  { value: '9', label: '9위 - 배달의민족' },
-  { value: '10', label: '10위 - 당근마켓' },
-];
+import { fetchHotJobPostings } from '../../../lib/api';
+import type { JobPostingResponse } from '../../../lib/api';
 
 // 실시간 인기 드롭다운 컴포넌트
 const PopularDropdown: React.FC = () => {
+  const navigate = useNavigate();
   const [isOpen, setIsOpen] = useState(false);
   const [currentIndex, setCurrentIndex] = useState(0);
+  const [hotJobPostings, setHotJobPostings] = useState<JobPostingResponse[]>([]);
+  const [loading, setLoading] = useState(true);
   const dropdownRef = useRef<HTMLDivElement>(null);
+
+  // 인기 공고 데이터 가져오기
+  useEffect(() => {
+    const fetchHotData = async () => {
+      try {
+        setLoading(true);
+        const hotJobPostingIds = await fetchHotJobPostings();
+
+        // 각 jobPostingId에 대해 상세 정보 가져오기
+        const jobPostingPromises = hotJobPostingIds.map(async (jobPostingId) => {
+          try {
+            const response = await fetch(`/api/job-postings/${jobPostingId}`, {
+              method: 'GET',
+              credentials: 'include',
+              headers: {
+                'Content-Type': 'application/json',
+              },
+            });
+            if (response.ok) {
+              return await response.json();
+            }
+            return null;
+          } catch (error) {
+            console.error(`Failed to fetch job posting ${jobPostingId}:`, error);
+            return null;
+          }
+        });
+
+        const jobPostings = (await Promise.all(jobPostingPromises)).filter(Boolean);
+        setHotJobPostings(jobPostings);
+      } catch (error) {
+        console.error('Failed to fetch hot job postings:', error);
+        // 에러 시 기본 데이터 사용
+        setHotJobPostings([]);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchHotData();
+  }, []);
 
   // 외부 클릭 시 드롭다운 닫기
   useEffect(() => {
@@ -38,20 +71,28 @@ const PopularDropdown: React.FC = () => {
 
   // 자동 순환 기능
   useEffect(() => {
+    if (hotJobPostings.length === 0) return;
+
     const interval = setInterval(() => {
-      setCurrentIndex((prevIndex) => (prevIndex + 1) % popularOptions.length);
+      setCurrentIndex((prevIndex) => (prevIndex + 1) % hotJobPostings.length);
     }, 3000); // 3초마다 변경
 
     return () => clearInterval(interval);
-  }, []);
+  }, [hotJobPostings.length]);
 
-  const handleRankSelect = (rank: string) => {
-    setCurrentIndex(parseInt(rank) - 1);
+  // 인기 공고 클릭 핸들러
+  const handleHotJobPostingClick = (jobPosting: JobPostingResponse) => {
+    navigate({
+      to: '/calendar/$id',
+      params: { id: jobPosting.companyId.toString() },
+      search: { jobPostingId: jobPosting.jobPostingId.toString() },
+    });
     setIsOpen(false);
   };
 
-  const getCurrentOption = () => {
-    return popularOptions[currentIndex];
+  const getCurrentJobPosting = () => {
+    if (hotJobPostings.length === 0) return null;
+    return hotJobPostings[currentIndex];
   };
 
   return (
@@ -63,7 +104,7 @@ const PopularDropdown: React.FC = () => {
       >
         <span className="font-semibold text-xs md:text-base">실시간 인기</span>
         <span className="text-gray-500 text-xs md:text-sm hidden sm:inline transition-opacity duration-500 w-20 text-center">
-          {getCurrentOption()?.label.split(' - ')[1] || '삼성전자'}
+          {loading ? '로딩중...' : getCurrentJobPosting()?.companyName || '인기 공고'}
         </span>
         <ChevronDown
           className={cn(
@@ -76,22 +117,35 @@ const PopularDropdown: React.FC = () => {
       {isOpen && (
         <div className="absolute top-full right-0 mt-2 bg-white border border-gray-200 rounded-lg shadow-lg z-50 w-48 md:w-56 max-h-60 overflow-y-auto">
           <div className="py-1 md:py-2">
-            {popularOptions.map((option) => (
-              <div
-                key={option.value}
-                onClick={() => handleRankSelect(option.value)}
-                className="px-3 py-2 md:px-4 md:py-3 text-xs md:text-sm hover:bg-gray-100 cursor-pointer transition-colors"
-              >
-                <div className="flex items-center gap-2 md:gap-3">
-                  <span className="font-bold text-red-500 w-6 md:w-8 text-sm md:text-base">
-                    {option.value}위
-                  </span>
-                  <span className="text-gray-700 text-sm md:text-base">
-                    {option.label.split(' - ')[1]}
-                  </span>
-                </div>
+            {loading ? (
+              <div className="px-3 py-2 md:px-4 md:py-3 text-xs md:text-sm text-gray-500 text-center">
+                로딩중...
               </div>
-            ))}
+            ) : hotJobPostings.length === 0 ? (
+              <div className="px-3 py-2 md:px-4 md:py-3 text-xs md:text-sm text-gray-500 text-center">
+                인기 공고가 없습니다
+              </div>
+            ) : (
+              hotJobPostings.map((jobPosting, index) => (
+                <div
+                  key={jobPosting.jobPostingId}
+                  onClick={() => handleHotJobPostingClick(jobPosting)}
+                  className="px-3 py-2 md:px-4 md:py-3 text-xs md:text-sm hover:bg-gray-100 cursor-pointer transition-colors"
+                >
+                  <div className="flex items-center gap-2 md:gap-3">
+                    <span className="font-bold text-red-500 w-6 md:w-8 text-sm md:text-base">
+                      {index + 1}위
+                    </span>
+                    <div className="flex-1 min-w-0">
+                      <div className="text-gray-700 text-sm md:text-base font-medium truncate">
+                        {jobPosting.companyName}
+                      </div>
+                      <div className="text-gray-500 text-xs truncate">{jobPosting.title}</div>
+                    </div>
+                  </div>
+                </div>
+              ))
+            )}
           </div>
         </div>
       )}
