@@ -325,38 +325,48 @@ class DartDocumentExtractor:
             
             # 대제목 패턴: "1.", "2.", "3." 형태로 시작하는 제목들
             major_section_pattern = r'^[\s]*([0-9]+\.\s+[가-힣].+)$'
-            
+
             subsections = {}
             lines = business_text.split('\n')
             current_title = None
             current_content = []
-            
+
             logger.info(f"Processing {len(lines):,} lines for subsection extraction")
-            
+
             last_section_number = 0
-            
+            found_first_section = False  # "1. 사업의 개요"를 찾았는지 여부
+
             for i, line in enumerate(lines):
                 try:
                     line = line.strip()
                     if not line:
                         continue
-                    
+
                     # 대제목 패턴 확인 (1. 사업의 개요, 2. 주요 제품 및 서비스 등)
                     match = re.match(major_section_pattern, line)
                     if match:
                         title_candidate = match.group(1).strip()
-                        
+
                         # 섹션 번호 추출
                         section_number_match = re.match(r'^(\d+)\.', title_candidate)
                         if section_number_match:
                             section_number = int(section_number_match.group(1))
-                            
-                            # 순차적 증가 확인: 이전 번호보다 1 증가하거나 첫 번째 섹션(1번)
-                            if section_number == 1 or section_number == last_section_number + 1:
+
+                            # 첫 번째 섹션 "1. 사업의 개요"를 찾는 경우
+                            if not found_first_section and section_number == 1 and '사업의 개요' in title_candidate:
+                                found_first_section = True
+                                current_title = title_candidate
+                                current_content = []
+                                last_section_number = 1
+                                logger.info(f"Found first major section: {title_candidate}")
+                                continue
+
+                            # "1. 사업의 개요"를 찾은 후, 순차적으로 증가하는 번호만 섹션으로 인정
+                            elif found_first_section and section_number == last_section_number + 1:
                                 # 이전 소제목의 내용 저장
                                 if current_title and current_content:
                                     subsections[current_title] = '\n'.join(current_content).strip()
-                                
+
                                 # 새 소제목 설정
                                 current_title = title_candidate
                                 current_content = []
@@ -364,8 +374,11 @@ class DartDocumentExtractor:
                                 logger.info(f"Found major section #{len(subsections)+1}: {title_candidate}")
                                 continue
                             else:
-                                # 순차적이지 않은 번호는 무시 (법조항 등)
-                                logger.debug(f"Skipping non-sequential section: {title_candidate} (expected: {last_section_number + 1}, got: {section_number})")
+                                # 첫 섹션을 못 찾았거나 순차적이지 않은 번호는 무시
+                                if not found_first_section:
+                                    logger.debug(f"Skipping numbered item before '1. 사업의 개요': {title_candidate}")
+                                else:
+                                    logger.debug(f"Skipping non-sequential section: {title_candidate} (expected: {last_section_number + 1}, got: {section_number})")
                         else:
                             # 번호를 추출할 수 없는 경우도 무시
                             logger.debug(f"Skipping section without clear number: {title_candidate}")
