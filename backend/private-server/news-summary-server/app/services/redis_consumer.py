@@ -137,6 +137,29 @@ class RedisConsumer:
 
             logger.info(f"Processing hashtags for job {job_id}, chapter {chapter}: {hashtags}")
 
+            # 재요약 여부 확인 및 처리
+            is_reprocessing = await database.is_reprocessing_job(job_id)
+            if is_reprocessing:
+                logger.info(f"Reprocessing detected for job {job_id}, chapter {chapter}")
+
+                # 상태를 reprocessing으로 변경
+                await database.update_job_processing_status(job_id, "reprocessing")
+
+                # 해당 챕터의 기존 데이터 클린업
+                await database.cleanup_job_chapter_data(job_id, chapter)
+
+                # Redis counter 초기화
+                counter_key = f"completed:{job_id}"
+                if self.client:
+                    self.client.delete(counter_key)
+                    logger.info(f"Reset Redis counter for reprocessing job {job_id}")
+            else:
+                # 새로운 job인 경우 job_processing 레코드 생성
+                try:
+                    await database.create_job_processing(job_id)
+                except Exception as e:
+                    logger.warning(f"Could not create job_processing record for job {job_id}: {e}")
+
             # job_id로 company_name 조회
             company_name = await self._get_company_name(job_id)
             logger.info(f"Found company_name for job {job_id}: {company_name or 'None - will search without company filter'}")
@@ -320,23 +343,25 @@ class RedisConsumer:
 
         logger.info(f"Job {job_id} progress: {current_count}/5")
 
-        # 5개 챕터 모두 완료 시 기업 분석 데이터 처리 및 S3 업로드
+        # 5개 챕터 모두 완료 시 기업 분석 데이터 처리 및 상태를 completed로 업데이트
         if current_count >= 5:
-            logger.info(f"All chapters completed for job {job_id}, processing company analysis and S3 upload")
+            logger.info(f"All chapters completed for job {job_id}, processing company analysis and updating status to completed")
 
             # 기업 분석 데이터 처리
             await company_processor.process_hashtag_completion(job_id, 'all', [])
 
-            # S3에 자동 업로드
+            # job_processing 상태를 completed로 업데이트 (S3 업로드는 관리자 승인 후)
+            # 재요약의 경우 reprocessing에서 completed로 변경
             try:
-                from .s3_service import s3_service
-                uploaded_files = await s3_service.upload_job_completion_data(job_id)
-                if uploaded_files:
-                    logger.info(f"Successfully uploaded {len(uploaded_files)} files to S3 for job {job_id}: {list(uploaded_files.keys())}")
+                current_status = await database.get_job_processing_status(job_id)
+                if current_status == "reprocessing":
+                    await database.update_job_processing_status(job_id, 'completed')
+                    logger.info(f"Updated reprocessing job {job_id} status to completed - waiting for admin approval")
                 else:
-                    logger.warning(f"No files were uploaded to S3 for job {job_id}")
+                    await database.update_job_processing_status(job_id, 'completed')
+                    logger.info(f"Updated job {job_id} status to completed - waiting for admin approval")
             except Exception as e:
-                logger.error(f"Failed to upload job completion data to S3 for job {job_id}: {e}")
+                logger.error(f"Failed to update job processing status for job {job_id}: {e}")
 
             # Counter 삭제 (선택사항)
             self.client.delete(counter_key)
