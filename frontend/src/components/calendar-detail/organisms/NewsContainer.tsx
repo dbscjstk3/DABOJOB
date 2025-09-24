@@ -97,7 +97,12 @@ export default function NewsContainer({
           >
             ‹
           </IconButton>
-          <Typography variant="subtitle" weight="bold" align="center">
+          <Typography
+            variant="subtitle"
+            weight="bold"
+            align="center"
+            className="text-md md:text-lg"
+          >
             {filterTag ? `# ${filterTag} 관련 뉴스` : '관련 뉴스'}
           </Typography>
           <IconButton

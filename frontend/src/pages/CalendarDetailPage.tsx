@@ -171,9 +171,44 @@ export default function CalendarDetailPage() {
       {/* 채용공고 섹션 */}
       {jobData && (
         <div className="rounded-xl border border-slate-200 bg-white p-4 md:p-6">
-          <div className="flex flex-col md:flex-row md:justify-between gap-3">
-            <div className="flex items-center justify-center md:justify-start gap-4">
-              {/* 상태 */}
+          {/* 모바일: 3줄 구조 */}
+          <div className="flex flex-col gap-2 md:hidden">
+            {/* 첫 줄: 상태, 마감일 */}
+            <div className="flex items-center gap-3">
+              <Typography
+                variant="default"
+                weight="semibold"
+                className={cn(
+                  'text-sm',
+                  getJobStatus() === 'recruiting' ? 'text-daboja-default' : 'text-red-600',
+                )}
+              >
+                {getJobStatus() === 'recruiting' ? '시작' : '마감'}
+              </Typography>
+              <Typography variant="default" color="gray" weight="medium" className="text-sm">
+                {formatDeadline(jobData.deadlineDate)}
+              </Typography>
+            </div>
+
+            {/* 둘째 줄: 공고명 */}
+            <Typography variant="subtitle" weight="bold" className="text-base">
+              {jobData.title}
+            </Typography>
+
+            {/* 셋째 줄: 버튼 */}
+            <Button
+              size="md"
+              className="w-full"
+              onClick={() => window.open(jobData.url, '_blank')}
+              endIcon={<SquareArrowOutUpRight className="h-4 w-4" />}
+            >
+              지원공고 보러가기
+            </Button>
+          </div>
+
+          {/* 데스크톱: 기존 1줄 구조 유지 */}
+          <div className="hidden md:flex md:flex-row md:justify-between gap-3">
+            <div className="flex items-center gap-4">
               <Typography
                 variant="default"
                 weight="semibold"
@@ -184,29 +219,20 @@ export default function CalendarDetailPage() {
               >
                 {getJobStatus() === 'recruiting' ? '시작' : '마감'}
               </Typography>
-
-              {/* 마감일 */}
-              <Typography variant="default" color="gray" weight="medium">
+              <Typography variant="default" color="gray" weight="medium" className="text-base">
                 {formatDeadline(jobData.deadlineDate)}
               </Typography>
-
-              {/* 공고명 */}
-              <Typography variant="subtitle" weight="bold">
+              <Typography variant="subtitle" weight="bold" className="text-lg">
                 {jobData.title}
               </Typography>
             </div>
-
-            <div className="w-full md:w-auto md:flex md:justify-end">
-              {/* 버튼 */}
-              <Button
-                size="md"
-                className="w-full md:w-auto"
-                onClick={() => window.open(jobData.url, '_blank')}
-                endIcon={<SquareArrowOutUpRight className="h-4 w-4" />}
-              >
-                지원공고 보러가기
-              </Button>
-            </div>
+            <Button
+              size="md"
+              onClick={() => window.open(jobData.url, '_blank')}
+              endIcon={<SquareArrowOutUpRight className="h-4 w-4" />}
+            >
+              지원공고 보러가기
+            </Button>
           </div>
         </div>
       )}
