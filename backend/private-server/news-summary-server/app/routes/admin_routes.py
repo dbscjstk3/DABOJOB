@@ -297,3 +297,57 @@ async def get_admin_stats() -> Dict[str, Any]:
     except Exception as e:
         logger.error(f"Error getting admin stats: {e}")
         raise HTTPException(status_code=500, detail="Failed to get statistics")
+
+@router.get("/consumer/health")
+async def get_consumer_health() -> Dict[str, Any]:
+    """Redis Consumer 건강 상태 조회"""
+    try:
+        # global consumer 인스턴스 가져오기
+        from ..main import redis_consumer
+
+        if redis_consumer is None:
+            return {"error": "Redis consumer not initialized"}
+
+        health_info = redis_consumer.get_consumer_health()
+        return health_info
+
+    except Exception as e:
+        logger.error(f"Error getting consumer health: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.post("/consumer/force-process-pending")
+async def force_process_pending(max_age_seconds: int = 300) -> Dict[str, Any]:
+    """오래된 pending 메시지 강제 처리"""
+    try:
+        from ..main import redis_consumer
+
+        if redis_consumer is None:
+            raise HTTPException(status_code=503, detail="Redis consumer not initialized")
+
+        processed_count = redis_consumer.force_process_pending(max_age_seconds)
+
+        return {
+            "processed_count": processed_count,
+            "max_age_seconds": max_age_seconds,
+            "message": f"Processed {processed_count} pending messages"
+        }
+
+    except Exception as e:
+        logger.error(f"Error force processing pending messages: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.get("/consumer/pending")
+async def get_pending_messages() -> Dict[str, Any]:
+    """Pending 메시지 정보 조회"""
+    try:
+        from ..main import redis_consumer
+
+        if redis_consumer is None:
+            raise HTTPException(status_code=503, detail="Redis consumer not initialized")
+
+        pending_info = redis_consumer.get_pending_messages()
+        return pending_info
+
+    except Exception as e:
+        logger.error(f"Error getting pending messages: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
