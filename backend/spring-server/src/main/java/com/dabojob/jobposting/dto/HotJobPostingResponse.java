@@ -8,6 +8,6 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 @AllArgsConstructor
 public class HotJobPostingResponse {
-    private String jobPostingId;
+    private Long jobPostingId;
     private String title;
 }

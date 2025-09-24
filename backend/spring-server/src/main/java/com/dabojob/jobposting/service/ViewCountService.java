@@ -6,7 +6,6 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Set;
-import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Qualifier;
@@ -35,11 +34,11 @@ public class ViewCountService {
     private static final Duration JOB_TITLES_TTL = Duration.ofDays(7); // 7일
 
     // 조회수 증가 (사용자별 1시간 중복 체크). 제목 정보도 함께 저장
-    public void incrementViewCount(String jobPostingId, String userId, String jobTitle) {
+    public void incrementViewCount(Long jobPostingId, String userId, String jobTitle) {
         try {
             // 입력 검증
-            if (jobPostingId == null || jobPostingId.trim().isEmpty()) {
-                log.debug("Empty job posting ID provided");
+            if (jobPostingId == null) {
+                log.debug("Null job posting ID provided");
                 return;
             }
             if (userId == null || userId.trim().isEmpty()) {
@@ -51,18 +50,18 @@ public class ViewCountService {
                 return;
             }
 
-            String cleanJobId = jobPostingId.trim();
+            String jobIdStr = String.valueOf(jobPostingId);
             String cleanUserId = userId.trim();
             String cleanJobTitle = jobTitle.trim();
 
-            String userViewKey = String.format(USER_VIEW_KEY, cleanUserId, cleanJobId);
-            String viewCountKey = String.format(VIEW_COUNT_KEY, cleanJobId);
+            String userViewKey = String.format(USER_VIEW_KEY, cleanUserId, jobIdStr);
+            String viewCountKey = String.format(VIEW_COUNT_KEY, jobIdStr);
 
             // 1시간 내 동일한 사용자의 조회 기록이 있는지 확인
             Boolean hasViewed = stringRedisTemplate.hasKey(userViewKey);
 
             if (hasViewed) {
-                log.debug("User {} already viewed job {} within 1 hour", cleanUserId, cleanJobId);
+                log.debug("User {} already viewed job {} within 1 hour", cleanUserId, jobIdStr);
                 return; // 이미 조회한 사용자
             }
 
@@ -78,15 +77,15 @@ public class ViewCountService {
             }
 
             // 제목 정보 Hash에 저장
-            stringRedisTemplate.opsForHash().put(JOB_TITLES_KEY, cleanJobId, cleanJobTitle);
+            stringRedisTemplate.opsForHash().put(JOB_TITLES_KEY, jobIdStr, cleanJobTitle);
             stringRedisTemplate.expire(JOB_TITLES_KEY, JOB_TITLES_TTL);
 
             // 인기 공고 점수 업데이트 (Sorted Set에 jobPostingId만 저장)
-            stringRedisTemplate.opsForZSet().incrementScore(HOT_JOBS_KEY, cleanJobId, 1.0);
+            stringRedisTemplate.opsForZSet().incrementScore(HOT_JOBS_KEY, jobIdStr, 1.0);
             stringRedisTemplate.expire(HOT_JOBS_KEY, VIEW_COUNT_TTL);
 
             log.debug("View count incremented for job {} by user {}. New count: {}",
-                    cleanJobId, cleanUserId, newCount);
+                    jobIdStr, cleanUserId, newCount);
 
         } catch (Exception e) {
             log.warn("Failed to increment view count for job {} by user {}: {}",
@@ -98,14 +97,21 @@ public class ViewCountService {
     public void incrementViewCount(String jobPostingId, String userId) {
         log.warn("incrementViewCount called without job title. Job ID: {}", jobPostingId);
         // 제목 없이 호출된 경우에는 조회수만 증가 (기존 로직 유지)
-        incrementViewCountWithoutTitle(jobPostingId, userId);
+        try{
+            Long parsedJobPostingId = Long.parseLong(jobPostingId);
+            incrementViewCountWithoutTitle(parsedJobPostingId, userId);
+        } catch (NumberFormatException e) {
+            log.warn("Invalid job posting ID. Job ID: {}", jobPostingId);
+            throw new IllegalArgumentException("Invalid job posting ID");
+        }
+
     }
 
     // 제목 없이 조회수만 증가하는 private 메서드
-    private void incrementViewCountWithoutTitle(String jobPostingId, String userId) {
+    private void incrementViewCountWithoutTitle(Long jobPostingId, String userId) {
         try {
-            if (jobPostingId == null || jobPostingId.trim().isEmpty()) {
-                log.debug("Empty job posting ID provided");
+            if (jobPostingId == null) {
+                log.debug("Null job posting ID provided");
                 return;
             }
             if (userId == null || userId.trim().isEmpty()) {
@@ -113,16 +119,16 @@ public class ViewCountService {
                 return;
             }
 
-            String cleanJobId = jobPostingId.trim();
+            String jobIdStr = String.valueOf(jobPostingId);
             String cleanUserId = userId.trim();
 
-            String userViewKey = String.format(USER_VIEW_KEY, cleanUserId, cleanJobId);
-            String viewCountKey = String.format(VIEW_COUNT_KEY, cleanJobId);
+            String userViewKey = String.format(USER_VIEW_KEY, cleanUserId, jobIdStr);
+            String viewCountKey = String.format(VIEW_COUNT_KEY, jobIdStr);
 
             Boolean hasViewed = stringRedisTemplate.hasKey(userViewKey);
 
             if (hasViewed) {
-                log.debug("User {} already viewed job {} within 1 hour", cleanUserId, cleanJobId);
+                log.debug("User {} already viewed job {} within 1 hour", cleanUserId, jobIdStr);
                 return;
             }
 
@@ -134,7 +140,7 @@ public class ViewCountService {
                 stringRedisTemplate.expire(viewCountKey, VIEW_COUNT_TTL);
             }
 
-            stringRedisTemplate.opsForZSet().incrementScore(HOT_JOBS_KEY, cleanJobId, 1.0);
+            stringRedisTemplate.opsForZSet().incrementScore(HOT_JOBS_KEY, jobIdStr, 1.0);
             stringRedisTemplate.expire(HOT_JOBS_KEY, VIEW_COUNT_TTL);
 
         } catch (Exception e) {
@@ -144,9 +150,10 @@ public class ViewCountService {
     }
 
     // 특정 채용공고의 조회수 조회
-    public long getViewCount(String jobPostingId) {
+    public long getViewCount(Long jobPostingId) {
         try {
-            String viewCountKey = String.format(VIEW_COUNT_KEY, jobPostingId);
+            String jobIdStr = String.valueOf(jobPostingId);
+            String viewCountKey = String.format(VIEW_COUNT_KEY, jobIdStr);
             String countStr = stringRedisTemplate.opsForValue().get(viewCountKey);
 
             if (countStr == null) {
@@ -183,18 +190,24 @@ public class ViewCountService {
 
             // Hash에서 제목 정보 batch 조회
             List<Object> titles = stringRedisTemplate.opsForHash().multiGet(JOB_TITLES_KEY,
-                    jobIdList.stream().map(Object.class::cast).collect(Collectors.toList()));
+                    new ArrayList<Object>(jobIdList));
 
             // HotJobPostingResponse 객체 리스트로 변환
             List<HotJobPostingResponse> result = new ArrayList<>();
 
             for (int i = 0; i < jobIdList.size(); i++) {
-                String jobId = jobIdList.get(i);
+                String jobIdStr = jobIdList.get(i);
                 String title = (i < titles.size() && titles.get(i) != null)
                         ? titles.get(i).toString()
                         : "제목 없음";
 
-                result.add(new HotJobPostingResponse(jobId, title));
+                try {
+                    Long jobId = Long.valueOf(jobIdStr);
+                    result.add(new HotJobPostingResponse(jobId, title));
+                } catch (NumberFormatException e) {
+                    log.warn("Invalid job posting ID format: {}", jobIdStr, e);
+                    // 잘못된 ID 형식은 스킵
+                }
             }
 
             return result;
@@ -208,21 +221,20 @@ public class ViewCountService {
     }
 
     // 특정 채용공고의 제목 정보 업데이트
-    public void updateJobTitle(String jobPostingId, String newTitle) {
+    public void updateJobTitle(Long jobPostingId, String newTitle) {
         try {
-            if (jobPostingId == null || jobPostingId.trim().isEmpty() ||
-                    newTitle == null || newTitle.trim().isEmpty()) {
+            if (jobPostingId == null || newTitle == null || newTitle.trim().isEmpty()) {
                 log.debug("Invalid parameters for updating job title");
                 return;
             }
 
-            String cleanJobId = jobPostingId.trim();
+            String jobIdStr = String.valueOf(jobPostingId);
             String cleanTitle = newTitle.trim();
 
             // Hash에서 제목 정보 업데이트
-            stringRedisTemplate.opsForHash().put(JOB_TITLES_KEY, cleanJobId, cleanTitle);
+            stringRedisTemplate.opsForHash().put(JOB_TITLES_KEY, jobIdStr, cleanTitle);
 
-            log.debug("Updated title for job {}: {}", cleanJobId, cleanTitle);
+            log.debug("Updated title for job {}: {}", jobIdStr, cleanTitle);
 
         } catch (Exception e) {
             log.error("Failed to update job title for job {}", jobPostingId, e);
@@ -230,9 +242,10 @@ public class ViewCountService {
     }
 
     // 사용자가 특정 공고를 조회했는지 확인
-    public boolean hasUserViewedRecently(String jobPostingId, String userId) {
+    public boolean hasUserViewedRecently(Long jobPostingId, String userId) {
         try {
-            String userViewKey = String.format(USER_VIEW_KEY, userId, jobPostingId);
+            String jobIdStr = String.valueOf(jobPostingId);
+            String userViewKey = String.format(USER_VIEW_KEY, userId, jobIdStr);
             return stringRedisTemplate.hasKey(userViewKey);
 
         } catch (Exception e) {
@@ -242,16 +255,17 @@ public class ViewCountService {
     }
 
     // 특정 채용공고의 모든 조회 데이터 삭제 (관리자용)
-    public void clearViewData(String jobPostingId) {
+    public void clearViewData(Long jobPostingId) {
         try {
-            String viewCountKey = String.format(VIEW_COUNT_KEY, jobPostingId);
+            String jobIdStr = String.valueOf(jobPostingId);
+            String viewCountKey = String.format(VIEW_COUNT_KEY, jobIdStr);
 
             // 조회수 삭제
             stringRedisTemplate.delete(viewCountKey);
-            stringRedisTemplate.opsForZSet().remove(HOT_JOBS_KEY, jobPostingId);
-            stringRedisTemplate.opsForHash().delete(JOB_TITLES_KEY, jobPostingId);
+            stringRedisTemplate.opsForZSet().remove(HOT_JOBS_KEY, jobIdStr);
+            stringRedisTemplate.opsForHash().delete(JOB_TITLES_KEY, jobIdStr);
 
-            log.info("Cleared view data for job {}", jobPostingId);
+            log.info("Cleared view data for job {}", jobIdStr);
 
         } catch (Exception e) {
             log.error("Failed to clear view data for job {}", jobPostingId, e);
