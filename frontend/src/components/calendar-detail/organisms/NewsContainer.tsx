@@ -84,7 +84,7 @@ export default function NewsContainer({
   };
 
   return (
-    <article className={cn('rounded-xl border border-slate-200 bg-white p-4 md:p-6', className)}>
+    <article className={cn('rounded-xl bg-slate-50 p-4 md:p-6', className)}>
       {/* 헤더 */}
       <div className="mb-5">
         <div className="flex items-center justify-center gap-2 md:gap-3">
@@ -127,7 +127,7 @@ export default function NewsContainer({
         </div>
       ) : (
         <div className="py-5 text-center">
-          <Typography variant="default" color="gray" className="text-center">
+          <Typography variant="default" color="gray" className="text-center mb-5">
             {filterTag ? `# ${filterTag} 관련 뉴스가 없습니다.😭` : '뉴스가 없습니다.'}
           </Typography>
         </div>
@@ -135,7 +135,7 @@ export default function NewsContainer({
 
       {/* 채용공고 검색 버튼 - 태그 선택 시에만 표시 */}
       {filterTag && (
-        <div className="text-center mt-5">
+        <div className="text-center">
           <Button variant="outlined" size="md" onClick={handleViewAll}>
             # {filterTag} 채용공고 검색하기
           </Button>
