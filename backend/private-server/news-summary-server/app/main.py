@@ -14,12 +14,16 @@ import threading
 
 from .utils import qwen_summarize
 from .services.redis_consumer import RedisConsumer
+from .routes.admin_routes import router as admin_router
 
 # 로깅 설정
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 app = FastAPI(title="news-summary-server")
+
+# 라우터 등록
+app.include_router(admin_router)
 
 # 환경변수에서 올바른 이름으로 가져오기
 OLLAMA_HOST = os.getenv('OLLAMA_HOST', 'ollama:11434')
