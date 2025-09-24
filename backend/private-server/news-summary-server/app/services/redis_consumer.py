@@ -301,14 +301,20 @@ class RedisConsumer:
     async def consume_async(self, max_messages: int = None):
         """
         비동기 방식으로 메시지 소비
-        
+
         Args:
             max_messages: 처리할 최대 메시지 수 (None이면 무한)
         """
         self.running = True
         processed_count = 0
+        pending_check_interval = 30  # 30초마다 pending 메시지 확인
+        last_pending_check = 0
+
         logger.info(f"Starting async consumer: {self.consumer_name}")
-        
+
+        # 시작할 때 pending 메시지 먼저 처리
+        await self._process_pending_messages()
+
         while self.running:
             try:
                 # 종료 조건 확인
@@ -316,7 +322,12 @@ class RedisConsumer:
                     logger.info(f"Processed {processed_count} messages, stopping")
                     break
 
-                # 디버그 로그 추가
+                # 주기적으로 pending 메시지 확인 및 처리
+                current_time = asyncio.get_event_loop().time()
+                if current_time - last_pending_check > pending_check_interval:
+                    await self._process_pending_messages()
+                    last_pending_check = current_time
+
                 logger.debug(f"Consumer {self.consumer_name} waiting for messages...")
 
                 # 메시지 읽기 (블로킹, 타임아웃 1초)
@@ -329,31 +340,79 @@ class RedisConsumer:
                 )
 
                 logger.debug(f"Received {len(messages)} stream responses")
-                
+
                 if messages:
                     for stream_name, stream_messages in messages:
                         for message_id, data in stream_messages:
-                            try:
-                                success = await self.process_message(data)
-                                
-                                if success:
-                                    # 메시지 처리 완료 확인
-                                    self.client.xack(self.stream_key, self.consumer_group, message_id)
-                                    logger.debug(f"Acknowledged message: {message_id}")
-                                    processed_count += 1
-                                    
-                            except Exception as e:
-                                logger.error(f"Failed to process message {message_id}: {e}")
-                
+                            processed = await self._process_single_message(message_id, data)
+                            if processed:
+                                processed_count += 1
+
                 # CPU 사용률 조절
                 await asyncio.sleep(0.01)
-                
+
             except Exception as e:
                 logger.error(f"Consumer error: {e}")
                 await asyncio.sleep(1)
-        
+
         logger.info(f"Consumer stopped. Total messages processed: {processed_count}")
-    
+
+    async def _process_pending_messages(self):
+        """Pending 메시지들을 처리"""
+        try:
+            # Pending 메시지 조회 (오래된 것부터, 최대 10개)
+            pending_messages = self.client.xpending_range(
+                self.stream_key,
+                self.consumer_group,
+                min='-',
+                max='+',
+                count=10,
+                consumer=self.consumer_name
+            )
+
+            if pending_messages:
+                logger.info(f"Found {len(pending_messages)} pending messages to process")
+
+                for pending_msg in pending_messages:
+                    message_id = pending_msg['message_id']
+                    idle_time = pending_msg['time_since_delivered']
+
+                    # 10초 이상 pending된 메시지만 처리 (중복 처리 방지)
+                    if idle_time > 10000:  # 밀리초
+                        try:
+                            # 메시지 내용 조회
+                            message_data = self.client.xrange(self.stream_key, message_id, message_id)
+                            if message_data:
+                                _, data = message_data[0]
+                                await self._process_single_message(message_id, data)
+                        except Exception as e:
+                            logger.error(f"Failed to process pending message {message_id}: {e}")
+                            # 처리 실패한 pending 메시지는 ACK하여 제거
+                            self.client.xack(self.stream_key, self.consumer_group, message_id)
+
+        except Exception as e:
+            logger.error(f"Error processing pending messages: {e}")
+
+    async def _process_single_message(self, message_id: str, data: dict) -> bool:
+        """단일 메시지 처리"""
+        try:
+            success = await self.process_message(data)
+
+            if success:
+                # 메시지 처리 완료 확인
+                self.client.xack(self.stream_key, self.consumer_group, message_id)
+                logger.debug(f"Acknowledged message: {message_id}")
+                return True
+            else:
+                logger.warning(f"Message processing failed for {message_id}, will retry later")
+                return False
+
+        except Exception as e:
+            logger.error(f"Failed to process message {message_id}: {e}")
+            # 처리 실패한 메시지는 일정 시간 후 재시도하거나 ACK하여 제거할 수 있음
+            # 여기서는 로그만 남기고 pending 상태로 유지하여 나중에 재시도
+            return False
+
     def start_background_consumer(self):
         """백그라운드 스레드에서 컨슈머 실행"""
         def run_consumer():
@@ -422,10 +481,10 @@ class RedisConsumer:
     def get_job_completion_status(self, job_id: int) -> Dict[str, Any]:
         """
         작업 완료 상태 조회
-        
+
         Args:
             job_id: 작업 ID
-            
+
         Returns:
             완료 상태 정보
         """
@@ -433,7 +492,7 @@ class RedisConsumer:
             counter_key = f"completed:{job_id}"
             current_count = self.client.get(counter_key)
             current_count = int(current_count) if current_count else 0
-            
+
             return {
                 'job_id': job_id,
                 'completed_chapters': current_count,
@@ -441,10 +500,125 @@ class RedisConsumer:
                 'is_completed': current_count >= 5,
                 'progress_percentage': (current_count / 5) * 100
             }
-            
+
         except Exception as e:
             logger.error(f"Failed to get completion status for job {job_id}: {e}")
             return {}
+
+    def get_consumer_health(self) -> Dict[str, Any]:
+        """
+        Consumer 건강 상태 조회
+
+        Returns:
+            Consumer 건강 상태 정보
+        """
+        try:
+            # Pending 메시지 정보
+            pending_info = self.get_pending_messages()
+
+            # Stream 길이
+            stream_length = self.client.xlen(self.stream_key)
+
+            # Consumer group 정보
+            group_info = self.client.xinfo_groups(self.stream_key)
+            consumer_group_info = None
+
+            for group in group_info:
+                if group['name'] == self.consumer_group:
+                    consumer_group_info = group
+                    break
+
+            return {
+                'consumer_name': self.consumer_name,
+                'consumer_group': self.consumer_group,
+                'stream_key': self.stream_key,
+                'stream_length': stream_length,
+                'pending_messages': pending_info.get('total', 0),
+                'consumer_lag': consumer_group_info.get('lag', 0) if consumer_group_info else 0,
+                'is_running': self.running,
+                'redis_connected': self._is_redis_connected()
+            }
+
+        except Exception as e:
+            logger.error(f"Failed to get consumer health: {e}")
+            return {
+                'consumer_name': self.consumer_name,
+                'error': str(e),
+                'is_running': self.running,
+                'redis_connected': False
+            }
+
+    def _is_redis_connected(self) -> bool:
+        """Redis 연결 상태 확인"""
+        try:
+            self.client.ping()
+            return True
+        except Exception:
+            return False
+
+    def force_process_pending(self, max_age_seconds: int = 300) -> int:
+        """
+        강제로 오래된 pending 메시지들을 처리
+
+        Args:
+            max_age_seconds: 이 시간(초) 이상 pending된 메시지들을 강제 처리
+
+        Returns:
+            처리된 메시지 수
+        """
+        try:
+            max_age_ms = max_age_seconds * 1000
+            processed_count = 0
+
+            # 모든 consumer의 pending 메시지 조회
+            pending_messages = self.client.xpending_range(
+                self.stream_key,
+                self.consumer_group,
+                min='-',
+                max='+',
+                count=100
+            )
+
+            for pending_msg in pending_messages:
+                message_id = pending_msg['message_id']
+                idle_time = pending_msg['time_since_delivered']
+                consumer = pending_msg['consumer']
+
+                # 지정된 시간 이상 pending된 메시지 처리
+                if idle_time > max_age_ms:
+                    try:
+                        # 메시지를 현재 consumer로 claim
+                        claimed = self.client.xclaim(
+                            self.stream_key,
+                            self.consumer_group,
+                            self.consumer_name,
+                            0,  # min-idle-time
+                            message_id
+                        )
+
+                        if claimed:
+                            # 메시지 처리 시도
+                            _, data = claimed[0]
+                            success = asyncio.run(self.process_message(data))
+
+                            if success:
+                                self.client.xack(self.stream_key, self.consumer_group, message_id)
+                                processed_count += 1
+                                logger.info(f"Force processed pending message {message_id}")
+                            else:
+                                logger.warning(f"Failed to process claimed message {message_id}")
+
+                    except Exception as e:
+                        logger.error(f"Failed to claim/process message {message_id}: {e}")
+                        # 처리할 수 없는 메시지는 ACK하여 제거
+                        self.client.xack(self.stream_key, self.consumer_group, message_id)
+
+            logger.info(f"Force processed {processed_count} pending messages")
+            return processed_count
+
+        except Exception as e:
+            logger.error(f"Failed to force process pending messages: {e}")
+            return 0
     
     def cleanup(self):
         """리소스 정리"""
