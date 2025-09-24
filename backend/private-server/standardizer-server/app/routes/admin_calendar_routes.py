@@ -108,49 +108,66 @@ async def get_monthly_companies(
         raise HTTPException(status_code=500, detail=f"달력 조회 실패: {str(e)}")
 
 
-@router.get("/job-postings/{job_id}")
-async def get_job_posting_detail(
-    job_id: int,
+@router.get("/companies/{company_id}")
+async def get_company_detail(
+    company_id: int,
+    year: int = Query(..., description="연도 (예: 2025)"),
+    month: int = Query(..., ge=1, le=12, description="월 (1-12)"),
     db: Session = Depends(get_db)
 ):
-    """채용공고 상세 정보 조회 (매핑 정보 포함)"""
+    """회사별 상세 정보 조회 (특정 년/월 기준 매핑 정보 + 채용공고)"""
     try:
-        # 채용공고 기본 정보
-        job_posting = db.query(JobPosting).filter(JobPosting.job_id == job_id).first()
-        if not job_posting:
-            raise HTTPException(status_code=404, detail="채용공고를 찾을 수 없습니다")
-
         # 회사 정보
-        company = db.query(Company).filter(Company.company_id == job_posting.company_id).first()
+        company = db.query(Company).filter(Company.company_id == company_id).first()
         if not company:
             raise HTTPException(status_code=404, detail="회사 정보를 찾을 수 없습니다")
 
         # 매핑 정보
         mapping = db.query(CompanyDartMapping).filter(
-            CompanyDartMapping.company_id == company.company_id
+            CompanyDartMapping.company_id == company_id
         ).first()
+
+        # 해당 회사의 특정 년/월 채용공고만 조회
+        job_postings = db.query(JobPosting).filter(
+            JobPosting.company_id == company_id,
+            and_(
+                extract('year', JobPosting.posting_date) == year,
+                extract('month', JobPosting.posting_date) == month
+            )
+        ).order_by(JobPosting.posting_date.desc()).all()
+
+        # 해당 기간의 첫 번째/마지막 공고 날짜 계산
+        first_posting_date = None
+        last_posting_date = None
+        if job_postings:
+            posting_dates = [job.posting_date for job in job_postings if job.posting_date]
+            if posting_dates:
+                first_posting_date = min(posting_dates)
+                last_posting_date = max(posting_dates)
 
         # 응답 구성
         result = {
-            "job_posting": {
-                "job_id": job_posting.job_id,
-                "job_title": job_posting.saramin_job_title,
+            "company": {
+                "company_id": company.company_id,
                 "company_name": company.company_name,
                 "company_url": company.company_url,
-                "work_location": job_posting.work_location,
-                "salary_info": job_posting.salary_info,
-                "career_info": job_posting.career_info,
-                "education_requirement": job_posting.education_requirement,
-                "posting_date": job_posting.posting_date.isoformat() if job_posting.posting_date else None,
-                "application_deadline": job_posting.application_deadline.isoformat() if job_posting.application_deadline else None,
-                "job_url": job_posting.saramin_job_url,
-                "registration_info": job_posting.registration_info
+                "company_scale": company.company_scale,
+                "company_group": company.company_group if hasattr(company, 'company_group') else None,
+                "created_at": company.created_at.isoformat() if company.created_at else None
             },
-            "company_mapping": None
+            "mapping": None,
+            "period": {
+                "year": year,
+                "month": month,
+                "first_posting_date": first_posting_date.isoformat() if first_posting_date else None,
+                "last_posting_date": last_posting_date.isoformat() if last_posting_date else None
+            },
+            "job_postings": []
         }
 
+        # 매핑 정보 구성
         if mapping:
-            result["company_mapping"] = {
+            result["mapping"] = {
                 "mapping_id": mapping.mapping_id,
                 "mapping_status": mapping.mapping_status.value,
                 "dart_corp_name": mapping.dart_corp_name,
@@ -166,7 +183,7 @@ async def get_job_posting_detail(
             }
         else:
             # 매핑이 없는 경우 (pending)
-            result["company_mapping"] = {
+            result["mapping"] = {
                 "mapping_id": None,
                 "mapping_status": "pending",
                 "dart_corp_name": None,
@@ -181,12 +198,31 @@ async def get_job_posting_detail(
                 "can_remap": True
             }
 
+        # 채용공고 목록 구성
+        for job in job_postings:
+            result["job_postings"].append({
+                "job_id": job.job_id,
+                "job_title": job.saramin_job_title,
+                "work_location": job.work_location,
+                "salary_info": job.salary_info,
+                "career_info": job.career_info,
+                "education_requirement": job.education_requirement,
+                "posting_date": job.posting_date.isoformat() if job.posting_date else None,
+                "application_deadline": job.application_deadline.isoformat() if job.application_deadline else None,
+                "job_url": job.saramin_job_url,
+                "status": job.status.value if job.status else None,
+                "is_hot": job.is_hot,
+                "registration_info": job.registration_info
+            })
+
+        result["job_postings_count"] = len(job_postings)
+
         return result
 
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"상세 조회 실패: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"회사 상세 조회 실패: {str(e)}")
 
 
 @router.post("/companies/{company_id}/remap")
