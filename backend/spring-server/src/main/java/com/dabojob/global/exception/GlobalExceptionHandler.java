@@ -7,6 +7,9 @@ import java.time.LocalDateTime;
 import java.util.HashMap;
 import java.util.Map;
 import org.hibernate.TypeMismatchException;
+import org.springframework.data.redis.RedisConnectionFailureException;
+import org.springframework.data.redis.RedisSystemException;
+import org.springframework.data.redis.serializer.SerializationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.oauth2.core.OAuth2AuthenticationException;
@@ -18,6 +21,8 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 
 @RestControllerAdvice
 public class GlobalExceptionHandler {
+
+
 
     // 인증 인가 관련
     @ExceptionHandler(OAuth2AuthenticationException.class)
@@ -172,6 +177,41 @@ public class GlobalExceptionHandler {
 
         return ResponseEntity.badRequest().body(errorResponse);
     }
+
+    // Redis 관련
+    @ExceptionHandler(RedisServiceException.class)
+    public ResponseEntity<ErrorResponse> handleRedisServiceException(RedisServiceException e) {
+        ErrorResponse errorResponse = ErrorResponse.builder()
+                .message("Data service temporarily unavailable")
+                .code("REDIS_SERVICE_ERROR")
+                .timestamp(LocalDateTime.now())
+                .build();
+
+        return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE).body(errorResponse);
+    }
+
+    @ExceptionHandler(RedisConnectionFailureException.class)
+    public ResponseEntity<ErrorResponse> handleRedisConnectionException(Exception e) {
+        ErrorResponse errorResponse = ErrorResponse.builder()
+                .message("Data service connection failed")
+                .code("DATA_CONNECTION_ERROR")
+                .timestamp(LocalDateTime.now())
+                .build();
+
+        return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE).body(errorResponse);
+    }
+
+    @ExceptionHandler({RedisSystemException.class, SerializationException.class})
+    public ResponseEntity<ErrorResponse> handleRedisOperationException(Exception e) {
+        ErrorResponse errorResponse = ErrorResponse.builder()
+                .message("Data processing error")
+                .code("DATA_PROCESSING_ERROR")
+                .timestamp(LocalDateTime.now())
+                .build();
+
+        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(errorResponse);
+    }
+
 
     // 외부 서비스 관련
     @ExceptionHandler(AmazonS3Exception.class)
