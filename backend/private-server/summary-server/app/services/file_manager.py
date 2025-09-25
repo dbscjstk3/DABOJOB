@@ -19,13 +19,13 @@ class FileManager:
             base_data_path (str): 데이터 저장 기본 경로
         """
         self.base_data_path = Path(base_data_path)
-        self.data_root = self.base_data_path / "jobs"  # standardizer와 동일한 구조
+        self.data_root = self.base_data_path / "mapping"  # news 서버와 동일한 구조
         self.base_data_path.mkdir(parents=True, exist_ok=True)
         self.data_root.mkdir(parents=True, exist_ok=True)
     
     def get_job_path(self, job_id: str) -> Path:
         """job_id에 해당하는 디렉토리 경로 반환"""
-        return self.base_data_path / "jobs" / str(job_id)
+        return self.base_data_path / "mapping" / str(job_id)
     
     def _extract_mapping_id_from_job_id(self, job_id: str) -> int:
         """
@@ -49,7 +49,7 @@ class FileManager:
 
     def create_mapping_directory(self, mapping_id: int) -> Path:
         """
-        mapping_id 기반으로 standardizer와 동일한 디렉토리 구조 생성
+        mapping_id 기반으로 news 서버와 동일한 디렉토리 구조 생성
 
         Args:
             mapping_id (int): 매핑 ID
@@ -137,7 +137,7 @@ class FileManager:
             # job_id에서 mapping_id 추출 (summary_2_20250925_150658 -> 2)
             mapping_id = self._extract_mapping_id_from_job_id(job_id)
 
-            # standardizer와 동일한 경로 사용: /app/data/jobs/mapping_2/
+            # news 서버와 동일한 경로 사용: /app/data/mapping/mapping_2/
             job_path = self.create_mapping_directory(mapping_id)
             summaries_path = job_path / "summaries"
             
