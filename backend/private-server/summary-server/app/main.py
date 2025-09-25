@@ -10,6 +10,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from .routes import summary_routes
 from .routes import admin_resummary_routes
+from .routes import test_routes
 from .workers.summary_worker import SummaryWorker
 
 # 로깅 설정
@@ -106,6 +107,7 @@ def health_check() -> dict:
 # 라우터 등록
 app.include_router(summary_routes.router)
 app.include_router(admin_resummary_routes.router)
+app.include_router(test_routes.router)
 
 if __name__ == "__main__":
     import uvicorn

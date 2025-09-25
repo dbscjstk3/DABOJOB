@@ -1,0 +1,225 @@
+"""
+테스트용 DB 데이터 생성 API
+테스트를 위한 회사, 매핑 데이터를 DB에 생성
+"""
+import logging
+from datetime import datetime
+from fastapi import APIRouter, HTTPException, Depends
+from sqlalchemy.orm import Session
+from pydantic import BaseModel
+
+from ..database import get_db
+from ..models.crawler_models import Company, CompanyDartMapping, MappingStatus
+
+logger = logging.getLogger(__name__)
+router = APIRouter(prefix="/test", tags=["Test Data"])
+
+class TestDataRequest(BaseModel):
+    test_name: str = "테스트데이터생성"
+    mapping_id: int = 99999
+
+@router.post("/create-test-data")
+async def create_test_data(
+    request: TestDataRequest,
+    db: Session = Depends(get_db)
+):
+    """
+    🧪 테스트용 회사 + 매핑 데이터 생성
+    Summary 서버 테스트와 연동할 수 있는 DB 데이터 생성
+    """
+    try:
+        test_mapping_id = request.mapping_id
+        logger.info(f"🧪 테스트 데이터 생성 시작: mapping_id={test_mapping_id}")
+
+        # 1. 기존 데이터 정리 (같은 mapping_id가 있으면 삭제)
+        existing_mapping = db.query(CompanyDartMapping).filter(
+            CompanyDartMapping.mapping_id == test_mapping_id
+        ).first()
+
+        existing_company = None
+        if existing_mapping:
+            existing_company = db.query(Company).filter(
+                Company.company_id == existing_mapping.company_id
+            ).first()
+
+            logger.info(f"기존 테스트 데이터 삭제: mapping_id={test_mapping_id}")
+            db.delete(existing_mapping)
+
+            if existing_company:
+                db.delete(existing_company)
+
+        # 2. 테스트 회사 데이터 생성
+        test_company = Company(
+            company_name="테스트회사(주)",
+            company_url="https://testcompany.co.kr",
+            company_scale="대기업",
+            company_group="테스트그룹",
+            sector_category="전자/정보통신",
+            created_at=datetime.utcnow(),
+            updated_at=datetime.utcnow()
+        )
+
+        db.add(test_company)
+        db.flush()  # company_id 생성을 위해
+
+        logger.info(f"✅ 테스트 회사 생성: company_id={test_company.company_id}, name={test_company.company_name}")
+
+        # 3. 테스트 DART 매핑 데이터 생성
+        test_mapping = CompanyDartMapping(
+            mapping_id=test_mapping_id,
+            company_id=test_company.company_id,
+            crawled_company_name=test_company.company_name,
+            crawled_company_url=test_company.company_url,
+            dart_corp_name="테스트회사",
+            dart_corp_code="00999999",
+            dart_stock_code="999999",
+            mapping_status=MappingStatus.verified,
+            confidence_score=100,
+            gpt_response="테스트용 매핑 데이터",
+            manual_notes="테스트 API로 생성된 데이터",
+            processed_at=datetime.utcnow(),
+            verified_at=datetime.utcnow(),
+            verified_by="test_api",
+            created_at=datetime.utcnow(),
+            updated_at=datetime.utcnow()
+        )
+
+        db.add(test_mapping)
+
+        logger.info(f"✅ 테스트 매핑 생성: mapping_id={test_mapping_id}, dart_code={test_mapping.dart_corp_code}")
+
+        # 4. 커밋
+        db.commit()
+
+        logger.info(f"🎉 테스트 데이터 생성 완료!")
+
+        return {
+            "success": True,
+            "test_name": request.test_name,
+            "created_data": {
+                "company": {
+                    "company_id": test_company.company_id,
+                    "company_name": test_company.company_name,
+                    "company_url": test_company.company_url,
+                    "sector_category": test_company.sector_category
+                },
+                "mapping": {
+                    "mapping_id": test_mapping.mapping_id,
+                    "dart_corp_name": test_mapping.dart_corp_name,
+                    "dart_corp_code": test_mapping.dart_corp_code,
+                    "dart_stock_code": test_mapping.dart_stock_code,
+                    "mapping_status": test_mapping.mapping_status.value,
+                    "confidence_score": test_mapping.confidence_score
+                }
+            },
+            "message": f"✅ 테스트용 회사/매핑 데이터 생성 완료! (mapping_id: {test_mapping_id})",
+            "next_step": f"이제 Summary 서버에서 POST /test/full-pipeline 호출하세요"
+        }
+
+    except Exception as e:
+        db.rollback()
+        logger.error(f"❌ 테스트 데이터 생성 실패: {e}")
+        raise HTTPException(status_code=500, detail=f"Test data creation failed: {str(e)}")
+
+@router.get("/check-data/{mapping_id}")
+async def check_test_data(
+    mapping_id: int,
+    db: Session = Depends(get_db)
+):
+    """
+    🔍 테스트 데이터 확인
+    """
+    try:
+        # 매핑 데이터 조회
+        mapping = db.query(CompanyDartMapping).filter(
+            CompanyDartMapping.mapping_id == mapping_id
+        ).first()
+
+        if not mapping:
+            raise HTTPException(status_code=404, detail=f"mapping_id {mapping_id} not found")
+
+        # 회사 데이터 조회
+        company = db.query(Company).filter(
+            Company.company_id == mapping.company_id
+        ).first()
+
+        return {
+            "mapping_id": mapping_id,
+            "found": True,
+            "company": {
+                "company_id": company.company_id if company else None,
+                "company_name": company.company_name if company else None,
+                "company_url": company.company_url if company else None
+            } if company else None,
+            "mapping": {
+                "dart_corp_name": mapping.dart_corp_name,
+                "dart_corp_code": mapping.dart_corp_code,
+                "mapping_status": mapping.mapping_status.value,
+                "confidence_score": mapping.confidence_score,
+                "verified_at": mapping.verified_at.isoformat() if mapping.verified_at else None
+            }
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"데이터 확인 실패: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.delete("/cleanup/{mapping_id}")
+async def cleanup_test_data(
+    mapping_id: int,
+    db: Session = Depends(get_db)
+):
+    """
+    🧹 테스트 데이터 정리
+    """
+    try:
+        # 매핑 데이터 삭제
+        mapping = db.query(CompanyDartMapping).filter(
+            CompanyDartMapping.mapping_id == mapping_id
+        ).first()
+
+        if mapping:
+            company_id = mapping.company_id
+            db.delete(mapping)
+
+            # 회사 데이터 삭제
+            company = db.query(Company).filter(
+                Company.company_id == company_id
+            ).first()
+
+            if company:
+                db.delete(company)
+
+            db.commit()
+
+            return {
+                "success": True,
+                "mapping_id": mapping_id,
+                "message": f"✅ 테스트 데이터 정리 완료 (mapping_id: {mapping_id})"
+            }
+        else:
+            return {
+                "success": True,
+                "mapping_id": mapping_id,
+                "message": "데이터가 존재하지 않음"
+            }
+
+    except Exception as e:
+        db.rollback()
+        logger.error(f"데이터 정리 실패: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.get("/health")
+def test_health():
+    """🏥 테스트 API 상태"""
+    return {
+        "status": "healthy",
+        "message": "테스트 데이터 API 정상 작동",
+        "available_apis": [
+            "POST /test/create-test-data - 테스트 회사/매핑 데이터 생성",
+            "GET /test/check-data/{mapping_id} - 테스트 데이터 확인",
+            "DELETE /test/cleanup/{mapping_id} - 테스트 데이터 정리"
+        ]
+    }
