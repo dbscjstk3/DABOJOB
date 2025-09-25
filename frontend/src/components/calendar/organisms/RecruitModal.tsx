@@ -6,7 +6,7 @@ import { Button } from '../../common/atoms/Button';
 import { CalendarHeader } from '../molecules/CalendarHeader';
 import type { JobPostingResponse, AdminCalendarCompany } from '@/lib/api';
 import { groupCompaniesByGroup } from '@/lib/companyUtils';
-// import { fetchAdminJobStatus } from '@/lib/api';
+import { fetchAdminJobStatus } from '@/lib/api';
 
 export interface RecruitModalProps {
   isOpen: boolean;
@@ -35,7 +35,9 @@ export const RecruitModal: React.FC<RecruitModalProps> = ({
   const navigate = useNavigate();
 
   // 작업 상태 관리
-  const [jobStatuses] = useState<Record<number, 'processing' | 'finished' | 'completed'>>({});
+  const [jobStatuses, setJobStatuses] = useState<
+    Record<number, 'completed' | 'reprocessing' | 'finished'>
+  >({});
   const [loadingStatuses, setLoadingStatuses] = useState<Set<number>>(new Set());
 
   // verified 상태인 회사들의 작업 상태 조회
@@ -51,12 +53,11 @@ export const RecruitModal: React.FC<RecruitModalProps> = ({
             setLoadingStatuses((prev) => new Set(prev).add(job.job_id));
 
             try {
-              // TODO: fetchAdminJobStatus API 구현 필요
-              // const statusData = await fetchAdminJobStatus(job.job_id);
-              // setJobStatuses((prev) => ({
-              //   ...prev,
-              //   [job.job_id]: statusData.status,
-              // }));
+              const statusData = await fetchAdminJobStatus(job.job_id);
+              setJobStatuses((prev) => ({
+                ...prev,
+                [job.job_id]: statusData.status,
+              }));
             } catch (error) {
               console.error(`작업 상태 조회 실패 (job_id: ${job.job_id}):`, error);
             } finally {
@@ -153,10 +154,10 @@ export const RecruitModal: React.FC<RecruitModalProps> = ({
   };
 
   // 작업 상태 텍스트와 색상 반환
-  const getJobStatusInfo = (status: 'processing' | 'finished' | 'completed') => {
+  const getJobStatusInfo = (status: 'completed' | 'reprocessing' | 'finished') => {
     switch (status) {
-      case 'processing':
-        return { text: '처리중', color: 'dabojob' as const };
+      case 'reprocessing':
+        return { text: '재처리중', color: 'dabojob' as const };
       case 'finished':
         return { text: '최종완료', color: 'red' as const };
       case 'completed':
@@ -473,64 +474,78 @@ export const RecruitModal: React.FC<RecruitModalProps> = ({
 
                               {/* 채용공고 목록 */}
                               <div className="space-y-1">
-                                {company.job_postings.map((job, jobIndex) => (
-                                  <div
-                                    key={jobIndex}
-                                    className="p-2 bg-white rounded border border-gray-100"
-                                  >
-                                    <div className="flex items-start justify-between mb-1">
-                                      <Typography
-                                        variant="recruits"
-                                        weight="medium"
-                                        color="black"
-                                        className="text-sm flex-1"
-                                      >
-                                        {job.job_title}
-                                      </Typography>
-
-                                      {/* 작업 상태 표시 (verified 상태일 때만) */}
-                                      {company.mapping_status === 'verified' && (
-                                        <div className="ml-2">
-                                          {loadingStatuses.has(job.job_id) ? (
-                                            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
-                                          ) : jobStatuses[job.job_id] ? (
-                                            <span
-                                              className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
-                                                getJobStatusInfo(jobStatuses[job.job_id]).color ===
-                                                'dabojob'
-                                                  ? 'bg-blue-100 text-blue-800'
-                                                  : getJobStatusInfo(jobStatuses[job.job_id])
-                                                        .color === 'green'
-                                                    ? 'bg-green-100 text-green-800'
-                                                    : 'bg-red-200 text-gray-800'
-                                              }`}
-                                            >
-                                              {getJobStatusInfo(jobStatuses[job.job_id]).text}
-                                            </span>
-                                          ) : null}
-                                        </div>
-                                      )}
-                                    </div>
-
-                                    <div className="text-xs text-gray-600">
-                                      <div>
-                                        📅 {formatDate(job.posting_date)} ~{' '}
-                                        {formatDateTime(job.application_deadline)}
-                                      </div>
-                                      <div className="mt-1">
-                                        <a
-                                          href={job.job_url}
-                                          target="_blank"
-                                          rel="noopener noreferrer"
-                                          className="text-blue-600 hover:underline"
-                                          onClick={(e) => e.stopPropagation()}
+                                {company.job_postings.map((job, jobIndex) => {
+                                  const status = jobStatuses[job.job_id];
+                                  const isCompleted = status === 'completed';
+                                  return (
+                                    <div
+                                      key={jobIndex}
+                                      className={
+                                        `p-2 bg-white rounded border border-gray-100 ` +
+                                        (isCompleted ? 'cursor-pointer hover:bg-blue-50' : '')
+                                      }
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        if (isCompleted) {
+                                          navigate({
+                                            to: '/admin/jobs/$jobId/complete',
+                                            params: { jobId: job.job_id.toString() },
+                                          });
+                                        }
+                                      }}
+                                    >
+                                      <div className="flex items-start justify-between mb-1">
+                                        <Typography
+                                          variant="recruits"
+                                          weight="medium"
+                                          color="black"
+                                          className="text-sm flex-1"
                                         >
-                                          공고 보기 →
-                                        </a>
+                                          {job.job_title}
+                                        </Typography>
+
+                                        {/* 작업 상태 표시 (verified 상태일 때만) */}
+                                        {company.mapping_status === 'verified' && (
+                                          <div className="ml-2">
+                                            {loadingStatuses.has(job.job_id) ? (
+                                              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
+                                            ) : status ? (
+                                              <span
+                                                className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
+                                                  getJobStatusInfo(status).color === 'dabojob'
+                                                    ? 'bg-blue-100 text-blue-800'
+                                                    : getJobStatusInfo(status).color === 'green'
+                                                      ? 'bg-green-100 text-green-800'
+                                                      : 'bg-red-200 text-gray-800'
+                                                }`}
+                                              >
+                                                {getJobStatusInfo(status).text}
+                                              </span>
+                                            ) : null}
+                                          </div>
+                                        )}
+                                      </div>
+
+                                      <div className="text-xs text-gray-600">
+                                        <div>
+                                          📅 {formatDate(job.posting_date)} ~{' '}
+                                          {formatDateTime(job.application_deadline)}
+                                        </div>
+                                        <div className="mt-1">
+                                          <a
+                                            href={job.job_url}
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                            className="text-blue-600 hover:underline"
+                                            onClick={(e) => e.stopPropagation()}
+                                          >
+                                            공고 보기 →
+                                          </a>
+                                        </div>
                                       </div>
                                     </div>
-                                  </div>
-                                ))}
+                                  );
+                                })}
                               </div>
                             </div>
                           ))}

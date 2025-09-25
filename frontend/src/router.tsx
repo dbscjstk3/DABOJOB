@@ -10,6 +10,7 @@ import LoginPage from './pages/LoginPage';
 import CalendarPage from './pages/CalendarPage';
 import CalendarDetailPage from './pages/CalendarDetailPage';
 import SearchDetailPage from './pages/SearchDetailPage';
+import AdminCompleteDataPage from './pages/AdminCompleteDataPage';
 import NotFoundPage from './pages/NotFoundPage';
 import { AdminMappingPage } from './pages/AdminMappingPage';
 import { useAuthStore } from './stores/useAuthStore';
@@ -78,6 +79,12 @@ const searchDetailRoute = createRoute({
 const adminCalendarRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/admin',
+  beforeLoad: () => {
+    const role = useAuthStore.getState().user?.role;
+    if (!(role === 'admin' || role === 'ROLE_ADMIN')) {
+      throw redirect({ to: '/' });
+    }
+  },
   component: CalendarPage,
 });
 
@@ -85,6 +92,12 @@ const adminCalendarRoute = createRoute({
 const adminMappingRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/admin/mapping/$companyId',
+  beforeLoad: () => {
+    const role = useAuthStore.getState().user?.role;
+    if (!(role === 'admin' || role === 'ROLE_ADMIN')) {
+      throw redirect({ to: '/' });
+    }
+  },
   component: AdminMappingPage,
 });
 
@@ -145,9 +158,20 @@ const routeTree = rootRoute.addChildren([
   calendarDetailRoute,
   searchDetailRoute,
   adminCalendarRoute,
+  adminMappingRoute,
+  createRoute({
+    getParentRoute: () => rootRoute,
+    path: '/admin/jobs/$jobId/complete',
+    beforeLoad: () => {
+      const role = useAuthStore.getState().user?.role;
+      if (!(role === 'admin' || role === 'ROLE_ADMIN')) {
+        throw redirect({ to: '/' });
+      }
+    },
+    component: AdminCompleteDataPage,
+  }),
   loginRoute,
   authCallbackRoute,
-  adminMappingRoute,
 ]);
 
 export const router = createRouter({ routeTree });
