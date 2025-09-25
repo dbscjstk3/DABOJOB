@@ -134,14 +134,25 @@ class NewsService:
                     relevance_score = self._calculate_relevance_score(
                         article['title'], article['description'], hashtag, company_name
                     )
-                    
-                    if relevance_score >= 35:  # 임계값 (기업 관련성 강화에 따라 상향)
+
+                    # 모든 뉴스의 점수 로그 출력 (임계값 통과 여부 관계없이)
+                    logger.info(f"🔍 뉴스 점수: {relevance_score}점")
+                    logger.info(f"📰 제목: {article['title']}")
+                    logger.info(f"📝 내용: {article['description'][:100]}...")
+                    logger.info(f"🔗 URL: {article['url']}")
+
+                    if relevance_score >= 15:  # 임계값 (기업 관련성 강화에 따라 상향)
                         article['relevance_score'] = relevance_score
-                        
+
                         # 중복 체크
                         if not self._is_duplicate_content(article, collected_articles):
                             collected_articles.append(article)
-                            logger.info(f"Added news: {article['title'][:50]}... (score: {relevance_score})")
+                            logger.info(f"✅ 뉴스 선택됨: {relevance_score}점")
+                        else:
+                            logger.info(f"❌ 중복 뉴스로 제외")
+                    else:
+                        logger.info(f"❌ 점수 부족으로 제외 (최소 15점 필요)")
+                    logger.info("─" * 80)
             
             # 점수 순으로 정렬하고 상위 articles 반환
             collected_articles.sort(key=lambda x: x['relevance_score'], reverse=True)
