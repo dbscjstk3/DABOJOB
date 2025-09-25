@@ -179,8 +179,9 @@ async def get_job_complete_data(job_id: int) -> Dict[str, Any]:
             ns.company_name,
             ns.status
         FROM summary_hashtags sh
-        LEFT JOIN news_summaries ns ON sh.hashtag_id = ns.hashtag_id AND ns.job_id = %s
-        WHERE sh.job_id = %s
+        LEFT JOIN news_summaries ns ON sh.hashtag_id = ns.hashtag_id
+            AND ns.mapping_id = (SELECT mapping_id FROM job_processing WHERE job_id = %s)
+        WHERE sh.mapping_id = (SELECT mapping_id FROM job_processing WHERE job_id = %s)
         ORDER BY FIELD(sh.chapter,'business_overview','products_services','revenue_orders','contracts_rnd','others'),
                  sh.hashtag_id, ns.news_created_at DESC
         """

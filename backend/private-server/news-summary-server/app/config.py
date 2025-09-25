@@ -36,7 +36,7 @@ class Config:
     S3_BUCKET = os.getenv('S3_BUCKET', 'dabojob-bucket')
 
     # 파일 시스템 설정
-    DATA_ROOT = "/app/data/mappings"
+    DATA_ROOT = "/app/data/mapping"
 
     # 고정 값
     TOTAL_CHAPTERS = 5
