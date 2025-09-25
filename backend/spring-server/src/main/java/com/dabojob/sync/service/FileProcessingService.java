@@ -231,7 +231,6 @@ public class FileProcessingService {
 
             if (summaryHashtag != null) {
                 News news = News.builder()
-                        .id(newsItem.getNewsId())
                         .summaryHashtag(summaryHashtag)
                         .title(newsItem.getTitle())
                         .content(newsItem.getSummary())
