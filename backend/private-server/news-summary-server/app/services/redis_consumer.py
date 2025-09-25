@@ -187,32 +187,6 @@ class RedisConsumer:
         except Exception as e:
             logger.error(f"Failed to process message: {e}")
 
-            # 상태 업데이트: 실패 (기존 로직에 영향 없음)
-            if STATUS_AVAILABLE:
-                try:
-                    job_id = message.get('job_id')
-                    if job_id:
-                        # job_id에서 mapping_id 추출
-                        try:
-                            if job_id.startswith('summary_'):
-                                mapping_id = int(job_id.split('_')[1])
-                            elif job_id.startswith('mapping_'):
-                                mapping_id = int(job_id.split('_')[1])
-                            else:
-                                mapping_id = int(job_id)
-
-                            await news_status.update_news_status(
-                                mapping_id=mapping_id,
-                                status=JobStatus.NEWS_FAILED,
-                                error_message=str(e)
-                            )
-                        except:
-                            pass
-                except:
-                    pass
-
-            return False
-
     async def _get_company_name(self, mapping_id: int) -> Optional[str]:
         """
         mapping_id로 회사명을 조회
@@ -281,7 +255,7 @@ class RedisConsumer:
             logger.error(f"Error getting job_id for mapping_id {mapping_id}: {e}")
             return None
 
-    async def _save_and_get_hashtag_id(self, job_id: int, chapter: int, hashtag: str) -> int:
+    async def _save_and_get_hashtag_id(self, mapping_id: int, chapter: int, hashtag: str) -> int:
         """해시태그를 DB에 저장하고 ID 반환"""
         try:
             # 이미 존재하는 해시태그인지 확인
@@ -291,7 +265,7 @@ class RedisConsumer:
             """
 
             async with database.get_connection() as cursor:
-                await cursor.execute(query_check, (job_id, chapter, hashtag))
+                await cursor.execute(query_check, (mapping_id, chapter, hashtag))
                 result = await cursor.fetchone()
 
                 if result:
@@ -303,7 +277,7 @@ class RedisConsumer:
                 VALUES (%s, %s, %s, %s)
                 """
 
-                await cursor.execute(query_insert, (job_id, 0, chapter, hashtag))
+                await cursor.execute(query_insert, (mapping_id, 0, chapter, hashtag))
                 hashtag_id = cursor.lastrowid
 
                 logger.info(f"Saved hashtag: {hashtag} with ID: {hashtag_id}")
@@ -312,7 +286,7 @@ class RedisConsumer:
         except Exception as e:
             logger.error(f"Error saving hashtag {hashtag}: {e}")
             # 에러 시 해시태그 이름으로 고유 ID 생성
-            return abs(hash(f"{job_id}_{chapter}_{hashtag}")) % 1000000
+            return abs(hash(f"{mapping_id}_{chapter}_{hashtag}")) % 1000000
 
     async def _increment_counter_and_check_completion(self, mapping_id: int):
         """Counter 증가 및 완료 체크 (재요약 충돌 방지)"""
@@ -509,18 +483,18 @@ class RedisConsumer:
             logger.error(f"Failed to get pending messages: {e}")
             return {}
     
-    def get_processed_results(self, job_id: str) -> Dict[str, Any]:
+    def get_processed_results(self, mapping_id: str) -> Dict[str, Any]:
         """
         처리된 결과 조회
         
         Args:
-            job_id: 작업 ID
+            mapping_id: 작업 ID
             
         Returns:
             챕터별 처리 결과
         """
         try:
-            pattern = f"news:result:{job_id}:*"
+            pattern = f"news:result:{mapping_id}:*"
             keys = self.client.keys(pattern)
             
             results = {}

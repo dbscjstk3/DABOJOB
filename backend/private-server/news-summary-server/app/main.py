@@ -14,7 +14,7 @@ from .services.redis_consumer import RedisConsumer
 from .routes.admin_routes import router as admin_router
 
 # 로깅 설정
-logging.basicConfig(level=logging.DEBUG)
+logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 # health 체크 로그 필터 (너무 많은 로그 방지)
