@@ -180,12 +180,12 @@ export const API_ENDPOINTS = {
     LOGOUT: `${import.meta.env.VITE_API_BASE_URL}/api/auth/logout`,
   },
   SUMMARY: {
-    DETAIL: (summaryId: string) => `${API_BASE_URL}/api/summary/${summaryId}`,
+    DETAIL: (summaryId: string) => `${API_BASE_URL}/api/summaries/${summaryId}`,
   },
   NEWS: {
-    BY_SUMMARY: (summaryId: string) => `${API_BASE_URL}/api/summary/${summaryId}/news`,
+    BY_SUMMARY: (summaryId: string) => `${API_BASE_URL}/api/summaries/${summaryId}/news`,
     BY_HASHTAG: (summaryId: string | number, hashtagName: string) =>
-      `${API_BASE_URL}/api/summary/${summaryId}/news/${encodeURIComponent(hashtagName)}`,
+      `${API_BASE_URL}/api/summaries/${summaryId}/news/${encodeURIComponent(hashtagName)}`,
   },
   JOB_POSTING: {
     DETAIL: (jobPostingId: string | number) => `${API_BASE_URL}/api/job-postings/${jobPostingId}`,
