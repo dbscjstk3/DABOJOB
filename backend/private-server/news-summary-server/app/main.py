@@ -56,17 +56,6 @@ class NewsSummarizeResponse(BaseModel):
     news_summary: str
     status: str = "completed"
 
-async def news_search_callback(job_id: str, category: str, hashtags: list):
-    """해시태그 기반 뉴스 검색 콜백"""
-    logger.info(f"News search for job {job_id}, category {category}: {hashtags}")
-    # TODO: 실제 뉴스 API 호출 로직 구현
-    # 예: news_api.search(hashtags)
-    # 결과를 파일이나 DB에 저장
-    
-    # 임시 처리
-    for hashtag in hashtags:
-        logger.info(f"Searching news with hashtag: {hashtag}")
-
 @app.on_event("startup")
 async def startup_event():
     """서버 시작 시 초기화"""
@@ -93,7 +82,6 @@ async def startup_event():
         if os.getenv('ENABLE_REDIS_CONSUMER', 'true').lower() == 'true':
             try:
                 redis_consumer = RedisConsumer()
-                redis_consumer.set_news_search_callback(news_search_callback)
                 consumer_thread = redis_consumer.start_background_consumer()
                 logger.info("Redis consumer started successfully")
             except Exception as e:
