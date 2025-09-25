@@ -53,8 +53,8 @@ export interface HotJobPostingResponse {
   title: string;
 }
 
-// 관리자용 채용공고 API 응답 타입 정의
-export interface AdminJobPosting {
+// 관리자용 캘린더 채용공고 API 응답 타입 정의
+export interface AdminCalendarJobPosting {
   job_id: number;
   job_title: string;
   posting_date: string;
@@ -62,7 +62,7 @@ export interface AdminJobPosting {
   job_url: string;
 }
 
-export interface AdminCompany {
+export interface AdminCalendarCompany {
   company_id: number;
   company_name: string;
   mapping_status: 'pending' | 'processing' | 'suggested' | 'verified' | 'rejected' | 'failed';
@@ -72,14 +72,14 @@ export interface AdminCompany {
   job_count: number;
   mapping_created_at: string;
   can_remap: boolean;
-  job_postings: AdminJobPosting[];
+  job_postings: AdminCalendarJobPosting[];
 }
 
 export interface AdminJobPostingsResponse {
   year: number;
   month: number;
   total_companies: number;
-  companies: AdminCompany[];
+  companies: AdminCalendarCompany[];
 }
 
 // 자동완성 API 응답 타입 정의
@@ -428,6 +428,26 @@ export const fetchHotJobPostings = async (): Promise<HotJobPostingResponse[]> =>
 
   const data = await response.json();
   return data;
+};
+
+// 관리자 캘린더 채용공고 조회 API 호출 함수
+export const fetchAdminJobPostings = async (
+  year: number,
+  month: number,
+): Promise<AdminJobPostingsResponse> => {
+  const response = await fetch(API_ENDPOINTS.JOB_POSTING.ADMIN(year, month), {
+    method: 'GET',
+    credentials: 'include',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+  });
+
+  if (!response.ok) {
+    throw new Error(`Failed to fetch admin job postings: ${response.status}`);
+  }
+
+  return response.json();
 };
 
 // 관리자 매핑 데이터 조회 API 호출 함수

@@ -35,15 +35,15 @@ export default function SearchDetailPage() {
     return deadlineDate >= today ? 'started' : 'ended';
   };
 
-  // 경력 정보 변환 함수
-  const formatCareerInfo = (careerInfo: string): string => {
-    const careerMap: { [key: string]: string } = {
-      junior: '신입',
-      experienced: '경력',
-      senior: '시니어',
-    };
-    return careerMap[careerInfo] || careerInfo;
-  };
+  // 경력 정보 변환 함수 - 현재 사용하지 않음
+  // const formatCareerInfo = (careerInfo: string): string => {
+  //   const careerMap: { [key: string]: string } = {
+  //     junior: '신입',
+  //     experienced: '경력',
+  //     senior: '시니어',
+  //   };
+  //   return careerMap[careerInfo] || careerInfo;
+  // };
 
   // 페이지 변경 핸들러
   const handlePageChange = (newPage: number) => {

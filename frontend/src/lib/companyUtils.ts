@@ -1,4 +1,4 @@
-import type { AdminCompany } from './api';
+import type { AdminCalendarCompany } from './api';
 
 // 회사명에서 그룹명을 추출하는 함수
 export const extractCompanyGroup = (companyName: string): string => {
@@ -75,9 +75,9 @@ export const extractCompanyGroup = (companyName: string): string => {
 
 // 회사들을 그룹별로 분류하는 함수
 export const groupCompaniesByGroup = (
-  companies: AdminCompany[],
-): Record<string, AdminCompany[]> => {
-  const grouped: Record<string, AdminCompany[]> = {};
+  companies: AdminCalendarCompany[],
+): Record<string, AdminCalendarCompany[]> => {
+  const grouped: Record<string, AdminCalendarCompany[]> = {};
 
   companies.forEach((company) => {
     const group = extractCompanyGroup(company.company_name);
@@ -91,7 +91,7 @@ export const groupCompaniesByGroup = (
 };
 
 // 그룹별 통계를 계산하는 함수
-export const calculateGroupStats = (companies: AdminCompany[]) => {
+export const calculateGroupStats = (companies: AdminCalendarCompany[]) => {
   const grouped = groupCompaniesByGroup(companies);
   const stats: Record<string, { total: number; verified: number; failed: number }> = {};
 

@@ -3,7 +3,7 @@ import { cva, type VariantProps } from 'class-variance-authority';
 import { cn } from '../../../lib/utils';
 import { RecruitBadge } from './RecruitBadge';
 import { Typography } from '../../common/atoms/Typography';
-import type { JobPostingResponse, AdminCompany } from '@/lib/api';
+import type { JobPostingResponse, AdminCalendarCompany } from '@/lib/api';
 import { groupCompaniesByGroup } from '@/lib/companyUtils';
 
 const cellBoxVariants = cva('flex flex-col border-t border-daboja-default p-2 h-20 md:h-72', {
@@ -42,7 +42,7 @@ export interface CellBoxProps
   /** 공고 데이터 */
   recruits?: JobPostingResponse[];
   /** 관리자용 회사 데이터 */
-  adminCompanies?: AdminCompany[];
+  adminCompanies?: AdminCalendarCompany[];
   /** 확장 상태 */
   isExpanded?: boolean;
   /** 확장 토글 함수 */
@@ -50,7 +50,7 @@ export interface CellBoxProps
   /** 모달 열기 함수 */
   onOpenModal?: (day: number) => void;
   /** 관리자용 회사 클릭 핸들러 */
-  onAdminCompanyClick?: (company: AdminCompany) => void;
+  onAdminCalendarCompanyClick?: (company: AdminCalendarCompany) => void;
 }
 
 /**
@@ -69,7 +69,7 @@ export const CellBox: React.FC<CellBoxProps> = ({
   isExpanded = false,
   onToggleExpanded: _onToggleExpanded,
   onOpenModal,
-  onAdminCompanyClick,
+  onAdminCalendarCompanyClick,
   ...props
 }) => {
   return (
@@ -242,7 +242,7 @@ export const CellBox: React.FC<CellBoxProps> = ({
                                     company_name: groupName,
                                     job_count: totalJobs,
                                   }}
-                                  onAdminCompanyClick={onAdminCompanyClick}
+                                  onAdminCalendarCompanyClick={onAdminCalendarCompanyClick}
                                 />
                                 {groupCompanies.length > 1 && (
                                   <span className="text-xs text-gray-500">

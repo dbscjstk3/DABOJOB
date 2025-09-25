@@ -3,7 +3,7 @@ import { CellBox } from '../atoms/CellBox';
 import { Day } from '../atoms/Day';
 import { generateCalendarCells, WEEK_DAYS } from '../../../lib/calendarUtils';
 import { cn } from '../../../lib/utils';
-import type { JobPostingResponse, AdminCompany } from '@/lib/api';
+import type { JobPostingResponse, AdminCalendarCompany } from '@/lib/api';
 
 export interface CalendarGridProps {
   viewDate: Date;
@@ -13,8 +13,8 @@ export interface CalendarGridProps {
   onOpenModal?: (day: number) => void;
   className?: string;
   // 관리자용 props
-  getAdminCompaniesForDay?: (day: number) => AdminCompany[];
-  onAdminCompanyClick?: (company: AdminCompany) => void;
+  getAdminCompaniesForDay?: (day: number) => AdminCalendarCompany[];
+  onAdminCalendarCompanyClick?: (company: AdminCalendarCompany) => void;
 }
 
 export const CalendarGrid: React.FC<CalendarGridProps> = ({
@@ -25,7 +25,7 @@ export const CalendarGrid: React.FC<CalendarGridProps> = ({
   onOpenModal,
   className,
   getAdminCompaniesForDay,
-  onAdminCompanyClick,
+  onAdminCalendarCompanyClick,
 }) => {
   const year = viewDate.getFullYear();
   const month = viewDate.getMonth();
@@ -84,7 +84,7 @@ export const CalendarGrid: React.FC<CalendarGridProps> = ({
               onExpandedDaysChange(next);
             }}
             onOpenModal={onOpenModal}
-            onAdminCompanyClick={onAdminCompanyClick}
+            onAdminCalendarCompanyClick={onAdminCalendarCompanyClick}
           />
         ))}
       </div>

@@ -3,7 +3,7 @@ import { useNavigate } from '@tanstack/react-router';
 import { cva, type VariantProps } from 'class-variance-authority';
 import { cn } from '../../../lib/utils';
 import { Typography } from '../../common/atoms/Typography';
-import type { AdminCompany } from '@/lib/api';
+import type { AdminCalendarCompany } from '@/lib/api';
 
 const badgeVariants = cva('inline-flex items-center gap-1', {
   variants: {
@@ -30,8 +30,8 @@ export interface RecruitBadgeProps
   companyId?: number;
   jobPostingId?: number;
   // 관리자용 props
-  adminCompany?: AdminCompany;
-  onAdminCompanyClick?: (company: AdminCompany) => void;
+  adminCompany?: AdminCalendarCompany;
+  onAdminCalendarCompanyClick?: (company: AdminCalendarCompany) => void;
 }
 
 export const RecruitBadge: React.FC<RecruitBadgeProps> = ({
@@ -40,7 +40,7 @@ export const RecruitBadge: React.FC<RecruitBadgeProps> = ({
   companyId,
   jobPostingId,
   adminCompany,
-  onAdminCompanyClick,
+  onAdminCalendarCompanyClick,
   className,
   ...props
 }) => {
@@ -49,8 +49,8 @@ export const RecruitBadge: React.FC<RecruitBadgeProps> = ({
   // 기업 상세페이지로 이동하는 함수
   const handleClick = () => {
     // 관리자용 클릭 핸들러
-    if (adminCompany && onAdminCompanyClick) {
-      onAdminCompanyClick(adminCompany);
+    if (adminCompany && onAdminCalendarCompanyClick) {
+      onAdminCalendarCompanyClick(adminCompany);
       return;
     }
 
@@ -114,7 +114,7 @@ export const RecruitBadge: React.FC<RecruitBadgeProps> = ({
   const isClickable =
     (companyId && jobPostingId) ||
     (adminCompany &&
-      onAdminCompanyClick &&
+      onAdminCalendarCompanyClick &&
       adminCompany.mapping_status !== 'pending' &&
       adminCompany.mapping_status !== 'processing');
 
