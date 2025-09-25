@@ -24,12 +24,6 @@ const rootRoute = createRootRoute({
 const calendarListRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/',
-  beforeLoad: () => {
-    const role = useAuthStore.getState().user?.role;
-    if (role === 'admin' || role === 'ROLE_ADMIN') {
-      throw redirect({ to: '/admin' });
-    }
-  },
   component: CalendarPage,
 });
 
