@@ -271,9 +271,8 @@ class RedisConsumer:
             async with database.get_connection() as cursor:
                 query = """
                 SELECT jp.job_id
-                FROM company_dart_mappings cdm
-                JOIN job_postings jp ON cdm.company_id = jp.company_id
-                WHERE cdm.mapping_id = %s
+                FROM job_postings jp
+                WHERE jp.mapping_id = %s
                 LIMIT 1
                 """
                 await cursor.execute(query, (mapping_id,))
