@@ -1,10 +1,8 @@
 package com.dabojob.jobposting.service;
 
-import com.dabojob.company.entity.Company;
+import com.dabojob.fixture.jobposting.JobPostingFixture;
 import com.dabojob.jobposting.dto.JobPostingResponse;
-import com.dabojob.jobposting.entity.CareerInfo;
 import com.dabojob.jobposting.entity.JobPosting;
-import com.dabojob.jobposting.entity.JobSector;
 import com.dabojob.jobposting.repository.JobPostingRepository;
 import jakarta.persistence.EntityNotFoundException;
 import org.junit.jupiter.api.BeforeEach;
@@ -38,49 +36,14 @@ class JobPostingServiceTest {
     @InjectMocks
     private JobPostingService jobPostingService;
 
-    private Company company;
-    private JobSector jobSector;
     private JobPosting jobPosting1;
     private JobPosting jobPosting2;
 
     @BeforeEach
     void setUp() {
-        // Company 설정
-        company = Company.builder()
-                .id(1L)
-                .name("테스트 회사")
-                .scale(null) // CompanyScale은 테스트에서 사용하지 않음
-                .build();
 
-        // JobSector 설정
-        jobSector = JobSector.builder()
-                .id(1L)
-                .name("백엔드 개발")
-                .category("개발")
-                .build();
-
-        // JobPosting 설정
-        jobPosting1 = JobPosting.builder()
-                .id(100L)
-                .company(company)
-                .jobSector(jobSector)
-                .title("Spring Boot 백엔드 개발자")
-                .url("https://example.com/job1")
-                .careerInfo(CareerInfo.JUNIOR) // enum 값 가정
-                .postingDate(LocalDate.of(2024, 1, 1))
-                .deadlineDate(LocalDate.of(2024, 1, 31))
-                .build();
-
-        jobPosting2 = JobPosting.builder()
-                .id(101L)
-                .company(company)
-                .jobSector(jobSector)
-                .title("Java 개발자")
-                .url("https://example.com/job2")
-                .careerInfo(CareerInfo.SENIOR) // enum 값 가정
-                .postingDate(LocalDate.of(2024, 1, 5))
-                .deadlineDate(LocalDate.of(2024, 2, 5))
-                .build();
+        jobPosting1 = JobPostingFixture.defaultJobPosting();
+        jobPosting2 = JobPostingFixture.seniorJobPosting();
     }
 
     @Test
@@ -100,7 +63,7 @@ class JobPostingServiceTest {
         assertThat(result.getCompanyId()).isEqualTo(1L);
         assertThat(result.getCompanyName()).isEqualTo("테스트 회사");
         assertThat(result.getTitle()).isEqualTo("Spring Boot 백엔드 개발자");
-        assertThat(result.getUrl()).isEqualTo("https://example.com/job1");
+        assertThat(result.getUrl()).isEqualTo("https://example.com/job100");
         assertThat(result.getJobSectorId()).isEqualTo(1L);
         assertThat(result.getJobSectorName()).isEqualTo("백엔드 개발");
         assertThat(result.getJobSectorCategory()).isEqualTo("개발");
@@ -241,7 +204,7 @@ class JobPostingServiceTest {
 
         JobPostingResponse secondResponse = result.get(1);
         assertThat(secondResponse.getJobPostingId()).isEqualTo(101L);
-        assertThat(secondResponse.getTitle()).isEqualTo("Java 개발자");
+        assertThat(secondResponse.getTitle()).isEqualTo("React 시니어 개발자");
 
         verify(jobPostingRepository).findByDateRange(startDate, endDate);
     }
