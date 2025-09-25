@@ -78,6 +78,7 @@ services:
       - .env.spring
     environment:
       TZ: Asia/Seoul
+      SPRING_ELASTICSEARCH_URIS: http://elasticsearch:9200
     ports:
       - "8080:8080"
     depends_on:

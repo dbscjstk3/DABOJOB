@@ -69,7 +69,7 @@ class Database:
         create_news_table = """
         CREATE TABLE IF NOT EXISTS news_summaries (
             news_id BIGINT AUTO_INCREMENT PRIMARY KEY,
-            job_id BIGINT NOT NULL COMMENT '공고 ID',
+            mapping_id BIGINT NOT NULL COMMENT '매핑 고유 ID',
             hashtag_id BIGINT NOT NULL COMMENT '해시태그 ID',
             summary_id BIGINT NOT NULL COMMENT '최종 요약보고서 ID',
             news_title VARCHAR(500) NOT NULL COMMENT '뉴스 제목',
@@ -81,25 +81,25 @@ class Database:
             created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
             updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
             
-            INDEX idx_job_id (job_id),
+            INDEX idx_mapping_id (mapping_id),
             INDEX idx_hashtag (hashtag_id),
             INDEX idx_summary_id (summary_id),
             INDEX idx_status (status),
-            UNIQUE KEY uk_mapping_hashtag_url (job_id, hashtag_id, news_url(255))
+            UNIQUE KEY uk_mapping_hashtag_url (mapping_id, hashtag_id, news_url(255))
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
         """
 
         create_summary_hashtags = """
         CREATE TABLE IF NOT EXISTS summary_hashtags (
             hashtag_id BIGINT AUTO_INCREMENT PRIMARY KEY,
-            job_id BIGINT NOT NULL COMMENT '매핑 고유 아이디', 
+            mapping_id BIGINT NOT NULL COMMENT '매핑 고유 아이디', 
             summary_id BIGINT NOT NULL COMMENT '최종 요약 보고서 아이디',
             chapter VARCHAR(50) NOT NULL,
             hashtag VARCHAR(100) NOT NULL,
             created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
             updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
             
-            INDEX idx_job_id (job_id),
+            INDEX idx_mapping_id (mapping_id),
             INDEX idx_summary_id (summary_id),
             INDEX idx_chapter (chapter)
             -- UNIQUE KEY는 아래 ALTER 로직에서 보정
@@ -109,7 +109,7 @@ class Database:
         create_company_summaries = """
         CREATE TABLE IF NOT EXISTS company_analysis_summaries (
             summary_id BIGINT AUTO_INCREMENT PRIMARY KEY,
-            job_id BIGINT NOT NULL COMMENT '매핑 고유 아이디',
+            mapping_id BIGINT NOT NULL COMMENT '매핑 고유 아이디',
             business_overview TEXT NULL COMMENT '1. 사업의 개요',
             products_service TEXT NULL COMMENT '2. 주요 제품 및 서비스',
             sales_contracts TEXT NULL COMMENT '4. 매출 및 수주 상황',
@@ -118,15 +118,16 @@ class Database:
             created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
             updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
 
-            INDEX idx_job_id (job_id),
+            INDEX idx_mapping_id (mapping_id),
             INDEX idx_summary_id (summary_id),
-            UNIQUE KEY uk_mapping_summary (job_id, summary_id)
+            UNIQUE KEY uk_mapping_summary (mapping_id, summary_id)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
         """
 
         create_job_processing = """
         CREATE TABLE IF NOT EXISTS job_processing (
             job_id BIGINT PRIMARY KEY COMMENT '공고 ID',
+            mapping_id BIGINT, 
             status ENUM('processing', 'completed', 'finished', 'reprocessing') NOT NULL DEFAULT 'processing' COMMENT '처리 상태',
             created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
             updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
@@ -150,14 +151,14 @@ class Database:
                 # 없으면 무시
                 pass
             
-            # 신규 유니크 키 생성 (job_id, chapter, hashtag)
+            # 신규 유니크 키 생성 (mapping_id, chapter, hashtag)
             try:
                 await cursor.execute("""
                     ALTER TABLE summary_hashtags
-                    ADD CONSTRAINT uk_job_chapter_hashtag
-                    UNIQUE KEY (job_id, chapter, hashtag);
+                    ADD CONSTRAINT uk_mapping_chapter_hashtag
+                    UNIQUE KEY (mapping_id, chapter, hashtag);
                 """)
-                logger.info("Added unique index uk_job_chapter_hashtag on summary_hashtags (job_id, chapter, hashtag)")
+                logger.info("Added unique index uk_mapping_chapter_hashtag on summary_hashtags (mapping_id, chapter, hashtag)")
             except Exception as e:
                 # 이미 있으면 무시
                 pass
@@ -169,18 +170,18 @@ class Database:
     # ----------------------------------------------------------------------
     async def save_news_batch(
         self,
-        job_id: int,
+        mapping_id: int,
         summary_id: int,
         hashtag_id: int,
         news_list: List[Dict[str, Any]]
     ) -> int:
-        """뉴스 배치 저장 (중복: job_id + hashtag_id + news_url)"""
+        """뉴스 배치 저장 (중복: mapping_id + hashtag_id + news_url)"""
         if not news_list:
             return 0
 
         insert_query = """
         INSERT INTO news_summaries (
-            job_id, summary_id, hashtag_id,
+            mapping_id, summary_id, hashtag_id,
             news_title, news_url, news_created_at, news_content, company_name
         ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
         ON DUPLICATE KEY UPDATE
@@ -193,7 +194,7 @@ class Database:
             values = []
             for n in news_list:
                 values.append((
-                    job_id,
+                    mapping_id,
                     summary_id,
                     hashtag_id,
                     (n.get("title") or "")[:500],
@@ -206,28 +207,28 @@ class Database:
             return cursor.rowcount
 
     
-    async def get_news_by_job_id(self, job_id: int) -> List[Dict[str, Any]]:
+    async def get_news_by_mapping_id(self, mapping_id: int) -> List[Dict[str, Any]]:
         query = """
-        SELECT news_id, job_id, summary_id, hashtag_id,
+        SELECT news_id, mapping_id, summary_id, hashtag_id,
                news_title, news_url, news_created_at, news_content,
                company_name, created_at, updated_at
         FROM news_summaries
-        WHERE job_id = %s
+        WHERE mapping_id = %s
         ORDER BY news_created_at DESC, news_id DESC;
         """
         
         async with self.get_connection() as cursor:
-            await cursor.execute(query, (job_id,))
+            await cursor.execute(query, (mapping_id,))
             rows = await cursor.fetchall()
             cols = [d[0] for d in cursor.description]
             return [dict(zip(cols, r)) for r in rows]
 
     
-    async def save_company_analysis(self, job_id: int, analysis_data: Dict[str, str]) -> int:
+    async def save_company_analysis(self, mapping_id: int, analysis_data: Dict[str, str]) -> int:
         """기업 분석 요약 저장 (멱등 업데이트)"""
         insert_query = """
         INSERT INTO company_analysis_summaries (
-            job_id, business_overview, products_service, 
+            mapping_id, business_overview, products_service, 
             sales_contracts, rnd_activities, other_notes
         ) VALUES (%s, %s, %s, %s, %s, %s)
         ON DUPLICATE KEY UPDATE
@@ -241,7 +242,7 @@ class Database:
         
         async with self.get_connection() as cursor:
             await cursor.execute(insert_query, (
-                job_id,
+                mapping_id,
                 analysis_data.get('business_overview'),
                 analysis_data.get('products_service'), 
                 analysis_data.get('sales_contracts'),
@@ -250,21 +251,21 @@ class Database:
             ))
             
             if cursor.rowcount > 0:
-                logger.info(f"Saved company analysis for job_id={job_id}")
-                return cursor.lastrowid or job_id
+                logger.info(f"Saved company analysis for mapping_id={mapping_id}")
+                return cursor.lastrowid or mapping_id
             return 0
 
-    async def get_company_analysis(self, job_id: int) -> Optional[Dict[str, Any]]:
+    async def get_company_analysis(self, mapping_id: int) -> Optional[Dict[str, Any]]:
         """기업 분석 요약 조회"""
         query = """
-        SELECT summary_id, job_id, business_overview, products_service,
+        SELECT summary_id, mapping_id, business_overview, products_service,
                sales_contracts, rnd_activities, other_notes, created_at, updated_at
         FROM company_analysis_summaries
-        WHERE job_id = %s
+        WHERE mapping_id = %s
         """
         
         async with self.get_connection() as cursor:
-            await cursor.execute(query, (job_id,))
+            await cursor.execute(query, (mapping_id,))
             row = await cursor.fetchone()
             
             if row:
@@ -276,9 +277,9 @@ class Database:
     # ---------------------------
     # 멱등 해시태그 업서트 + ID 반환
     # ---------------------------
-    async def ensure_hashtag_ids(self, job_id: int, chapter: str, hashtags: List[str]) -> Dict[str, int]:
+    async def ensure_hashtag_ids(self, mapping_id: int, chapter: str, hashtags: List[str]) -> Dict[str, int]:
         """
-        (job_id, chapter, hashtag) 조합을 모두 보장하고 hashtag_id를 반환.
+        (mapping_id, chapter, hashtag) 조합을 모두 보장하고 hashtag_id를 반환.
         - 동일 조합이 이미 있으면 그대로 재사용
         - 없으면 INSERT (ON DUPLICATE KEY UPDATE로 멱등)
         - 결과: { hashtag_text: hashtag_id, ... }
@@ -309,9 +310,9 @@ class Database:
             select_q = """
             SELECT hashtag, hashtag_id
             FROM summary_hashtags
-            WHERE job_id = %s AND chapter = %s AND hashtag IN ({})
+            WHERE mapping_id = %s AND chapter = %s AND hashtag IN ({})
             """.format(", ".join(["%s"] * len(norm_tags)))
-            await cursor.execute(select_q, (job_id, chapter, *norm_tags))
+            await cursor.execute(select_q, (mapping_id, chapter, *norm_tags))
             for hashtag, hid in await cursor.fetchall():
                 result[hashtag] = int(hid)
 
@@ -319,28 +320,28 @@ class Database:
             to_insert = [h for h in norm_tags if h not in result]
             if to_insert:
                 insert_q = """
-                INSERT INTO summary_hashtags (job_id, summary_id, chapter, hashtag)
+                INSERT INTO summary_hashtags (mapping_id, summary_id, chapter, hashtag)
                 VALUES (%s, %s, %s, %s)
                 ON DUPLICATE KEY UPDATE updated_at = NOW();
                 """
-                values = [(job_id, 0, chapter, h) for h in to_insert]
+                values = [(mapping_id, 0, chapter, h) for h in to_insert]
                 await cursor.executemany(insert_q, values)
 
             # 4) 전체 다시 조회해서 ID 회수
-            await cursor.execute(select_q, (job_id, chapter, *norm_tags))
+            await cursor.execute(select_q, (mapping_id, chapter, *norm_tags))
             for hashtag, hid in await cursor.fetchall():
                 result[hashtag] = int(hid)
 
-        logger.info(f"Ensured {len(result)} hashtags for job_id={job_id}, chapter={chapter}")
+        logger.info(f"Ensured {len(result)} hashtags for mapping_id={mapping_id}, chapter={chapter}")
         return result
 
      # (레거시) 해시태그 저장: 새로는 ensure_hashtag_ids 사용 권장
-    async def save_hashtags(self, job_id: int, summary_id: int, chapter: str, hashtags: List[str]) -> int:
+    async def save_hashtags(self, mapping_id: int, summary_id: int, chapter: str, hashtags: List[str]) -> int:
         """해시태그 저장 (레거시) — 멱등 업서트 ensure_hashtag_ids 사용 권장"""
         if not hashtags:
             return 0
         insert_query = """
-        INSERT INTO summary_hashtags (job_id, summary_id, chapter, hashtag)
+        INSERT INTO summary_hashtags (mapping_id, summary_id, chapter, hashtag)
         VALUES (%s, %s, %s, %s)
         ON DUPLICATE KEY UPDATE updated_at = NOW();
         """
@@ -349,72 +350,72 @@ class Database:
             for hashtag in hashtags:
                 if hashtag and hashtag.strip():  # 빈 해시태그 제외
                     await cursor.execute(insert_query, (
-                        job_id,
+                        mapping_id,
                         summary_id,
                         str(chapter),
                         hashtag.strip()[:100]
                     ))
                     saved_count += cursor.rowcount
-        logger.info(f"Saved {saved_count} hashtags for job_id={job_id}, chapter={chapter}")
+        logger.info(f"Saved {saved_count} hashtags for mapping_id={mapping_id}, chapter={chapter}")
         return saved_count
     
-    async def get_hashtags_by_mapping(self, job_id: int) -> List[Dict[str, Any]]:
+    async def get_hashtags_by_mapping(self, mapping_id: int) -> List[Dict[str, Any]]:
         """매핑 ID로 해시태그 조회 (챕터 고정 순서 정렬)"""
         query = """
-        SELECT hashtag_id, job_id, summary_id, chapter, hashtag, created_at, updated_at
+        SELECT hashtag_id, mapping_id, summary_id, chapter, hashtag, created_at, updated_at
         FROM summary_hashtags
-        WHERE job_id = %s
+        WHERE mapping_id = %s
         ORDER BY FIELD(chapter,'business_overview','products_services','revenue_orders','contracts_rnd','others'),
                  hashtag_id;
         """
         
         async with self.get_connection() as cursor:
-            await cursor.execute(query, (job_id,))
+            await cursor.execute(query, (mapping_id,))
             rows = await cursor.fetchall()
             
             columns = [desc[0] for desc in cursor.description]
             return [dict(zip(columns, row)) for row in rows]
 
-    async def get_hashtags_by_chapter(self, job_id: int, chapter: str) -> List[str]:
+    async def get_hashtags_by_chapter(self, mapping_id: int, chapter: str) -> List[str]:
         """챕터별 해시태그 조회"""
         query = """
         SELECT hashtag
         FROM summary_hashtags
-        WHERE job_id = %s AND chapter = %s
+        WHERE mapping_id = %s AND chapter = %s
         ORDER BY hashtag_id
         """
         
         async with self.get_connection() as cursor:
-            await cursor.execute(query, (job_id,))
+            await cursor.execute(query, (mapping_id, chapter))
             rows = await cursor.fetchall()
             columns = [desc[0] for desc in cursor.description]
             return [dict(zip(columns, row)) for row in rows]
-    
-    async def get_hashtags_by_chapter(self, job_id: int, chapter: str) -> List[str]:
-        """챕터별 해시태그 조회"""
+
+    async def get_hashtags_by_chapter_list(self, mapping_id: int, chapter: str) -> List[str]:
+        """챕터별 해시태그 리스트 조회 (문자열만 반환)"""
         query = """
         SELECT hashtag
         FROM summary_hashtags
-        WHERE job_id = %s AND chapter = %s
+        WHERE mapping_id = %s AND chapter = %s
         ORDER BY hashtag_id;
         """
         async with self.get_connection() as cursor:
-            await cursor.execute(query, (job_id, str(chapter)))
+            await cursor.execute(query, (mapping_id, str(chapter)))
             rows = await cursor.fetchall()
             return [row[0] for row in rows]
 
-    async def update_hashtags_summary_id(self, job_id: int, summary_id: int) -> int:
+    async def update_hashtags_summary_id(self, mapping_id: int, summary_id: int) -> int:
         """해시태그의 summary_id 업데이트"""
         update_query = """
         UPDATE summary_hashtags 
         SET summary_id = %s, updated_at = NOW()
-        WHERE job_id = %s AND summary_id = 0
+        WHERE mapping_id = %s AND summary_id = 0
         """
         
         async with self.get_connection() as cursor:
-            await cursor.execute(update_query, (summary_id, job_id))
+            await cursor.execute(update_query, (summary_id, mapping_id))
             updated_count = cursor.rowcount
-            logger.info(f"Updated {updated_count} hashtags with summary_id={summary_id} for job_id={job_id}")
+            logger.info(f"Updated {updated_count} hashtags with summary_id={summary_id} for mappinig_id={mapping_id}")
             return updated_count
 
     async def save_hashtags_with_version(self, mapping_id: int, version: int, summary_id: int, chapter: str, hashtags: List[str]) -> int:
@@ -459,7 +460,7 @@ class Database:
     async def get_statistics(self) -> Dict[str, int]:
         queries = {
             "total_news": "SELECT COUNT(*) FROM news_summaries",
-            "unique_mappings": "SELECT COUNT(DISTINCT job_id) FROM news_summaries",
+            "unique_mappings": "SELECT COUNT(DISTINCT mapping_id) FROM news_summaries",
             "unique_hashtags": "SELECT COUNT(DISTINCT hashtag_id) FROM news_summaries"
         }
         stats: Dict[str, int] = {}
@@ -470,15 +471,15 @@ class Database:
                 stats[k] = int(v or 0)
         return stats
 
-    async def create_job_processing(self, job_id: int) -> None:
+    async def create_job_processing(self, mapping_id: int, job_id: int) -> None:
         """job_processing 레코드 생성"""
         query = """
-        INSERT INTO job_processing (job_id, status)
-        VALUES (%s, 'processing')
+        INSERT INTO job_processing (job_id, mapping_id, status)
+        VALUES (%s, %s, 'processing')
         ON DUPLICATE KEY UPDATE updated_at = NOW()
         """
         async with self.get_connection() as cursor:
-            await cursor.execute(query, (job_id,))
+            await cursor.execute(query, (job_id, mapping_id,))
             logger.info(f"Created job_processing record for job_id={job_id}")
 
     async def update_job_processing_status(self, job_id: int, status: str) -> bool:
@@ -532,16 +533,16 @@ class Database:
             columns = [desc[0] for desc in cursor.description]
             return [dict(zip(columns, row)) for row in rows]
 
-    async def cleanup_job_chapter_data(self, job_id: int, chapter: str) -> None:
-        """특정 job_id + chapter의 기존 데이터 클린업 (재요약용)"""
+    async def cleanup_job_chapter_data(self, mapping_id: int, chapter: str) -> None:
+        """특정 mappinig_id + chapter의 기존 데이터 클린업 (재요약용)"""
         try:
             async with self.get_connection() as cursor:
                 # 1. 해당 챕터의 기존 해시태그 ID들 조회
                 hashtag_query = """
                 SELECT hashtag_id FROM summary_hashtags
-                WHERE job_id = %s AND chapter = %s
+                WHERE mapping_id = %s AND chapter = %s
                 """
-                await cursor.execute(hashtag_query, (job_id, chapter))
+                await cursor.execute(hashtag_query, (mapping_id, chapter))
                 hashtag_ids = [row[0] for row in await cursor.fetchall()]
 
                 if hashtag_ids:
@@ -549,25 +550,25 @@ class Database:
                     placeholders = ",".join(["%s"] * len(hashtag_ids))
                     news_delete_query = f"""
                     DELETE FROM news_summaries
-                    WHERE job_id = %s AND hashtag_id IN ({placeholders})
+                    WHERE mapping_id = %s AND hashtag_id IN ({placeholders})
                     """
-                    await cursor.execute(news_delete_query, [job_id] + hashtag_ids)
+                    await cursor.execute(news_delete_query, [mapping_id] + hashtag_ids)
                     deleted_news = cursor.rowcount
 
                     # 3. 해당 챕터의 해시태그 삭제
                     hashtag_delete_query = """
                     DELETE FROM summary_hashtags
-                    WHERE job_id = %s AND chapter = %s
+                    WHERE mapping_id = %s AND chapter = %s
                     """
-                    await cursor.execute(hashtag_delete_query, (job_id, chapter))
+                    await cursor.execute(hashtag_delete_query, (mapping_id, chapter))
                     deleted_hashtags = cursor.rowcount
 
-                    logger.info(f"Cleaned up job {job_id} chapter {chapter}: {deleted_hashtags} hashtags, {deleted_news} news")
+                    logger.info(f"Cleaned up job {mapping_id} chapter {chapter}: {deleted_hashtags} hashtags, {deleted_news} news")
                 else:
-                    logger.info(f"No existing data to clean up for job {job_id} chapter {chapter}")
+                    logger.info(f"No existing data to clean up for job {mapping_id} chapter {chapter}")
 
         except Exception as e:
-            logger.error(f"Error cleaning up job {job_id} chapter {chapter}: {e}")
+            logger.error(f"Error cleaning up job {mapping_id} chapter {chapter}: {e}")
             raise
 
     async def is_reprocessing_job(self, job_id: int) -> bool:
@@ -578,15 +579,6 @@ class Database:
         except Exception as e:
             logger.error(f"Error checking reprocessing status for job {job_id}: {e}")
             return False
-
-    async def reset_job_counter(self, job_id: int) -> None:
-        """재요약 시 Redis counter 초기화"""
-        try:
-            # Redis 클라이언트는 여기서 직접 접근하기 어려우므로
-            # redis_consumer에서 호출하도록 설계
-            logger.info(f"Job {job_id} counter reset requested")
-        except Exception as e:
-            logger.error(f"Error resetting counter for job {job_id}: {e}")
 
     async def start_job_reprocessing(self, job_id: int) -> Dict[str, Any]:
         """
@@ -615,7 +607,8 @@ class Database:
                 DELETE FROM news_summaries
                 WHERE mapping_id = %s
                 """
-                await cursor.execute(delete_news_summary_query, (job_id,))
+                mapping_id = await self.get_mapping_id_by_job_id(job_id)
+                await cursor.execute(delete_news_summary_query, (mapping_id,))
                 deleted_news_summaries = cursor.rowcount
 
                 # 4. 요약 해시태그 삭제
@@ -623,7 +616,7 @@ class Database:
                 DELETE FROM summary_hashtags
                 WHERE mapping_id = %s
                 """
-                await cursor.execute(delete_hashtags_query, (job_id,))
+                await cursor.execute(delete_hashtags_query, (mapping_id,))
                 deleted_hashtags = cursor.rowcount
 
                 # 6. 요약 데이터 삭제 (summaries 테이블이 있다면)
@@ -632,7 +625,7 @@ class Database:
                     DELETE FROM summaries
                     WHERE mapping_id = %s
                     """
-                    await cursor.execute(delete_summaries_query, (job_id,))
+                    await cursor.execute(delete_summaries_query, (mapping_id,))
                     deleted_summaries = cursor.rowcount
                 except Exception:
                     deleted_summaries = 0  # 테이블이 없을 수 있음
@@ -685,13 +678,15 @@ class Database:
                 # 관련 데이터 개수 조회
                 data_counts = {}
 
+                mapping_id = await self.get_mapping_id_by_job_id(job_id)
+                
                 # 뉴스 요약 개수
-                await cursor.execute("SELECT COUNT(*) FROM news_summaries WHERE mapping_id = %s", (job_id,))
+                await cursor.execute("SELECT COUNT(*) FROM news_summaries WHERE mapping_id = %s", (mapping_id,))
                 result = await cursor.fetchone()
                 data_counts['news_summaries'] = result[0] if result else 0
 
                 # 해시태그 개수
-                await cursor.execute("SELECT COUNT(*) FROM summary_hashtags WHERE mapping_id = %s", (job_id,))
+                await cursor.execute("SELECT COUNT(*) FROM summary_hashtags WHERE mapping_id = %s", (mapping_id,))
                 result = await cursor.fetchone()
                 data_counts['hashtags'] = result[0] if result else 0
 
@@ -700,7 +695,7 @@ class Database:
                     SELECT COUNT(*) FROM news_summaries ns
                     INNER JOIN summary_hashtags sh ON ns.hashtag_id = sh.hashtag_id
                     WHERE sh.mapping_id = %s
-                """, (job_id,))
+                """, (mapping_id,))
                 result = await cursor.fetchone()
                 data_counts['hashtag_news'] = result[0] if result else 0
 
@@ -723,6 +718,36 @@ class Database:
                 "reason": f"Error checking eligibility: {str(e)}"
             }
 
+    async def get_mapping_id_by_job_id(self, job_id: int) -> Optional[int]:
+        """
+        job_id로 mapping_id 조회
+
+        Args:
+            job_id: 조회할 job ID
+
+        Returns:
+            mapping_id 또는 None (job_id가 존재하지 않는 경우)
+        """
+        query = """
+        SELECT mapping_id FROM job_processing WHERE job_id = %s
+        """
+
+        try:
+            async with self.get_connection() as cursor:
+                await cursor.execute(query, (job_id,))
+                result = await cursor.fetchone()
+
+                if result:
+                    mapping_id = result[0]
+                    logger.info(f"Found mapping_id={mapping_id} for job_id={job_id}")
+                    return mapping_id
+                else:
+                    logger.warning(f"No mapping_id found for job_id={job_id}")
+                    return None
+
+        except Exception as e:
+            logger.error(f"Error getting mapping_id for job_id {job_id}: {e}")
+            return None
 
 
 # 전역 데이터베이스 인스턴스
