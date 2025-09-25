@@ -5,6 +5,11 @@ import { getAllJobPostings } from './data/jobPostingsForDetailPage';
 import { getFilteredJobPostings, createAutocompleteResponse } from './data/autocomplete';
 import { searchJobPostings } from './data/jobPostings';
 import { mockCompanyMappings, mockMappingUpdateResponse } from './data/adminMapping';
+import {
+  mockAdminJobCompleteData,
+  mockJobReprocessingResponse,
+  mockJobApproveResponse,
+} from './data/adminJobComplete';
 import type { NewsResponse, AdminMappingUpdateRequest } from '@/lib/api';
 
 export const handlers = [
@@ -374,6 +379,86 @@ export const handlers = [
     };
 
     console.log(`✅ MSW: 매핑 업데이트 성공 응답 반환`);
+
+    return HttpResponse.json(customResponse, {
+      status: 200,
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    });
+  }),
+
+  // Admin Job Complete 데이터 조회 API 목 핸들러
+  http.get('/api/admin/jobs/:jobId/complete-data', ({ params }) => {
+    const jobId = params.jobId as string;
+
+    console.log(`🎭 MSW: Admin Job Complete API 호출됨 - Job ID: ${jobId}`);
+
+    const jobData = mockAdminJobCompleteData[jobId];
+
+    if (!jobData) {
+      console.log(`❌ MSW: Job ID ${jobId}에 해당하는 데이터가 없습니다.`);
+      return new HttpResponse(null, {
+        status: 404,
+        statusText: 'Job data not found',
+      });
+    }
+
+    console.log(`✅ MSW: ${jobData.company_info.company_name} Job 데이터 반환`);
+
+    return HttpResponse.json(jobData, {
+      status: 200,
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    });
+  }),
+
+  // Admin Job 재요약 요청 API 목 핸들러
+  http.post('/api/admin/jobs/:jobId/reprocessing', async ({ params }) => {
+    const jobId = params.jobId as string;
+
+    console.log(`🎭 MSW: Admin Job Reprocessing API 호출됨 - Job ID: ${jobId}`);
+
+    // 실제 처리 시뮬레이션을 위한 지연
+    await new Promise((resolve) => setTimeout(resolve, 1000));
+
+    // jobId에 맞게 응답 커스터마이즈
+    const customResponse = {
+      ...mockJobReprocessingResponse,
+      message: `Job ${jobId} has been marked for reprocessing`,
+      cleanup_stats: {
+        ...mockJobReprocessingResponse.cleanup_stats,
+        job_id: parseInt(jobId),
+      },
+    };
+
+    console.log(`✅ MSW: Job ${jobId} 재요약 요청 성공 응답 반환`);
+
+    return HttpResponse.json(customResponse, {
+      status: 200,
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    });
+  }),
+
+  // Admin Job 승인 API 목 핸들러
+  http.post('/api/admin/jobs/:jobId/approve', async ({ params }) => {
+    const jobId = params.jobId as string;
+
+    console.log(`🎭 MSW: Admin Job Approve API 호출됨 - Job ID: ${jobId}`);
+
+    // 실제 처리 시뮬레이션을 위한 지연
+    await new Promise((resolve) => setTimeout(resolve, 1500));
+
+    // jobId에 맞게 응답 커스터마이즈
+    const customResponse = {
+      ...mockJobApproveResponse,
+      job_id: parseInt(jobId),
+    };
+
+    console.log(`✅ MSW: Job ${jobId} 승인 성공 응답 반환`);
 
     return HttpResponse.json(customResponse, {
       status: 200,

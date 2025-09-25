@@ -12,6 +12,7 @@ import CalendarDetailPage from './pages/CalendarDetailPage';
 import SearchDetailPage from './pages/SearchDetailPage';
 import NotFoundPage from './pages/NotFoundPage';
 import { AdminMappingPage } from './pages/AdminMappingPage';
+import AdminCompletedPage from './pages/AdminCompletedPage';
 import { useAuthStore } from './stores/useAuthStore';
 import { RootLayout } from './components/common/organisms/RootLayout';
 
@@ -88,6 +89,12 @@ const adminMappingRoute = createRoute({
   component: AdminMappingPage,
 });
 
+const adminJobCompletedRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/admin/jobs/$jobId/complete',
+  component: AdminCompletedPage,
+});
+
 const authCallbackRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/auth/callback',
@@ -148,6 +155,7 @@ const routeTree = rootRoute.addChildren([
   loginRoute,
   authCallbackRoute,
   adminMappingRoute,
+  adminJobCompletedRoute,
 ]);
 
 export const router = createRouter({ routeTree });
