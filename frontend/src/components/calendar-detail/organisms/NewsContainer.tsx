@@ -9,10 +9,10 @@ import { cn } from '@/lib/utils';
 
 export interface NewsItem {
   newsId: number;
-  newsTitle: string;
-  newsContent: string;
-  newsCreateDate: string;
-  newsUrl: string;
+  title: string;
+  content: string;
+  postingDate: string;
+  url: string;
   summaryHashtagId?: number; // 필요시 사용
 }
 
@@ -123,10 +123,10 @@ export default function NewsContainer({
           {currentNews.map((item) => (
             <NewsCard
               key={item.newsId}
-              title={item.newsTitle}
-              content={item.newsContent}
-              publishedDate={item.newsCreateDate}
-              url={item.newsUrl}
+              title={item.title}
+              content={item.content}
+              publishedDate={item.postingDate}
+              url={item.url}
             />
           ))}
         </div>

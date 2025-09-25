@@ -9,7 +9,7 @@ import type { NewsResponse, AdminMappingUpdateRequest } from '@/lib/api';
 
 export const handlers = [
   // Summary Detail API 목 핸들러
-  http.get('/api/summary/:summaryId', ({ params }) => {
+  http.get('/api/summaries/:summaryId', ({ params }) => {
     const summaryId = params.summaryId as string;
 
     console.log(`🎭 MSW: Summary Detail API 호출됨 - ID: ${summaryId}`);
@@ -37,7 +37,7 @@ export const handlers = [
   }),
 
   // News API 목 핸들러
-  http.get('/api/summary/:summaryId/news', ({ params }) => {
+  http.get('/api/summaries/:summaryId/news', ({ params }) => {
     const summaryId = params.summaryId as string;
 
     console.log(`🎭 MSW: News API 호출됨 - Summary ID: ${summaryId}`);
@@ -60,7 +60,7 @@ export const handlers = [
   }),
 
   // 해시태그별 News API 목 핸들러
-  http.get('/api/summary/:summaryId/news/:hashtagName', ({ params }) => {
+  http.get('/api/summaries/:summaryId/news/:hashtagName', ({ params }) => {
     const summaryId = params.summaryId as string;
     const encodedHashtagName = params.hashtagName as string;
     const hashtagName = decodeURIComponent(encodedHashtagName);
@@ -75,42 +75,42 @@ export const handlers = [
         {
           newsId: 1,
           summaryHashtagId: 10,
-          newsUrl: 'https://news.example.com/samsung-hbm-production',
-          newsTitle: '삼성전자, HBM3E 양산 본격화로 AI 반도체 시장 선도',
-          newsContent:
+          url: 'https://news.example.com/samsung-hbm-production',
+          title: '삼성전자, HBM3E 양산 본격화로 AI 반도체 시장 선도',
+          content:
             '삼성전자가 차세대 고대역폭 메모리 반도체인 HBM3E의 양산을 본격화하며 AI 반도체 시장에서의 리더십을 강화하고 있습니다. HBM3E는 기존 HBM3 대비 50% 향상된 성능을 제공하며, 엔비디아의 차세대 AI 가속기에 독점 공급될 예정입니다.',
-          newsCreateDate: '2024-12-20',
+          postingDate: '2024-12-20',
         },
         {
           newsId: 2,
           summaryHashtagId: 11,
-          newsUrl: 'https://news.example.com/samsung-ai-investment',
-          newsTitle: '삼성전자, AI 반도체 개발에 3년간 100조원 투자 계획 발표',
-          newsContent:
+          url: 'https://news.example.com/samsung-ai-investment',
+          title: '삼성전자, AI 반도체 개발에 3년간 100조원 투자 계획 발표',
+          content:
             '삼성전자가 인공지능 반도체 기술 개발과 생산 능력 확대를 위해 향후 3년간 100조원 규모의 대규모 투자를 단행한다고 발표했습니다.',
-          newsCreateDate: '2024-12-19',
+          postingDate: '2024-12-19',
         },
       ],
       HBM: [
         {
           newsId: 3,
           summaryHashtagId: 10,
-          newsUrl: 'https://news.example.com/samsung-hbm-production',
-          newsTitle: '삼성전자, HBM3E 양산 본격화로 AI 반도체 시장 선도',
-          newsContent:
+          url: 'https://news.example.com/samsung-hbm-production',
+          title: '삼성전자, HBM3E 양산 본격화로 AI 반도체 시장 선도',
+          content:
             '삼성전자가 차세대 고대역폭 메모리 반도체인 HBM3E의 양산을 본격화하며 AI 반도체 시장에서의 리더십을 강화하고 있습니다. HBM3E는 기존 HBM3 대비 50% 향상된 성능을 제공하며, 엔비디아의 차세대 AI 가속기에 독점 공급될 예정입니다.',
-          newsCreateDate: '2024-12-20',
+          postingDate: '2024-12-20',
         },
       ],
       투자: [
         {
           newsId: 4,
           summaryHashtagId: 11,
-          newsUrl: 'https://news.example.com/samsung-ai-investment',
-          newsTitle: '삼성전자, AI 반도체 개발에 3년간 100조원 투자 계획 발표',
-          newsContent:
+          url: 'https://news.example.com/samsung-ai-investment',
+          title: '삼성전자, AI 반도체 개발에 3년간 100조원 투자 계획 발표',
+          content:
             '삼성전자가 인공지능 반도체 기술 개발과 생산 능력 확대를 위해 향후 3년간 100조원 규모의 대규모 투자를 단행한다고 발표했습니다. 이번 투자는 차세대 HBM, PIM 기술, 그리고 AI 전용 칩셋 개발에 집중될 예정입니다.',
-          newsCreateDate: '2024-12-19',
+          postingDate: '2024-12-19',
         },
       ],
       // 필요한 태그별로 데이터 추가
