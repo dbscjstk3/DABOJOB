@@ -26,10 +26,10 @@ export interface SummaryResponse {
 export interface NewsResponse {
   newsId: number;
   summaryHashtagId: number;
-  newsUrl: string;
-  newsTitle: string;
-  newsContent: string;
-  newsCreateDate: string;
+  url: string;
+  title: string;
+  content: string;
+  postingDate: string;
 }
 
 // JobPosting API 응답 타입 정의

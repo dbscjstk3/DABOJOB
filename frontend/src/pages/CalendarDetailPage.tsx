@@ -19,9 +19,9 @@ export default function CalendarDetailPage() {
   useEffect(() => {
     const handleResize = () => {
       if (window.innerWidth < 1024) {
-        setNewsItemsPerPage(3);
-      } else {
         setNewsItemsPerPage(1);
+      } else {
+        setNewsItemsPerPage(3);
       }
     };
 
