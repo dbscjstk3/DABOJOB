@@ -301,9 +301,9 @@ class Database:
             return {}
 
         result: Dict[str, int] = {}
-        
+
         if not hashtags:
-            return 0
+            return {}
 
         async with self.get_connection() as cursor:
             # 2) 기존 존재하는 것들 먼저 조회
