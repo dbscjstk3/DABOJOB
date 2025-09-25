@@ -19,9 +19,10 @@ export default function PaginationControls({
 
   const generatePageNumbers = () => {
     const pages: number[] = [];
-    const pageGroupSize = 5;
+    // 모바일: 3개, 태블릿/데스크톱: 5개
+    const pageGroupSize = window.innerWidth < 640 ? 3 : 5;
 
-    // 현재 페이지가 속한 그룹 계산 (1-5는 그룹 1, 6-10은 그룹 2...)
+    // 현재 페이지가 속한 그룹 계산
     const currentGroup = Math.ceil(currentPage / pageGroupSize);
     const startPage = (currentGroup - 1) * pageGroupSize + 1;
     const endPage = Math.min(startPage + pageGroupSize - 1, totalPages);
@@ -37,34 +38,34 @@ export default function PaginationControls({
   const pageNumbers = generatePageNumbers();
 
   return (
-    <div className={cn('flex justify-center items-center gap-2 mt-8', className)}>
+    <div className={cn('flex justify-center items-center gap-1 sm:gap-2 mt-6 md:mt-8', className)}>
       {/* 이전 버튼 */}
       <button
         onClick={() => onPageChange(currentPage - 1)}
         disabled={currentPage === 1}
         className={cn(
-          'flex items-center gap-1 px-3 py-2 rounded-md text-sm transition-colors',
+          'flex items-center gap-0.5 sm:gap-1 px-2 sm:px-3 py-1.5 sm:py-2 rounded-md text-xs sm:text-sm transition-colors',
           currentPage === 1
             ? 'text-gray-400 cursor-not-allowed'
             : 'text-gray-700 hover:bg-gray-100',
         )}
       >
-        <ChevronLeft className="h-4 w-4" />
-        <span>이전</span>
+        <ChevronLeft className="h-3 w-3 sm:h-4 sm:w-4" />
+        <span className="hidden sm:inline">이전</span>
       </button>
 
       {/* 페이지 번호들 */}
-      <div className="flex items-center gap-1">
+      <div className="flex items-center gap-0.5 sm:gap-1">
         {pageNumbers.map((page, index) => (
           <button
             key={index}
             onClick={() => onPageChange(page)}
             className={cn(
-              'w-10 h-10 flex items-center justify-center rounded-md text-sm transition-colors',
+              'w-8 h-8 sm:w-10 sm:h-10 flex items-center justify-center rounded-md text-xs sm:text-sm transition-colors',
               page === currentPage ? 'bg-blue-600 text-white' : 'text-gray-700 hover:bg-gray-100',
             )}
           >
-            <Typography variant="default" className="text-inherit">
+            <Typography variant="default" className="text-inherit text-xs sm:text-sm">
               {page}
             </Typography>
           </button>
@@ -76,14 +77,14 @@ export default function PaginationControls({
         onClick={() => onPageChange(currentPage + 1)}
         disabled={currentPage === totalPages}
         className={cn(
-          'flex items-center gap-1 px-3 py-2 rounded-md text-sm transition-colors',
+          'flex items-center gap-0.5 sm:gap-1 px-2 sm:px-3 py-1.5 sm:py-2 rounded-md text-xs sm:text-sm transition-colors',
           currentPage === totalPages
             ? 'text-gray-400 cursor-not-allowed'
             : 'text-gray-700 hover:bg-gray-100',
         )}
       >
-        <span>다음</span>
-        <ChevronRight className="h-4 w-4" />
+        <span className="hidden sm:inline">다음</span>
+        <ChevronRight className="h-3 w-3 sm:h-4 sm:w-4" />
       </button>
     </div>
   );

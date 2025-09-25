@@ -2,6 +2,7 @@ import { useState, useMemo, useEffect } from 'react';
 import { useSwipeable } from 'react-swipeable';
 import Typography from '@/components/common/atoms/Typography';
 import { Button } from '@/components/common/atoms/Button';
+import { IconButton } from '@/components/common/atoms/IconButton';
 import NewsCard from '../molecules/NewsCard';
 import PaginationDots from '../molecules/PaginationDots';
 import { cn } from '@/lib/utils';
@@ -69,13 +70,51 @@ export default function NewsContainer({
     }
   };
 
+  // 페이지 변경 핸들러
+  const handlePrevious = () => {
+    if (currentPage > 0) {
+      setCurrentPage(currentPage - 1);
+    }
+  };
+
+  const handleNext = () => {
+    if (currentPage < totalPages - 1) {
+      setCurrentPage(currentPage + 1);
+    }
+  };
+
   return (
-    <article className={cn('rounded-xl border border-slate-200 bg-white p-4 md:p-6', className)}>
+    <article className={cn('rounded-xl bg-slate-50 p-4 md:p-6', className)}>
       {/* 헤더 */}
       <div className="mb-5">
-        <Typography variant="subtitle" weight="bold">
-          {filterTag ? `# ${filterTag} 관련 뉴스` : '관련 뉴스'}
-        </Typography>
+        <div className="flex items-center justify-center gap-2 md:gap-3">
+          <IconButton
+            size="3xl"
+            aria-label="previous page"
+            onClick={handlePrevious}
+            className="text-lg md:text-3xl"
+            disabled={currentPage === 0}
+          >
+            ‹
+          </IconButton>
+          <Typography
+            variant="subtitle"
+            weight="bold"
+            align="center"
+            className="text-md md:text-lg"
+          >
+            {filterTag ? `# ${filterTag} 관련 뉴스` : '관련 뉴스'}
+          </Typography>
+          <IconButton
+            size="3xl"
+            aria-label="next page"
+            onClick={handleNext}
+            className="text-lg md:text-3xl"
+            disabled={currentPage >= totalPages - 1}
+          >
+            ›
+          </IconButton>
+        </div>
       </div>
 
       {/* 뉴스 목록 */}
@@ -93,7 +132,7 @@ export default function NewsContainer({
         </div>
       ) : (
         <div className="py-5 text-center">
-          <Typography variant="default" color="gray" className="text-center">
+          <Typography variant="default" color="gray" className="text-center mb-5">
             {filterTag ? `# ${filterTag} 관련 뉴스가 없습니다.😭` : '뉴스가 없습니다.'}
           </Typography>
         </div>
