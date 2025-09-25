@@ -218,7 +218,7 @@ async def shutdown_event_handler():
 
 
     if executor:
-        executor.shutdown(wait=True, timeout=5)
+        executor.shutdown(wait=True)
         logger.info("Executor shutdown completed")
 
 if __name__ == "__main__":
