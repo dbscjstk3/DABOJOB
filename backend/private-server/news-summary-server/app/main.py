@@ -42,8 +42,6 @@ request_semaphore = None
 shutdown_event = threading.Event()
 redis_consumer = None
 consumer_thread = None
-resummary_consumer = None
-resummary_thread = None
 
 class NewsSummarizeRequest(BaseModel):
     mapping_id: int
@@ -72,7 +70,7 @@ async def news_search_callback(job_id: str, category: str, hashtags: list):
 @app.on_event("startup")
 async def startup_event():
     """서버 시작 시 초기화"""
-    global ollama_client, executor, request_semaphore, redis_consumer, consumer_thread, resummary_consumer, resummary_thread
+    global ollama_client, executor, request_semaphore, redis_consumer, consumer_thread
     
     try:
         # 상태 관리자 초기화 (실패해도 메인 서비스에 영향 없음)
@@ -102,15 +100,6 @@ async def startup_event():
                 logger.error(f"Failed to start Redis consumer: {e}")
                 # Redis 실패해도 서버는 계속 동작
 
-        # 재요약 Consumer 시작 (분리된 처리)
-        if os.getenv('ENABLE_RESUMMARY_CONSUMER', 'true').lower() == 'true':
-            try:
-                resummary_consumer = ResummaryConsumer()
-                resummary_thread = resummary_consumer.start_background_consumer()
-                logger.info("Resummary consumer started successfully")
-            except Exception as e:
-                logger.error(f"Failed to start resummary consumer: {e}")
-                # 재요약 실패해도 서버는 계속 동작
         
         # 연결 테스트
         models = ollama_client.list()
@@ -140,14 +129,6 @@ def health_check() -> dict:
         except:
             redis_status = "error"
 
-    resummary_status = "not_enabled"
-    resummary_pending = 0
-    if resummary_consumer:
-        try:
-            # 재요약 큐 상태 확인 (간단히)
-            resummary_status = "connected"
-        except:
-            resummary_status = "error"
     
     return {
         "status": "ok" if not shutdown_event.is_set() else "shutting_down",
@@ -157,9 +138,7 @@ def health_check() -> dict:
         "active_tasks": active_tasks,
         "max_workers": int(os.getenv('MAX_WORKERS', '2')),
         "redis_consumer": redis_status,
-        "pending_messages": pending_messages,
-        "resummary_consumer": resummary_status,
-        "resummary_pending": resummary_pending
+        "pending_messages": pending_messages
     }
 
 max_workers = int(os.getenv('MAX_WORKERS', '2'))
@@ -233,7 +212,7 @@ async def get_hashtag_results(job_id: str):
 @app.on_event("shutdown")
 async def shutdown_event_handler():
     """서버 종료 시 정리"""
-    global executor, redis_consumer, resummary_consumer
+    global executor, redis_consumer
     shutdown_event.set()
     
     # 상태 관리자 정리 (실패해도 무시)
@@ -249,10 +228,6 @@ async def shutdown_event_handler():
         redis_consumer.cleanup()
         logger.info("Redis consumer shutdown completed")
 
-    # 재요약 Consumer 정리
-    if resummary_consumer:
-        resummary_consumer.cleanup()
-        logger.info("Resummary consumer shutdown completed")
 
     if executor:
         executor.shutdown(wait=True, timeout=5)
