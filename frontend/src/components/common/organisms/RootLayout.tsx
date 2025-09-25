@@ -11,6 +11,7 @@ export function RootLayout() {
   const location = useLocation();
   const navigate = useNavigate();
   const isLoginPage = location.pathname === '/login';
+  const isAdminPage = location.pathname.startsWith('/admin');
   const { isAuthed, user, logout, fetchUser } = useAuthStore();
 
   // 앱 시작 시 사용자 정보 가져오기 (한 번만 실행)
@@ -115,6 +116,11 @@ export function RootLayout() {
       navigate({ to: '/' });
     }
   };
+
+  // 관리자 페이지는 Header/Footer 없이 렌더링
+  if (isAdminPage) {
+    return <Outlet />;
+  }
 
   return (
     <div className="min-h-screen flex flex-col">

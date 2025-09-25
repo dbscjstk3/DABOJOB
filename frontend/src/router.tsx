@@ -12,6 +12,7 @@ import CalendarPage from './pages/CalendarPage';
 import CalendarDetailPage from './pages/CalendarDetailPage';
 import SearchDetailPage from './pages/SearchDetailPage';
 import NotFoundPage from './pages/NotFoundPage';
+import { AdminMappingPage } from './pages/AdminMappingPage';
 import { useAuthStore } from './stores/useAuthStore';
 import { RootLayout } from './components/common/organisms/RootLayout';
 
@@ -143,6 +144,13 @@ const authCallbackRoute = createRoute({
   },
 });
 
+// Admin routes - IP 화이트리스트로 서버에서 접근 제어
+const adminMappingRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/admin/mapping/$companyId',
+  component: AdminMappingPage,
+});
+
 const routeTree = rootRoute.addChildren([
   calendarListRoute,
   calendarDetailRoute,
@@ -151,6 +159,7 @@ const routeTree = rootRoute.addChildren([
   adminMappingRoute,
   loginRoute,
   authCallbackRoute,
+  adminMappingRoute,
 ]);
 
 export const router = createRouter({ routeTree });
