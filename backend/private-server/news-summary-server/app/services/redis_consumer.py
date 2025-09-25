@@ -164,7 +164,7 @@ class RedisConsumer:
                         hashtag_id=hashtag_id,
                         summary_id=0,  # 임시
                         hashtag=hashtag,
-                        company_name=""  # 기업명은 별도로 추출 필요
+                        company_name=company_name or ""  # 조회한 기업명 사용
                     )
                     total_news_count += news_count
                     logger.info(f"Found {news_count} news for hashtag: {hashtag} (hashtag_id: {hashtag_id})")
