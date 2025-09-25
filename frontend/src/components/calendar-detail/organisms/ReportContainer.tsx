@@ -44,8 +44,14 @@ export default function ReportContainer({
   return (
     <article className={cn('rounded-xl border border-slate-200 bg-white p-4 md:p-6', className)}>
       {/* 제목 */}
-      <Typography as="h1" variant="title" weight="bold" className="mb-7">
-        {title}
+      <Typography
+        as="h1"
+        variant="title"
+        weight="bold"
+        className="mb-7 p-1 bg-blue-50"
+        align="center"
+      >
+        ✨ {title} ✨
       </Typography>
 
       {/* 섹션들 */}
