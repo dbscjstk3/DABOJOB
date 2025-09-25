@@ -139,6 +139,7 @@ class S3Service:
                 row = await cursor.fetchone()
 
                 if row:
+                    logger.info(f"✅ Found company data for job {job_id}: {row[1]} (ID: {row[0]})")
                     return {
                         "job_id": job_id,
                         "company_id": row[0],
@@ -146,6 +147,8 @@ class S3Service:
                         "company_scale": row[2]
                     }
 
+                logger.warning(f"❌ No company data found for job_id {job_id}")
+                logger.info(f"🔍 Query used: {query}")
                 return {
                     "job_id": job_id,
                     "company_id": None,
@@ -312,16 +315,37 @@ class S3Service:
         for filename in summary_files:
             try:
                 mapping_id = await database.get_mapping_id_by_job_id(job_id)
+                if not mapping_id:
+                    logger.error(f"❌ No mapping_id found for job_id {job_id}")
+                    continue
+
                 file_path = f"/app/data/mapping/{mapping_id}/summaries/{filename}"
                 chapter_name = filename.replace("_summary.txt", "")
+
+                logger.info(f"🔍 Looking for summary file: {file_path}")
+
                 if os.path.exists(file_path):
                     with open(file_path, "r", encoding="utf-8") as f:
-                        summaries[chapter_name] = f.read()
+                        content = f.read()
+                        summaries[chapter_name] = content
+                        logger.info(f"✅ Read summary file {filename}: {len(content)} characters")
                 else:
-                    logger.warning(f"Summary file not found: {file_path}")
+                    # 디렉토리 존재 여부 확인
+                    directory = f"/app/data/mapping/{mapping_id}/summaries"
+                    if os.path.exists(directory):
+                        try:
+                            files_in_dir = os.listdir(directory)
+                            logger.warning(f"❌ File {filename} not found in {directory}")
+                            logger.info(f"📂 Available files: {files_in_dir}")
+                        except Exception as list_error:
+                            logger.error(f"Error listing directory {directory}: {list_error}")
+                    else:
+                        logger.error(f"❌ Summary directory does not exist: {directory}")
+
                     summaries[chapter_name] = "Summary file not found"
+
             except Exception as e:
-                logger.error(f"Error reading summary file {filename}: {e}")
+                logger.error(f"❌ Error reading summary file {filename}: {e}")
                 summaries[chapter_name] = f"Error reading file: {e}"
 
         return summaries
