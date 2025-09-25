@@ -1,7 +1,5 @@
 import { useState } from 'react';
 import { AdminCalendar } from '@/components/calendar/organisms/AdminCalendar';
-import { Header } from '@/components/common/organisms/Header';
-import { Footer } from '@/components/common/organisms/Footer';
 
 export default function AdminCalendarPage() {
   // 달력 상태 관리
