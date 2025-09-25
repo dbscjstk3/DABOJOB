@@ -1,0 +1,24 @@
+# Dockerfile.java-jdk-base
+FROM ubuntu:22.04
+
+ENV JAVA_VERSION=17 \
+    GRADLE_VERSION=8.10.2
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    wget \
+    curl \
+    ca-certificates \
+    unzip \
+    openjdk-17-jdk \
+    && rm -rf /var/lib/apt/lists/*
+
+# Gradle 설치
+RUN wget https://services.gradle.org/distributions/gradle-${GRADLE_VERSION}-bin.zip \
+    && unzip gradle-${GRADLE_VERSION}-bin.zip -d /opt \
+    && rm gradle-${GRADLE_VERSION}-bin.zip \
+    && ln -s /opt/gradle-${GRADLE_VERSION}/bin/gradle /usr/local/bin/gradle
+
+ENV JAVA_HOME=/usr/lib/jvm/java-17-openjdk-amd64 \
+    PATH=$PATH:/usr/lib/jvm/java-17-openjdk-amd64/bin \
+    GRADLE_HOME=/opt/gradle-${GRADLE_VERSION} \
+    PATH=$PATH:/opt/gradle-${GRADLE_VERSION}/bin

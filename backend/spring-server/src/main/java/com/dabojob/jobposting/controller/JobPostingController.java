@@ -1,6 +1,7 @@
 package com.dabojob.jobposting.controller;
 
 
+import com.dabojob.jobposting.dto.HotJobPostingResponse;
 import com.dabojob.jobposting.dto.JobPostingResponse;
 import com.dabojob.jobposting.service.JobPostingSearchService;
 import com.dabojob.jobposting.service.JobPostingService;
@@ -87,7 +88,7 @@ public class JobPostingController {
     }
 
     @GetMapping("/hot")
-    public ResponseEntity<List<String>> getHotJobPostings(@RequestParam(defaultValue = "10") int limit) {
+    public ResponseEntity<List<HotJobPostingResponse>> getHotJobPostings(@RequestParam(defaultValue = "10") int limit) {
         return ResponseEntity.ok(List.copyOf(viewCountService.getHotJobPostings(limit)));
     }
 

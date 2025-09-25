@@ -225,7 +225,7 @@ class RedisConsumer:
     async def _get_company_name(self, mapping_id: int) -> Optional[str]:
         """
         mapping_id로 회사명을 조회
-        job_company_mappings -> job_postings 경로로 회사명 조회
+        company_dart_mappings -> companies 경로로 회사명 조회
 
         Args:
             mapping_id: 매핑 ID
@@ -236,10 +236,10 @@ class RedisConsumer:
         try:
             async with database.get_connection() as cursor:
                 query = """
-                SELECT jp.saramin_company_name
-                FROM job_company_mappings jcm
-                JOIN job_postings jp ON jcm.saramin_company_id = jp.saramin_company_id
-                WHERE jcm.mapping_id = %s
+                SELECT c.company_name
+                FROM company_dart_mappings cdm
+                JOIN companies c ON cdm.company_id = c.company_id
+                WHERE cdm.mapping_id = %s
                 LIMIT 1
                 """
                 await cursor.execute(query, (mapping_id,))
@@ -271,9 +271,9 @@ class RedisConsumer:
             async with database.get_connection() as cursor:
                 query = """
                 SELECT jp.job_id
-                FROM job_company_mappings jcm
-                JOIN job_postings jp ON jcm.saramin_company_id = jp.saramin_company_id
-                WHERE jcm.mapping_id = %s
+                FROM company_dart_mappings cdm
+                JOIN job_postings jp ON cdm.company_id = jp.company_id
+                WHERE cdm.mapping_id = %s
                 LIMIT 1
                 """
                 await cursor.execute(query, (mapping_id,))
