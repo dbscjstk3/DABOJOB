@@ -82,7 +82,6 @@ async def startup_event():
         if os.getenv('ENABLE_REDIS_CONSUMER', 'true').lower() == 'true':
             try:
                 redis_consumer = RedisConsumer()
-                redis_consumer.set_news_search_callback(news_search_callback)
                 consumer_thread = redis_consumer.start_background_consumer()
                 logger.info("Redis consumer started successfully")
             except Exception as e:
