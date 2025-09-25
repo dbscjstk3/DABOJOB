@@ -554,7 +554,7 @@ export interface AdminJobCompleteDataResponse {
 export const fetchAdminJobCompleteData = async (
   jobId: number,
 ): Promise<AdminJobCompleteDataResponse> => {
-  const response = await fetch(`${API_BASE_URL}/api/admin/jobs/${jobId}/complete-data`, {
+  const response = await fetch(`${ADMIN_API_BASE_URL}/api/admin/jobs/${jobId}/complete-data`, {
     method: 'GET',
     credentials: 'include',
     headers: { 'Content-Type': 'application/json' },
