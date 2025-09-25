@@ -41,7 +41,6 @@ class RedisConsumer:
         self.consumer_name = f"{consumer_group}-{os.getpid()}"
         self.client = None
         self.running = False
-        self.news_search_callback = None  # 뉴스 검색 콜백 함수
         self._connect()
         self._create_consumer_group()
     
@@ -74,10 +73,6 @@ class RedisConsumer:
                 logger.info(f"Consumer group {self.consumer_group} already exists")
             else:
                 logger.error(f"Failed to create consumer group: {e}")
-    
-    def set_news_search_callback(self, callback):
-        """뉴스 검색 콜백 함수 설정"""
-        self.news_search_callback = callback
     
     async def process_message(self, message: Dict[str, Any]) -> bool:
         """
@@ -171,10 +166,6 @@ class RedisConsumer:
                     logger.error(f"Error searching news for hashtag {hashtag}: {e}")
 
             logger.info(f"Total news found for mapping_id {mapping_id}, chapter {chapter}: {total_news_count}")
-
-            # 뉴스 검색 콜백 함수 호출 (추가 처리가 있다면)
-            if self.news_search_callback:
-                await self.news_search_callback(mapping_id, chapter, hashtags)
 
             # Counter 증가 및 완료 체크
             await self._increment_counter_and_check_completion(mapping_id)
