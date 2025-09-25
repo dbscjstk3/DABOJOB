@@ -11,10 +11,6 @@ from ..services.redis_publisher import RedisPublisher
 from ..services.hashtag_extractor import HashtagExtractor
 from ..services.file_manager import FileManager
 from ..routes.summary_routes import get_ollama_client
-from ..database import get_db
-from ..models.crawler_models import Company, CompanyDartMapping, MappingStatus
-from sqlalchemy.orm import Session
-from fastapi import Depends
 import os
 
 logger = logging.getLogger(__name__)
