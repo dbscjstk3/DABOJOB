@@ -5,7 +5,7 @@ Admin 재요약 관리 API
 import logging
 from typing import List, Optional, Dict, Any
 from datetime import datetime
-from fastapi import APIRouter, HTTPException, Depends, Query
+from fastapi import APIRouter, HTTPException, Depends, Query, BackgroundTasks
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 from sqlalchemy import desc, and_, or_
@@ -214,11 +214,12 @@ async def get_reports_needing_review(
 async def trigger_resummary(
     mapping_id: int,
     request: ResummaryTriggerRequest,
+    background_tasks: BackgroundTasks,
     db: Session = Depends(get_db),
     resummary_service: ResummaryService = Depends(get_resummary_service)
 ):
     """
-    재요약 수동 요청
+    재요약 수동 요청 - 백그라운드에서 비동기 처리
     """
     try:
         # 현재 상태 확인
@@ -229,21 +230,30 @@ async def trigger_resummary(
                 detail=f"Cannot resummary job in status: {current_status}"
             )
 
-        # 재요약 요청 생성
-        resummary_result = await resummary_service.trigger_resummary(
-            mapping_id=mapping_id,
-            reason=request.reason,
-            requested_by=request.requested_by,
-            priority=request.priority,
-            quality_issues=request.quality_issues
-        )
+        # 백그라운드 태스크로 재요약 작업 추가
+        async def process_resummary():
+            try:
+                logger.info(f"Starting background resummary for mapping_id: {mapping_id}")
+                result = await resummary_service.trigger_resummary(
+                    mapping_id=mapping_id,
+                    reason=request.reason,
+                    requested_by=request.requested_by,
+                    priority=request.priority,
+                    quality_issues=request.quality_issues
+                )
+                logger.info(f"Resummary queued successfully: {result}")
+            except Exception as e:
+                logger.error(f"Background resummary failed: {e}")
 
+        # 백그라운드 태스크 추가
+        background_tasks.add_task(process_resummary)
+
+        # 즉시 응답 반환 (서버 블로킹 방지)
         return {
             "success": True,
-            "resummary_request_id": resummary_result["request_id"],
-            "new_version": resummary_result["new_version"],
-            "estimated_completion": resummary_result["estimated_completion"],
-            "message": f"Re-summarization started for mapping {mapping_id} v{resummary_result['new_version']}"
+            "status": "queued",
+            "mapping_id": mapping_id,
+            "message": f"Re-summarization request queued for mapping {mapping_id}. Check status endpoint for progress."
         }
 
     except HTTPException:
