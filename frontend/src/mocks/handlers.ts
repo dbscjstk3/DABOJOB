@@ -382,4 +382,72 @@ export const handlers = [
       },
     });
   }),
+
+  // 관리자용 완료 데이터 조회 API 핸들러
+  http.get('/api/admin/jobs/:jobId/complete-data', ({ params }) => {
+    const { jobId } = params;
+    const idNum = parseInt(jobId as string, 10) || 0;
+
+    const response = {
+      job_id: idNum,
+      status: 'completed' as const,
+      company_info: {
+        company_name: idNum % 2 === 0 ? '삼성전자' : '네이버',
+        company_scale: '대기업',
+      },
+      summary_reports: {
+        business_overview: '글로벌 기술 기업으로 다양한 산업에서 혁신을 이끌고 있습니다.',
+        products_services: '반도체, 스마트폰, 클라우드, AI 등 핵심 제품/서비스를 보유.',
+        revenue_orders: '2024년 매출은 전년 대비 성장세를 유지.',
+        contracts_rnd: '주요 연구개발 투자를 확대하고 전략적 파트너십을 체결.',
+        others: 'ESG 경영 강화 및 글로벌 시장 공략 가속.',
+      },
+      news_data: {
+        business_overview: {
+          스마트폰: {
+            hashtag_id: 101,
+            news_items: [
+              {
+                news_id: 1001,
+                title: '신제품 출시 발표',
+                url: 'https://news.example.com/1001',
+                published_date: '2024-01-01T08:00:00',
+                summary: '최신 플래그십 스마트폰을 공개하고 글로벌 출시를 예고했다.',
+                company_name: '삼성전자',
+                status: 'completed' as const,
+              },
+            ],
+          },
+          반도체: {
+            hashtag_id: 102,
+            news_items: [
+              {
+                news_id: 1002,
+                title: '차세대 공정 개발 성과',
+                url: 'https://news.example.com/1002',
+                published_date: '2024-01-01T09:00:00',
+                summary: '고성능/저전력 공정 기술을 공개하며 시장 리더십을 강화.',
+                company_name: '삼성전자',
+                status: 'completed' as const,
+              },
+            ],
+          },
+        },
+        products_services: {
+          AI: {
+            hashtag_id: 103,
+            news_items: [],
+          },
+        },
+      },
+      generated_at: '2024-01-01T15:00:00',
+    };
+
+    return HttpResponse.json(response, {
+      status: 200,
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    });
+  }),
 ];

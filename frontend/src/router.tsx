@@ -10,6 +10,7 @@ import LoginPage from './pages/LoginPage';
 import CalendarPage from './pages/CalendarPage';
 import CalendarDetailPage from './pages/CalendarDetailPage';
 import SearchDetailPage from './pages/SearchDetailPage';
+import AdminCompleteDataPage from './pages/AdminCompleteDataPage';
 import NotFoundPage from './pages/NotFoundPage';
 import { AdminMappingPage } from './pages/AdminMappingPage';
 import { useAuthStore } from './stores/useAuthStore';
@@ -145,6 +146,12 @@ const routeTree = rootRoute.addChildren([
   calendarDetailRoute,
   searchDetailRoute,
   adminCalendarRoute,
+  adminMappingRoute,
+  createRoute({
+    getParentRoute: () => rootRoute,
+    path: '/admin/jobs/$jobId/complete',
+    component: AdminCompleteDataPage,
+  }),
   loginRoute,
   authCallbackRoute,
   adminMappingRoute,

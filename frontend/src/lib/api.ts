@@ -491,3 +491,54 @@ export const updateAdminMapping = async (
 
   return response.json();
 };
+
+// 관리자용 완료 데이터 타입
+export interface AdminJobCompleteDataResponse {
+  job_id: number;
+  status: 'completed';
+  company_info: {
+    company_name: string;
+    company_scale: string;
+  };
+  summary_reports: {
+    business_overview: string;
+    products_services: string;
+    revenue_orders: string;
+    contracts_rnd: string;
+    others: string;
+  };
+  news_data: Record<
+    string,
+    Record<
+      string,
+      {
+        hashtag_id: number;
+        news_items: Array<{
+          news_id: number;
+          title: string;
+          url: string;
+          published_date: string;
+          summary: string;
+          company_name: string;
+          status: 'completed' | 'processing' | 'finished';
+        }>;
+      }
+    >
+  >;
+  generated_at: string;
+}
+
+// 관리자용 완료 데이터 조회
+export const fetchAdminJobCompleteData = async (
+  jobId: number,
+): Promise<AdminJobCompleteDataResponse> => {
+  const response = await fetch(`${API_BASE_URL}/api/admin/jobs/${jobId}/complete-data`, {
+    method: 'GET',
+    credentials: 'include',
+    headers: { 'Content-Type': 'application/json' },
+  });
+  if (!response.ok) {
+    throw new Error(`Failed to fetch admin complete data: ${response.status}`);
+  }
+  return response.json();
+};
