@@ -5,14 +5,17 @@ import { Typography } from '../../common/atoms/Typography';
 import { ChevronDown } from 'lucide-react';
 import { cn } from '../../../lib/utils';
 import { fetchHotJobPostings } from '../../../lib/api';
-import type { JobPostingResponse } from '../../../lib/api';
+import type { JobPostingResponse, HotJobPostingResponse } from '../../../lib/api';
 
 // 실시간 인기 드롭다운 컴포넌트
 const PopularDropdown: React.FC = () => {
   const navigate = useNavigate();
   const [isOpen, setIsOpen] = useState(false);
   const [currentIndex, setCurrentIndex] = useState(0);
-  const [hotJobPostings, setHotJobPostings] = useState<JobPostingResponse[]>([]);
+  const [hotJobPostings, setHotJobPostings] = useState<HotJobPostingResponse[]>([]);
+  const [jobPostingDetails, setJobPostingDetails] = useState<Record<string, JobPostingResponse>>(
+    {},
+  );
   const [loading, setLoading] = useState(true);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
@@ -21,12 +24,13 @@ const PopularDropdown: React.FC = () => {
     const fetchHotData = async () => {
       try {
         setLoading(true);
-        const hotJobPostingIds = await fetchHotJobPostings();
+        const hotJobPostings = await fetchHotJobPostings();
+        setHotJobPostings(hotJobPostings);
 
         // 각 jobPostingId에 대해 상세 정보 가져오기
-        const jobPostingPromises = hotJobPostingIds.map(async (jobPostingId) => {
+        const detailsPromises = hotJobPostings.map(async (hotJob) => {
           try {
-            const response = await fetch(`/api/job-postings/${jobPostingId}`, {
+            const response = await fetch(`/api/job-postings/${hotJob.jobPostingId}`, {
               method: 'GET',
               credentials: 'include',
               headers: {
@@ -34,21 +38,29 @@ const PopularDropdown: React.FC = () => {
               },
             });
             if (response.ok) {
-              return await response.json();
+              const detail = await response.json();
+              return { jobPostingId: hotJob.jobPostingId, detail };
             }
             return null;
           } catch (error) {
-            console.error(`Failed to fetch job posting ${jobPostingId}:`, error);
+            console.error(`Failed to fetch job posting ${hotJob.jobPostingId}:`, error);
             return null;
           }
         });
 
-        const jobPostings = (await Promise.all(jobPostingPromises)).filter(Boolean);
-        setHotJobPostings(jobPostings);
+        const details = (await Promise.all(detailsPromises)).filter(Boolean);
+        const detailsMap: Record<string, JobPostingResponse> = {};
+        details.forEach((item) => {
+          if (item) {
+            detailsMap[item.jobPostingId] = item.detail;
+          }
+        });
+        setJobPostingDetails(detailsMap);
       } catch (error) {
         console.error('Failed to fetch hot job postings:', error);
         // 에러 시 기본 데이터 사용
         setHotJobPostings([]);
+        setJobPostingDetails({});
       } finally {
         setLoading(false);
       }
@@ -81,12 +93,15 @@ const PopularDropdown: React.FC = () => {
   }, [hotJobPostings.length]);
 
   // 인기 공고 클릭 핸들러
-  const handleHotJobPostingClick = (jobPosting: JobPostingResponse) => {
-    navigate({
-      to: '/calendar/$id',
-      params: { id: jobPosting.companyId.toString() },
-      search: { jobPostingId: jobPosting.jobPostingId.toString() },
-    });
+  const handleHotJobPostingClick = (jobPosting: HotJobPostingResponse) => {
+    const detail = jobPostingDetails[jobPosting.jobPostingId];
+    if (detail) {
+      navigate({
+        to: '/calendar/$id',
+        params: { id: detail.companyId.toString() },
+        search: { jobPostingId: jobPosting.jobPostingId },
+      });
+    }
     setIsOpen(false);
   };
 
@@ -104,7 +119,14 @@ const PopularDropdown: React.FC = () => {
       >
         <span className="font-semibold text-xs md:text-base">실시간 인기</span>
         <span className="text-gray-500 text-xs md:text-sm hidden sm:inline transition-opacity duration-500 w-20 text-center">
-          {loading ? '로딩중...' : getCurrentJobPosting()?.companyName || '인기 공고'}
+          {loading
+            ? '로딩중...'
+            : (() => {
+                const current = getCurrentJobPosting();
+                if (!current) return '인기 공고';
+                const detail = jobPostingDetails[current.jobPostingId];
+                return detail ? detail.companyName : current.title;
+              })()}
         </span>
         <ChevronDown
           className={cn(
@@ -126,25 +148,30 @@ const PopularDropdown: React.FC = () => {
                 인기 공고가 없습니다
               </div>
             ) : (
-              hotJobPostings.map((jobPosting, index) => (
-                <div
-                  key={jobPosting.jobPostingId}
-                  onClick={() => handleHotJobPostingClick(jobPosting)}
-                  className="px-3 py-2 md:px-4 md:py-3 text-xs md:text-sm hover:bg-gray-100 cursor-pointer transition-colors"
-                >
-                  <div className="flex items-center gap-2 md:gap-3">
-                    <span className="font-bold text-red-500 w-6 md:w-8 text-sm md:text-base">
-                      {index + 1}위
-                    </span>
-                    <div className="flex-1 min-w-0">
-                      <div className="text-gray-700 text-sm md:text-base font-medium truncate">
-                        {jobPosting.companyName}
+              hotJobPostings.map((jobPosting, index) => {
+                const detail = jobPostingDetails[jobPosting.jobPostingId];
+                return (
+                  <div
+                    key={jobPosting.jobPostingId}
+                    onClick={() => handleHotJobPostingClick(jobPosting)}
+                    className="px-3 py-2 md:px-4 md:py-3 text-xs md:text-sm hover:bg-gray-100 cursor-pointer transition-colors"
+                  >
+                    <div className="flex items-center gap-2 md:gap-3">
+                      <span className="font-bold text-red-500 w-6 md:w-8 text-sm md:text-base">
+                        {index + 1}위
+                      </span>
+                      <div className="flex-1 min-w-0">
+                        <div className="text-gray-700 text-sm md:text-base font-medium truncate">
+                          {detail ? detail.companyName : jobPosting.title}
+                        </div>
+                        {detail && (
+                          <div className="text-gray-500 text-xs truncate">{jobPosting.title}</div>
+                        )}
                       </div>
-                      <div className="text-gray-500 text-xs truncate">{jobPosting.title}</div>
                     </div>
                   </div>
-                </div>
-              ))
+                );
+              })
             )}
           </div>
         </div>

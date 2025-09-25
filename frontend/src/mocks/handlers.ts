@@ -254,14 +254,28 @@ export const handlers = [
   http.get('/api/job-postings/hot', () => {
     console.log('🎭 MSW: 인기 공고 API 호출됨');
 
-    // 최근 7일간 많이 클릭된 공고들의 jobPostingId 배열
-    const hotJobPostingIds = [1, 5, 8, 2, 12, 7, 3, 11, 9, 17];
+    // 실시간 인기 공고 데이터
+    const hotJobPostings = [
+      {
+        jobPostingId: '1',
+        title: '백엔드 개발자 (Spring Boot)',
+      },
+      {
+        jobPostingId: '2',
+        title: '프론트엔드 개발자 (React)',
+      },
+      {
+        jobPostingId: '3',
+        title: '데이터 엔지니어',
+      },
+    ];
 
     console.log(
-      `✅ MSW: 인기 공고 ID ${hotJobPostingIds.length}개 반환: [${hotJobPostingIds.join(', ')}]`,
+      `✅ MSW: 인기 공고 ${hotJobPostings.length}개 반환:`,
+      hotJobPostings.map((job) => `${job.jobPostingId}: ${job.title}`).join(', '),
     );
 
-    return HttpResponse.json(hotJobPostingIds, {
+    return HttpResponse.json(hotJobPostings, {
       status: 200,
       headers: {
         'Content-Type': 'application/json',

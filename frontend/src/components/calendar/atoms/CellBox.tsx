@@ -3,7 +3,8 @@ import { cva, type VariantProps } from 'class-variance-authority';
 import { cn } from '../../../lib/utils';
 import { RecruitBadge } from './RecruitBadge';
 import { Typography } from '../../common/atoms/Typography';
-import type { JobPostingResponse } from '@/lib/api';
+import type { JobPostingResponse, AdminCompany } from '@/lib/api';
+import { groupCompaniesByGroup } from '@/lib/companyUtils';
 
 const cellBoxVariants = cva('flex flex-col border-t border-daboja-default p-2 h-20 md:h-72', {
   variants: {
@@ -40,12 +41,16 @@ export interface CellBoxProps
   dayOfWeek?: number;
   /** 공고 데이터 */
   recruits?: JobPostingResponse[];
+  /** 관리자용 회사 데이터 */
+  adminCompanies?: AdminCompany[];
   /** 확장 상태 */
   isExpanded?: boolean;
   /** 확장 토글 함수 */
   onToggleExpanded?: (day: number) => void;
   /** 모달 열기 함수 */
   onOpenModal?: (day: number) => void;
+  /** 관리자용 회사 클릭 핸들러 */
+  onAdminCompanyClick?: (company: AdminCompany) => void;
 }
 
 /**
@@ -60,9 +65,11 @@ export const CellBox: React.FC<CellBoxProps> = ({
   day,
   dayOfWeek,
   recruits = [],
+  adminCompanies = [],
   isExpanded = false,
   onToggleExpanded: _onToggleExpanded,
   onOpenModal,
+  onAdminCompanyClick,
   ...props
 }) => {
   return (
@@ -71,11 +78,13 @@ export const CellBox: React.FC<CellBoxProps> = ({
       role="gridcell"
       className={cn(cellBoxVariants({ tone, today, interactive }), className)}
       onClick={() => {
-        if (day && recruits.length > 0) {
+        if (day && (recruits.length > 0 || adminCompanies.length > 0)) {
           onOpenModal?.(day);
         }
       }}
-      style={{ cursor: day && recruits.length > 0 ? 'pointer' : 'default' }}
+      style={{
+        cursor: day && (recruits.length > 0 || adminCompanies.length > 0) ? 'pointer' : 'default',
+      }}
       {...props}
     >
       {day && (
@@ -110,6 +119,7 @@ export const CellBox: React.FC<CellBoxProps> = ({
           </div>
           {/* 공고 배지 렌더링 */}
           <div className="flex flex-col gap-1">
+            {/* 일반 사용자용 공고 표시 */}
             {recruits.length > 0 && (
               <>
                 {/* 모바일: 개수만 표시, 데스크톱: 개별 공고 표시 */}
@@ -153,6 +163,113 @@ export const CellBox: React.FC<CellBoxProps> = ({
                     </button>
                   )}
                 </div>
+              </>
+            )}
+
+            {/* 관리자용 회사 표시 */}
+            {adminCompanies.length > 0 && (
+              <>
+                {/* 회사들을 그룹별로 분류 */}
+                {(() => {
+                  const groupedCompanies = groupCompaniesByGroup(adminCompanies);
+                  const groupEntries = Object.entries(groupedCompanies);
+
+                  return (
+                    <>
+                      {/* 모바일: 그룹 개수만 표시 */}
+                      <div className="block md:hidden">
+                        <div className="flex items-center justify-center">
+                          <div className="bg-green-100 text-black text-xs px-2 py-1 rounded-full font-medium">
+                            +{groupEntries.length}
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* 데스크톱: 개별 그룹 표시 */}
+                      <div className="hidden md:flex md:flex-col md:gap-1">
+                        {groupEntries
+                          .slice(0, isExpanded ? undefined : 8)
+                          .map(([groupName, groupCompanies], idx) => {
+                            // 그룹의 첫 번째 회사를 대표로 사용
+                            const representativeCompany = groupCompanies[0];
+                            const totalJobs = groupCompanies.reduce(
+                              (sum, company) => sum + company.job_count,
+                              0,
+                            );
+
+                            // 그룹의 매핑 상태 결정 (우선순위: failed > rejected > suggested > processing > pending > verified)
+                            const getGroupMappingStatus = () => {
+                              if (
+                                groupCompanies.some(
+                                  (company) => company.mapping_status === 'failed',
+                                )
+                              )
+                                return 'failed';
+                              if (
+                                groupCompanies.some(
+                                  (company) => company.mapping_status === 'rejected',
+                                )
+                              )
+                                return 'rejected';
+                              if (
+                                groupCompanies.some(
+                                  (company) => company.mapping_status === 'suggested',
+                                )
+                              )
+                                return 'suggested';
+                              if (
+                                groupCompanies.some(
+                                  (company) => company.mapping_status === 'processing',
+                                )
+                              )
+                                return 'processing';
+                              if (
+                                groupCompanies.some(
+                                  (company) => company.mapping_status === 'pending',
+                                )
+                              )
+                                return 'pending';
+                              return 'verified';
+                            };
+
+                            return (
+                              <div key={idx} className="flex items-center gap-1">
+                                <RecruitBadge
+                                  type={getGroupMappingStatus()}
+                                  company={groupName}
+                                  adminCompany={{
+                                    ...representativeCompany,
+                                    company_name: groupName,
+                                    job_count: totalJobs,
+                                  }}
+                                  onAdminCompanyClick={onAdminCompanyClick}
+                                />
+                                {groupCompanies.length > 1 && (
+                                  <span className="text-xs text-gray-500">
+                                    +{groupCompanies.length - 1}
+                                  </span>
+                                )}
+                              </div>
+                            );
+                          })}
+                        {groupEntries.length > 8 && (
+                          <button
+                            type="button"
+                            className="text-left"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              onOpenModal?.(day);
+                            }}
+                          >
+                            <Typography variant="recruits" color="gray">
+                              +{groupEntries.length - 8} 더보기
+                            </Typography>
+                          </button>
+                        )}
+                      </div>
+                    </>
+                  );
+                })()}
               </>
             )}
           </div>
