@@ -439,7 +439,7 @@ class S3Service:
             query = """
             SELECT hashtag_id, chapter, hashtag
             FROM summary_hashtags
-            WHERE job_id = %s
+            WHERE mapping_id = (SELECT mapping_id FROM job_processing WHERE job_id = %s)
             ORDER BY FIELD(chapter,'business_overview','products_services','revenue_orders','contracts_rnd','others'),
          hashtag_id
             """

@@ -30,6 +30,17 @@ class FileManager:
         for directory in [self.raw_dir, self.standardized_dir, self.summaries_dir]:
             directory.mkdir(parents=True, exist_ok=True)
             logger.debug(f"Created directory: {directory}")
+
+    def _get_summary_filename(self, chapter: str) -> str:
+        """챕터명을 올바른 요약 파일명으로 변환"""
+        chapter_mapping = {
+            "business_overview": "business_overview_summary.txt",
+            "products_services": "products_services_summary.txt",
+            "revenue_orders": "revenue_orders_summary.txt",
+            "contracts_rnd": "contracts_rnd_summary.txt",
+            "others": "others_summary.txt"
+        }
+        return chapter_mapping.get(chapter, f"{chapter}_summary.txt")
     
     def save_raw_data(self, filename: str, data: str | Dict):
         """원본 데이터 저장"""
@@ -56,14 +67,14 @@ class FileManager:
         logger.info(f"Saved standardized chapter {chapter}: {file_path}")
         return str(file_path)
     
-    def save_summary(self, chapter: int, summary_text: str) -> str:
+    def save_summary(self, chapter: str, summary_text: str) -> str:
         """요약 저장"""
-        filename = f"chapter_{chapter}_summary.txt"
+        filename = self._get_summary_filename(chapter)
         file_path = self.summaries_dir / filename
-        
+
         with open(file_path, 'w', encoding='utf-8') as f:
             f.write(summary_text)
-            
+
         logger.info(f"Saved summary for chapter {chapter}: {file_path}")
         return str(file_path)
     
@@ -88,15 +99,15 @@ class FileManager:
             logger.error(f"Error reading {file_path}: {e}")
             return None
     
-    def read_summary(self, chapter: int) -> Optional[str]:
+    def read_summary(self, chapter: str) -> Optional[str]:
         """요약 읽기"""
-        filename = f"chapter_{chapter}_summary.txt"
+        filename = self._get_summary_filename(chapter)
         file_path = self.summaries_dir / filename
-        
+
         if not file_path.exists():
             logger.error(f"Summary file not found: {file_path}")
             return None
-            
+
         try:
             with open(file_path, 'r', encoding='utf-8') as f:
                 content = f.read()
@@ -106,15 +117,16 @@ class FileManager:
             logger.error(f"Error reading {file_path}: {e}")
             return None
     
-    def read_all_summaries(self) -> Dict[int, str]:
+    def read_all_summaries(self) -> Dict[str, str]:
         """모든 요약 읽기"""
         summaries = {}
-        
-        for chapter in range(1, 6):  # 1-5 챕터
+
+        chapters = ["business_overview", "products_services", "revenue_orders", "contracts_rnd", "others"]
+        for chapter in chapters:
             summary = self.read_summary(chapter)
             if summary:
                 summaries[chapter] = summary
-                
+
         logger.info(f"Read {len(summaries)} summaries for mapping_id={self.mapping_id}")
         return summaries
     
@@ -126,13 +138,13 @@ class FileManager:
             logger.warning(f"No summaries found for mapping_id={self.mapping_id}")
             return None
         
-        # 챕터별 매핑 (1:사업개요, 2:제품/서비스, 3:매출/수주, 4:계약/연구개발, 5:기타)
+        # 챕터별 매핑
         analysis_data = {
-            'business_overview': summaries.get(1, ''),      # 1. 사업의 개요
-            'products_service': summaries.get(2, ''),       # 2. 주요 제품 및 서비스  
-            'sales_contracts': summaries.get(3, ''),        # 4. 매출 및 수주 상황
-            'rnd_activities': summaries.get(4, ''),         # 6. 주요 계약 및 연구 개발 활동
-            'other_notes': summaries.get(5, '')             # 7. 기타 참고사항
+            'business_overview': summaries.get('business_overview', ''),    # 1. 사업의 개요
+            'products_service': summaries.get('products_services', ''),     # 2. 주요 제품 및 서비스
+            'sales_contracts': summaries.get('revenue_orders', ''),         # 4. 매출 및 수주 상황
+            'rnd_activities': summaries.get('contracts_rnd', ''),           # 6. 주요 계약 및 연구 개발 활동
+            'other_notes': summaries.get('others', '')                      # 7. 기타 참고사항
         }
         
         # 빈 데이터 체크
