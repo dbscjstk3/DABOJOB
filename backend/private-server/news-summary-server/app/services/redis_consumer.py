@@ -109,6 +109,12 @@ class RedisConsumer:
 
             logger.info(f"Processing hashtags for mapping_id {mapping_id}, chapter {chapter}: {hashtags}")
 
+            # mapping_id로 job_id를 먼저 가져오기
+            job_id = await self._get_job_id_from_mapping(mapping_id)
+            if not job_id:
+                logger.error(f"Could not find job_id for mapping_id {mapping_id}")
+                return False
+
             # 재요약 여부 확인 및 처리
             is_reprocessing = await database.is_reprocessing_job(job_id)
             if is_reprocessing:
@@ -128,7 +134,6 @@ class RedisConsumer:
             else:
                 # 새로운 job인 경우 job_processing 레코드 생성
                 try:
-                    job_id = await self._get_job_id_from_mapping(mapping_id)
                     await database.create_job_processing(mapping_id, job_id)
                 except Exception as e:
                     logger.warning(f"Could not create job_processing record for mapping_id {mapping_id}: {e}")
