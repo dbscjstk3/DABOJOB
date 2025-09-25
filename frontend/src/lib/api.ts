@@ -3,6 +3,9 @@
 export const API_BASE_URL =
   import.meta.env.VITE_USE_MSW === 'true' ? '' : import.meta.env.VITE_API_BASE_URL;
 
+export const ADMIN_API_BASE_URL =
+  import.meta.env.VITE_USE_MSW === 'true' ? '' : import.meta.env.VITE_ADMIN_API_BASE_URL;
+
 // Summary API 응답 타입 정의
 export interface SummaryResponse {
   summaryId: number;
@@ -236,14 +239,14 @@ export const API_ENDPOINTS = {
       `${API_BASE_URL}/api/job-postings/calendar?startDate=${startDate}&endDate=${endDate}`,
     HOT: `${API_BASE_URL}/api/job-postings/hot`,
     ADMIN: (year: number, month: number) =>
-      `${API_BASE_URL}/api/admin/job-postings/calendar?year=${year}&month=${month}`,
+      `${ADMIN_API_BASE_URL}/api/admin/job-postings/calendar?year=${year}&month=${month}`,
   },
   ADMIN: {
     MAPPING: (companyId: number, year: number, month: number) =>
-      `${API_BASE_URL}/api/admin/calendar/companies/${companyId}?year=${year}&month=${month}`,
+      `${ADMIN_API_BASE_URL}/api/admin/calendar/companies/${companyId}?year=${year}&month=${month}`,
     REMAP: (companyId: number) =>
-      `${import.meta.env.VITE_ADMIN_API_BASE_URL}/api/admin/calendar/companies/${companyId}/remap`,
-    JOB_STATUS: (jobId: number) => `${API_BASE_URL}/api/admin/jobs/${jobId}`,
+      `${ADMIN_API_BASE_URL}/api/admin/calendar/companies/${companyId}/remap`,
+    JOB_STATUS: (jobId: number) => `${ADMIN_API_BASE_URL}/api/admin/jobs/${jobId}`,
   },
 } as const;
 
