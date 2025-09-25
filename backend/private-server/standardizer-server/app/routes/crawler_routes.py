@@ -17,14 +17,14 @@ executor = ThreadPoolExecutor(max_workers=2)
 @router.post("/saramin/start")
 async def start_saramin_crawl(
     background_tasks: BackgroundTasks,
-    max_pages: int = Query(default=5, ge=1, le=100),
+    max_pages: int = Query(default=5, ge=1, le=500),
     db: Session = Depends(get_db)
 ):
     """
     사람인 크롤링 시작
 
     Parameters:
-    - max_pages: 크롤링할 최대 페이지 수 (1-100)
+    - max_pages: 크롤링할 최대 페이지 수 (1-500)
     """
     try:
         async def run_crawler_and_trigger_mapping():
