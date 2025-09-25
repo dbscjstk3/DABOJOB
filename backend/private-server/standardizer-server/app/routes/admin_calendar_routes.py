@@ -8,10 +8,17 @@ from fastapi import APIRouter, HTTPException, Depends, Query
 from sqlalchemy.orm import Session
 from sqlalchemy import extract, and_
 from pydantic import BaseModel
+import asyncio
+import json
+import logging
 
 from ..database import get_db
 from ..models.crawler_models import JobPosting, Company, CompanyDartMapping, MappingStatus
+from ..utils.redis_helper import redis_helper
+from ..services.dart_extractor import DartDocumentExtractor
+from ..config import DART_API_KEY
 
+logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/admin/calendar", tags=["Admin Calendar"])
 
 
@@ -278,21 +285,78 @@ async def remap_company(
 
         db.commit()
 
-        return {
-            "status": "success",
-            "message": f"{company.company_name} → {request.dart_corp_name} 매핑이 완료되었습니다 ({job_count}개 채용공고에 적용)",
-            "mapping": {
-                "company_id": company.company_id,
+        # DART 보고서 추출을 위한 Redis 메시지 발행
+        try:
+            # Redis에 DART 추출 작업 메시지 발행
+            dart_job_data = {
+                "company_id": str(company.company_id),
                 "company_name": company.company_name,
                 "dart_corp_name": request.dart_corp_name,
                 "dart_corp_code": request.dart_corp_code,
                 "dart_stock_code": request.dart_stock_code,
-                "job_count": job_count,
-                "confidence_score": 100,
-                "verified_by": "admin_manual",
-                "verified_at": datetime.utcnow().isoformat()
+                "mapping_id": str(existing_mapping.mapping_id if existing_mapping else new_mapping.mapping_id),
+                "action": "extract_dart_report",
+                "triggered_by": "admin_remap",
+                "timestamp": datetime.utcnow().isoformat()
             }
-        }
+
+            # 비동기로 Redis 스트림에 메시지 추가
+            stream_id = await redis_helper.add_job("dart_extract_stream", dart_job_data)
+
+            logger.info(f"DART extraction job queued for {company.company_name} -> {request.dart_corp_name}, stream_id: {stream_id}")
+
+            # 작업 상태 추적을 위한 job_id 생성
+            job_id = f"dart_{company.company_id}_{datetime.utcnow().strftime('%Y%m%d%H%M%S')}"
+            await redis_helper.set_job_status(job_id, "queued", {
+                "company_id": str(company.company_id),
+                "dart_corp_code": request.dart_corp_code,
+                "stream_id": stream_id
+            })
+
+            return {
+                "status": "success",
+                "message": f"{company.company_name} → {request.dart_corp_name} 매핑이 완료되었습니다 ({job_count}개 채용공고에 적용)",
+                "mapping": {
+                    "company_id": company.company_id,
+                    "company_name": company.company_name,
+                    "dart_corp_name": request.dart_corp_name,
+                    "dart_corp_code": request.dart_corp_code,
+                    "dart_stock_code": request.dart_stock_code,
+                    "job_count": job_count,
+                    "confidence_score": 100,
+                    "verified_by": "admin_manual",
+                    "verified_at": datetime.utcnow().isoformat()
+                },
+                "dart_extraction": {
+                    "job_id": job_id,
+                    "stream_id": stream_id,
+                    "status": "queued",
+                    "message": "DART 보고서 추출이 백그라운드에서 진행됩니다"
+                }
+            }
+
+        except Exception as e:
+            logger.error(f"Failed to queue DART extraction job: {e}")
+            # Redis 메시지 발행 실패해도 매핑은 성공했으므로 성공 응답 반환
+            return {
+                "status": "success",
+                "message": f"{company.company_name} → {request.dart_corp_name} 매핑이 완료되었습니다 ({job_count}개 채용공고에 적용)",
+                "mapping": {
+                    "company_id": company.company_id,
+                    "company_name": company.company_name,
+                    "dart_corp_name": request.dart_corp_name,
+                    "dart_corp_code": request.dart_corp_code,
+                    "dart_stock_code": request.dart_stock_code,
+                    "job_count": job_count,
+                    "confidence_score": 100,
+                    "verified_by": "admin_manual",
+                    "verified_at": datetime.utcnow().isoformat()
+                },
+                "dart_extraction": {
+                    "status": "failed",
+                    "message": f"DART 보고서 추출 작업 큐잉 실패: {str(e)}"
+                }
+            }
 
     except HTTPException:
         db.rollback()  # HTTPException 시에도 롤백
