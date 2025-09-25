@@ -471,15 +471,15 @@ class Database:
                 stats[k] = int(v or 0)
         return stats
 
-    async def create_job_processing(self, job_id: int) -> None:
+    async def create_job_processing(self, mapping_id: int, job_id: int) -> None:
         """job_processing 레코드 생성"""
         query = """
-        INSERT INTO job_processing (job_id, status)
-        VALUES (%s, 'processing')
+        INSERT INTO job_processing (job_id, mapping_id, status)
+        VALUES (%s, %s, 'processing')
         ON DUPLICATE KEY UPDATE updated_at = NOW()
         """
         async with self.get_connection() as cursor:
-            await cursor.execute(query, (job_id,))
+            await cursor.execute(query, (job_id, mapping_id,))
             logger.info(f"Created job_processing record for job_id={job_id}")
 
     async def update_job_processing_status(self, job_id: int, status: str) -> bool:
