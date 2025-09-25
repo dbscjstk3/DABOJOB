@@ -110,12 +110,12 @@ class RedisConsumer:
             logger.info(f"Processing hashtags for mapping_id {mapping_id}, chapter {chapter}: {hashtags}")
 
             # 재요약 여부 확인 및 처리
-            is_reprocessing = await database.is_reprocessing_job(mapping_id)
+            is_reprocessing = await database.is_reprocessing_job(job_id)
             if is_reprocessing:
-                logger.info(f"Reprocessing detected for mapping_id {mapping_id}, chapter {chapter}")
+                logger.info(f"Reprocessing detected for job_id {job_id}, chapter {chapter}")
 
                 # 상태를 reprocessing으로 변경
-                await database.update_job_processing_status(mapping_id, "reprocessing")
+                await database.update_job_processing_status(job_id, "reprocessing")
 
                 # 해당 챕터의 기존 데이터 클린업
                 await database.cleanup_job_chapter_data(mapping_id, chapter)
@@ -128,7 +128,8 @@ class RedisConsumer:
             else:
                 # 새로운 job인 경우 job_processing 레코드 생성
                 try:
-                    await database.create_job_processing(mapping_id)
+                    job_id = await self._get_job_id_from_mapping(mapping_id)
+                    await database.create_job_processing(mapping_id, job_id)
                 except Exception as e:
                     logger.warning(f"Could not create job_processing record for mapping_id {mapping_id}: {e}")
 
@@ -235,10 +236,13 @@ class RedisConsumer:
         try:
             async with database.get_connection() as cursor:
                 query = """
-                SELECT jp.job_id
-                FROM job_postings jp
-                WHERE jp.mapping_id = %s
-                LIMIT 1
+                SELECT job_id
+                FROM job_postings
+                WHERE company_id = (
+                    SELECT company_id
+                    FROM company_dart_mappings
+                    WHERE mapping_id = %s
+                )
                 """
                 await cursor.execute(query, (mapping_id,))
                 result = await cursor.fetchone()
