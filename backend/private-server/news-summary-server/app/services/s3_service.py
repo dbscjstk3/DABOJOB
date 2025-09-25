@@ -368,8 +368,10 @@ class S3Service:
         FROM news_summaries n
         JOIN summary_hashtags sh
         ON sh.hashtag_id = n.hashtag_id
-        AND sh.job_id     = n.job_id    -- ✅ 같은 job 범위 보장
-        WHERE n.job_id = %s
+        AND sh.mapping_id = n.mapping_id    -- ✅ 같은 mapping 범위 보장
+        WHERE n.mapping_id = (
+            SELECT mapping_id FROM job_processing WHERE job_id = %s
+        )
         ORDER BY FIELD(sh.chapter,'business_overview','products_services','revenue_orders','contracts_rnd','others'),
                 sh.hashtag_id,
                 n.news_created_at DESC, n.news_id DESC
