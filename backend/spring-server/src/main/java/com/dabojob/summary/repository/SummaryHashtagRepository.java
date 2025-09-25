@@ -1,5 +1,6 @@
 package com.dabojob.summary.repository;
 
+import com.dabojob.summary.entity.ChapterType;
 import com.dabojob.summary.entity.CompanyAnalysisSummary;
 import com.dabojob.summary.entity.Hashtag;
 import com.dabojob.summary.entity.SummaryHashtag;
@@ -15,6 +16,7 @@ public interface SummaryHashtagRepository extends JpaRepository<SummaryHashtag,L
     boolean existsBySummaryAndHashtag(CompanyAnalysisSummary summary, Hashtag hashtag);
 
     List<SummaryHashtag> findBySummary_Id(Long summaryId);
+
     SummaryHashtag findBySummaryAndHashtag(CompanyAnalysisSummary summary, Hashtag hashtag);
 
     @Query("SELECT DISTINCT h.name " +
@@ -28,4 +30,8 @@ public interface SummaryHashtagRepository extends JpaRepository<SummaryHashtag,L
             "WHERE s2.company.id = :companyId" +
             ")")
     List<String> findHashtagNamesByMostRecentSummary(@Param("companyId") Long companyId);
+
+
+    SummaryHashtag findBySummaryAndChapterTypeAndHashtag(CompanyAnalysisSummary summary, ChapterType chapterType,
+                                                         Hashtag hashtag);
 }
