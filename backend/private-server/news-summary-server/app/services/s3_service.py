@@ -515,46 +515,6 @@ class S3Service:
             logger.error(f"Failed to upload {s3_key} to S3: {e}")
             return None
 
-    async def upload_daily_summary(self, summary_data: Dict[str, Any]) -> Optional[str]:
-        """
-        일일 뉴스 요약을 S3에 업로드
-        
-        Args:
-            summary_data: 일일 요약 데이터
-            
-        Returns:
-            S3 키 (업로드 성공 시) 또는 None (실패 시)
-        """
-        try:
-            if not self.s3_client:
-                logger.warning("S3 client not available, skipping upload")
-                return None
-
-            # S3 키 생성: reports/{YYYY-MM-DD}/daily-news-summary.json
-            today = datetime.now().strftime('%Y-%m-%d')
-            s3_key = f"reports/{today}/daily-news-summary.json"
-
-            # JSON 문자열로 변환
-            json_content = json.dumps(summary_data, ensure_ascii=False, indent=2)
-
-            # S3에 업로드
-            self.s3_client.put_object(
-                Bucket=self.bucket_name,
-                Key=s3_key,
-                Body=json_content.encode('utf-8'),
-                ContentType='application/json',
-                Metadata={
-                    'created-at': datetime.now().isoformat(),
-                    'content-type': 'daily-summary'
-                }
-            )
-            
-            logger.info(f"Successfully uploaded daily summary to s3://{self.bucket_name}/{s3_key}")
-            return s3_key
-            
-        except Exception as e:
-            logger.error(f"Error uploading daily summary: {e}")
-            return None
     
     def list_reports(self, date_str: Optional[str] = None) -> List[str]:
         """

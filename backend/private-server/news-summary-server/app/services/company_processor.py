@@ -82,17 +82,8 @@ class CompanyProcessor:
                 logger.error(f"Failed to generate report for mapping_id={mapping_id}")
                 return
             
-            # 2. S3에 업로드
-            s3_key = await s3_service.upload_news_report(mapping_id, report_data)
-            
-            if s3_key:
-                logger.info(f"Successfully uploaded report to S3: {s3_key}")
-                
-                # 3. 업로드 정보를 DB에 기록 (선택사항)
-                # await self._save_upload_info(mapping_id, s3_key)
-                
-            else:
-                logger.error(f"Failed to upload report to S3 for mapping_id={mapping_id}")
+            # 2. S3 업로드는 별도 프로세스에서 처리 (upload_news_report 제거)
+            logger.info(f"Report generated for mapping_id={mapping_id}, upload handled separately")
                 
         except Exception as e:
             logger.error(f"Error generating and uploading report for mapping_id={mapping_id}: {e}")
