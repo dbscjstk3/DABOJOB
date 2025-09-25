@@ -94,6 +94,84 @@ export interface AutocompleteResponse {
 // 검색 API 응답 타입 정의 (AutocompleteResponse와 동일한 구조)
 export type SearchJobPostingResponse = AutocompleteResponse;
 
+// Admin Mapping API 타입 정의
+export interface AdminCompany {
+  company_id: number;
+  company_name: string;
+  company_url: string | null;
+  company_scale: string;
+  company_group: string;
+  created_at: string;
+}
+
+export interface AdminMapping {
+  mapping_id: number;
+  mapping_status: 'suggested' | 'failed' | 'rejected';
+  dart_corp_name: string;
+  dart_corp_code: string;
+  dart_stock_code: string;
+  confidence_score: number;
+  gpt_response: string;
+  manual_notes: string;
+  processed_at: string | null;
+  verified_at: string | null;
+  verified_by: string | null;
+  can_remap: boolean;
+}
+
+export interface AdminPeriod {
+  year: number;
+  month: number;
+  first_posting_date: string;
+  last_posting_date: string;
+}
+
+export interface AdminJobPosting {
+  job_id: number;
+  job_title: string;
+  work_location: string;
+  salary_info: string;
+  career_info: string;
+  education_requirement: string;
+  posting_date: string;
+  application_deadline: string;
+  job_url: string;
+  status: string;
+  is_hot: boolean;
+  registration_info: string;
+}
+
+export interface AdminMappingResponse {
+  company: AdminCompany;
+  mapping: AdminMapping;
+  period: AdminPeriod;
+  job_postings: AdminJobPosting[];
+  job_postings_count: number;
+}
+
+export interface AdminMappingUpdateRequest {
+  dart_corp_name: string;
+  dart_corp_code: string;
+  dart_stock_code: string;
+  manual_notes?: string;
+}
+
+export interface AdminMappingUpdateResponse {
+  status: 'success' | 'error';
+  message: string;
+  mapping: {
+    company_id: number;
+    company_name: string;
+    dart_corp_name: string;
+    dart_corp_code: string;
+    dart_stock_code: string;
+    job_count: number;
+    confidence_score: number;
+    verified_by: string;
+    verified_at: string;
+  };
+}
+
 export const API_ENDPOINTS = {
   AUTH: {
     LOGIN: (provider: string) => `${import.meta.env.VITE_API_BASE_URL}/api/auth/login/${provider}`,
@@ -122,6 +200,12 @@ export const API_ENDPOINTS = {
     CALENDAR: (startDate: string, endDate: string) =>
       `${API_BASE_URL}/api/job-postings/calendar?startDate=${startDate}&endDate=${endDate}`,
     HOT: `${API_BASE_URL}/api/job-postings/hot`,
+  },
+  ADMIN: {
+    MAPPING: (companyId: number, year: number, month: number) =>
+      `${API_BASE_URL}/api/admin/calendar/companies/${companyId}?year=${year}&month=${month}`,
+    REMAP: (companyId: number) =>
+      `${import.meta.env.VITE_ADMIN_API_BASE_URL}/api/admin/calendar/companies/${companyId}/remap`,
   },
 } as const;
 
@@ -307,4 +391,46 @@ export const fetchHotJobPostings = async (): Promise<number[]> => {
 
   const data = await response.json();
   return data;
+};
+
+// 관리자 매핑 데이터 조회 API 호출 함수
+export const fetchAdminMappingData = async (
+  companyId: number,
+  year: number,
+  month: number,
+): Promise<AdminMappingResponse> => {
+  const response = await fetch(API_ENDPOINTS.ADMIN.MAPPING(companyId, year, month), {
+    method: 'GET',
+    credentials: 'include', // Cookie 포함
+    headers: {
+      'Content-Type': 'application/json',
+    },
+  });
+
+  if (!response.ok) {
+    throw new Error(`Failed to fetch admin mapping data: ${response.status}`);
+  }
+
+  return response.json();
+};
+
+// 관리자 매핑 업데이트 API 호출 함수
+export const updateAdminMapping = async (
+  companyId: number,
+  data: AdminMappingUpdateRequest,
+): Promise<AdminMappingUpdateResponse> => {
+  const response = await fetch(API_ENDPOINTS.ADMIN.REMAP(companyId), {
+    method: 'POST',
+    credentials: 'include', // Cookie 포함
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(data),
+  });
+
+  if (!response.ok) {
+    throw new Error(`Failed to update admin mapping: ${response.status}`);
+  }
+
+  return response.json();
 };

@@ -1,5 +1,6 @@
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useMutation } from '@tanstack/react-query';
 import { useState, useEffect } from 'react';
+import { queryClient } from './queryClient';
 import {
   fetchSummaryDetail,
   fetchNewsBySummary,
@@ -7,11 +8,16 @@ import {
   fetchJobPosting,
   fetchAutocomplete,
   fetchSearchJobPostings,
+  fetchAdminMappingData,
+  updateAdminMapping,
   type SummaryResponse,
   type NewsResponse,
   type JobPostingResponse,
   type AutocompleteResponse,
   type SearchJobPostingResponse,
+  type AdminMappingResponse,
+  type AdminMappingUpdateRequest,
+  type AdminMappingUpdateResponse,
 } from './api';
 
 // Summary Detail을 가져오는 커스텀 훅
@@ -121,5 +127,34 @@ export const useSearchJobPostings = (search: string, page?: number, size?: numbe
     gcTime: 10 * 60 * 1000, // 10분
     retry: 1, // 실패 시 1번만 재시도
     // keepPreviousData: true, // 페이지 전환 시 이전 데이터 유지
+  });
+};
+
+// 관리자 매핑 데이터를 가져오는 커스텀 훅
+export const useAdminMappingData = (companyId: number | undefined, year: number, month: number) => {
+  return useQuery<AdminMappingResponse, Error>({
+    queryKey: ['adminMapping', companyId, year, month],
+    queryFn: () => {
+      if (!companyId) throw new Error('Company ID is required');
+      return fetchAdminMappingData(companyId, year, month);
+    },
+    enabled: !!companyId, // companyId가 있을 때만 쿼리 실행
+    staleTime: 2 * 60 * 1000, // 2분 (관리자 데이터는 짧게)
+    gcTime: 5 * 60 * 1000, // 5분
+    retry: 1, // 실패 시 1번만 재시도
+  });
+};
+
+// 관리자 매핑 업데이트를 위한 커스텀 훅
+export const useAdminMappingUpdate = (companyId: number, year: number, month: number) => {
+  return useMutation<AdminMappingUpdateResponse, Error, AdminMappingUpdateRequest>({
+    mutationFn: (data) => updateAdminMapping(companyId, data),
+    onSuccess: () => {
+      // 성공 시 관련 쿼리 캐시 무효화
+      queryClient.invalidateQueries({ queryKey: ['adminMapping', companyId, year, month] });
+    },
+    onError: (error) => {
+      console.error('Admin mapping update failed:', error);
+    },
   });
 };
