@@ -18,6 +18,10 @@ from ..models.resummary_models import (
 from ..models.crawler_models import Company, CompanyDartMapping
 from ..shared.status_integration import summary_status
 from ..shared.status_manager import JobStatus
+from ..services.redis_publisher import RedisPublisher
+from ..services.hashtag_extractor import HashtagExtractor
+from ..services.file_manager import FileManager
+import os
 
 logger = logging.getLogger(__name__)
 
@@ -27,6 +31,7 @@ class ResummaryService:
     def __init__(self, db: Session):
         self.db = db
         self.redis_client = get_redis_client()
+        self.file_manager = FileManager()
 
     # ==========================================
     # Dashboard & Overview
@@ -395,6 +400,9 @@ class ResummaryService:
 
             # 예상 완료 시간 계산 (평균 처리 시간 기반)
             estimated_completion = await self._calculate_estimated_completion()
+
+            # 재요약 완료 후 자동으로 해시태그 추출 및 news 전송 (백그라운드에서)
+            asyncio.create_task(self._trigger_resummary_completion(mapping_id, new_version))
 
             return {
                 "request_id": resummary_request.request_id,
@@ -828,6 +836,59 @@ class ResummaryService:
                 }
 
         return comparison
+
+    async def _trigger_resummary_completion(self, mapping_id: int, version: int):
+        """재요약 완료 후 후속 처리 (해시태그 추출 및 news 전송)"""
+        try:
+            logger.info(f"Starting resummary completion process for mapping_id: {mapping_id}, version: {version}")
+
+            # job_id 생성 (기존 포맷과 동일하게)
+            job_id = f"summary_{mapping_id}_{datetime.now().strftime('%Y%m%d_%H%M%S')}_v{version}"
+
+            # 1. 요약 결과 파일들 읽기
+            summaries = self.file_manager.get_summary_results(str(mapping_id))
+
+            if not summaries:
+                logger.warning(f"No summary results found for resummary mapping_id: {mapping_id}")
+                return
+
+            # 2. Redis Publisher 및 HashtagExtractor 초기화
+            publisher = RedisPublisher()
+
+            # Ollama 클라이언트 설정
+            import ollama
+            ollama_host = os.getenv('OLLAMA_HOST', 'ollama:11434')
+            host = ollama_host if ollama_host.startswith('http') else f'http://{ollama_host}'
+            ollama_client = ollama.Client(host=host)
+            model_name = os.getenv('SUMMARY_MODEL', 'llama3.2:1b-instruct-fp16')
+
+            extractor = HashtagExtractor(ollama_client, model_name)
+
+            # 3. 해시태그 추출 및 스트리밍 전송 (기존과 동일한 방식)
+            hashtags = await extractor.extract_hashtags_streaming(job_id, summaries, publisher)
+
+            # 4. 정리
+            extractor.cleanup()
+            publisher.cleanup()
+
+            # 5. 상태 업데이트 - 재요약 완료
+            await summary_status.update_summary_status(
+                mapping_id=mapping_id,
+                status=JobStatus.SUMMARY_COMPLETED,
+                categories_completed=len(hashtags)
+            )
+
+            logger.info(f"Resummary completion process finished for mapping_id: {mapping_id}, extracted {sum(len(tags) for tags in hashtags.values())} hashtags")
+
+        except Exception as e:
+            logger.error(f"Failed resummary completion process for mapping_id {mapping_id}: {e}")
+
+            # 실패 상태 업데이트
+            await summary_status.update_summary_status(
+                mapping_id=mapping_id,
+                status=JobStatus.SUMMARY_FAILED,
+                error_message=str(e)
+            )
 
     async def _save_comparison_log(self, comparison: Dict[str, Any]):
         """비교 로그 저장"""
