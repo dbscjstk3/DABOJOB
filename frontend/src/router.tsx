@@ -11,6 +11,7 @@ import CalendarPage from './pages/CalendarPage';
 import CalendarDetailPage from './pages/CalendarDetailPage';
 import SearchDetailPage from './pages/SearchDetailPage';
 import AdminCompleteDataPage from './pages/AdminCompleteDataPage';
+import AdminCalendarPage from './pages/AdminCalendarPage';
 import NotFoundPage from './pages/NotFoundPage';
 import { AdminMappingPage } from './pages/AdminMappingPage';
 import { useAuthStore } from './stores/useAuthStore';
@@ -69,7 +70,7 @@ const searchDetailRoute = createRoute({
   },
 });
 
-// Admin calendar route - same UI, role/데이터는 컴포넌트 내부에서 분기
+// Admin calendar route - 전용 AdminCalendarPage 사용
 const adminCalendarRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/admin',
@@ -79,7 +80,7 @@ const adminCalendarRoute = createRoute({
       throw redirect({ to: '/' });
     }
   },
-  component: CalendarPage,
+  component: AdminCalendarPage,
 });
 
 // Admin routes - IP 화이트리스트로 서버에서 접근 제어
