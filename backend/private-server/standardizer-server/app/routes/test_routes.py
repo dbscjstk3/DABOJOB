@@ -9,7 +9,7 @@ from sqlalchemy.orm import Session
 from pydantic import BaseModel
 
 from ..database import get_db
-from ..models.crawler_models import Company, CompanyDartMapping, MappingStatus
+from ..models.crawler_models import Company, CompanyDartMapping, MappingStatus, JobPosting, JobStatus
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/test", tags=["Test Data"])
@@ -37,10 +37,20 @@ async def create_test_data(
         ).first()
 
         existing_company = None
+        existing_job_postings = []
         if existing_mapping:
             existing_company = db.query(Company).filter(
                 Company.company_id == existing_mapping.company_id
             ).first()
+
+            if existing_company:
+                # 기존 채용공고들도 먼저 삭제
+                existing_job_postings = db.query(JobPosting).filter(
+                    JobPosting.company_id == existing_company.company_id
+                ).all()
+
+                for job in existing_job_postings:
+                    db.delete(job)
 
             logger.info(f"기존 테스트 데이터 삭제: mapping_id={test_mapping_id}")
             db.delete(existing_mapping)
@@ -88,7 +98,32 @@ async def create_test_data(
 
         logger.info(f"✅ 테스트 매핑 생성: mapping_id={test_mapping_id}, dart_code={test_mapping.dart_corp_code}")
 
-        # 4. 커밋
+        # 4. 테스트 채용공고 데이터 생성
+        test_job_posting = JobPosting(
+            company_id=test_company.company_id,
+            saramin_job_id="test99999",
+            saramin_job_title="테스트 개발자 채용",
+            saramin_job_url="https://www.saramin.co.kr/zf_user/jobs/relay/view?rec_idx=test99999",
+            work_location="서울특별시 강남구",
+            career_info="경력 3년 이상",
+            education_requirement="대졸 이상",
+            salary_info="연봉 4000만원 이상",
+            posting_date=datetime.utcnow().date(),
+            application_deadline=datetime.utcnow().date(),
+            registration_info="상시모집",
+            status=JobStatus.active,
+            is_hot=True,
+            crawled_at=datetime.utcnow(),
+            created_at=datetime.utcnow(),
+            updated_at=datetime.utcnow()
+        )
+
+        db.add(test_job_posting)
+        db.flush()  # job_id 생성을 위해
+
+        logger.info(f"✅ 테스트 채용공고 생성: job_id={test_job_posting.job_id}, title={test_job_posting.saramin_job_title}")
+
+        # 5. 커밋
         db.commit()
 
         logger.info(f"🎉 테스트 데이터 생성 완료!")
@@ -112,9 +147,18 @@ async def create_test_data(
                     "dart_stock_code": test_mapping.dart_stock_code,
                     "mapping_status": test_mapping.mapping_status.value,
                     "confidence_score": test_mapping.confidence_score
+                },
+                "job_posting": {
+                    "job_id": test_job_posting.job_id,
+                    "saramin_job_id": test_job_posting.saramin_job_id,
+                    "saramin_job_title": test_job_posting.saramin_job_title,
+                    "work_location": test_job_posting.work_location,
+                    "career_info": test_job_posting.career_info,
+                    "salary_info": test_job_posting.salary_info,
+                    "status": test_job_posting.status.value
                 }
             },
-            "message": f"✅ 테스트용 회사/매핑 데이터 생성 완료! (mapping_id: {test_mapping_id})",
+            "message": f"✅ 테스트용 회사/매핑/채용공고 데이터 생성 완료! (mapping_id: {test_mapping_id}, job_id: {test_job_posting.job_id})",
             "next_step": f"이제 Summary 서버에서 POST /test/full-pipeline 호출하세요"
         }
 
@@ -145,6 +189,11 @@ async def check_test_data(
             Company.company_id == mapping.company_id
         ).first()
 
+        # 채용공고 데이터 조회
+        job_posting = db.query(JobPosting).filter(
+            JobPosting.company_id == mapping.company_id
+        ).first() if company else None
+
         return {
             "mapping_id": mapping_id,
             "found": True,
@@ -159,7 +208,13 @@ async def check_test_data(
                 "mapping_status": mapping.mapping_status.value,
                 "confidence_score": mapping.confidence_score,
                 "verified_at": mapping.verified_at.isoformat() if mapping.verified_at else None
-            }
+            },
+            "job_posting": {
+                "job_id": job_posting.job_id if job_posting else None,
+                "saramin_job_title": job_posting.saramin_job_title if job_posting else None,
+                "work_location": job_posting.work_location if job_posting else None,
+                "status": job_posting.status.value if job_posting else None
+            } if job_posting else None
         }
 
     except HTTPException:
@@ -184,6 +239,15 @@ async def cleanup_test_data(
 
         if mapping:
             company_id = mapping.company_id
+
+            # 채용공고 데이터 먼저 삭제
+            job_postings = db.query(JobPosting).filter(
+                JobPosting.company_id == company_id
+            ).all()
+
+            for job in job_postings:
+                db.delete(job)
+
             db.delete(mapping)
 
             # 회사 데이터 삭제
@@ -199,7 +263,7 @@ async def cleanup_test_data(
             return {
                 "success": True,
                 "mapping_id": mapping_id,
-                "message": f"✅ 테스트 데이터 정리 완료 (mapping_id: {mapping_id})"
+                "message": f"✅ 테스트 데이터 정리 완료 (mapping_id: {mapping_id}) - 회사, 매핑, 채용공고 데이터 삭제됨"
             }
         else:
             return {
@@ -220,7 +284,7 @@ def test_health():
         "status": "healthy",
         "message": "테스트 데이터 API 정상 작동",
         "available_apis": [
-            "POST /test/create-test-data - 테스트 회사/매핑 데이터 생성",
+            "POST /test/create-test-data - 테스트 회사/매핑/채용공고 데이터 생성",
             "GET /test/check-data/{mapping_id} - 테스트 데이터 확인",
             "DELETE /test/cleanup/{mapping_id} - 테스트 데이터 정리"
         ]
