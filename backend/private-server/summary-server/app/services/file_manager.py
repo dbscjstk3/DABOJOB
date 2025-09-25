@@ -14,12 +14,14 @@ class FileManager:
     def __init__(self, base_data_path: str = "/app/data"):
         """
         파일 관리자 초기화
-        
+
         Args:
             base_data_path (str): 데이터 저장 기본 경로
         """
         self.base_data_path = Path(base_data_path)
+        self.data_root = self.base_data_path / "jobs"  # standardizer와 동일한 구조
         self.base_data_path.mkdir(parents=True, exist_ok=True)
+        self.data_root.mkdir(parents=True, exist_ok=True)
     
     def get_job_path(self, job_id: str) -> Path:
         """job_id에 해당하는 디렉토리 경로 반환"""
