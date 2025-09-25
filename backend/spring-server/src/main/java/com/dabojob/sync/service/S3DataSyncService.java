@@ -33,7 +33,7 @@ public class S3DataSyncService {
     private String bucketName;
 
     private final ObjectMapper objectMapper = new ObjectMapper();
-    private LocalDateTime lastSyncTime = LocalDateTime.now().minusDays(1);
+    private LocalDateTime lastSyncTime = LocalDateTime.now().minusDays(2);
 
     public void syncData() {
         try {
