@@ -30,7 +30,11 @@ async def test_full_pipeline(request: TestRequest):
     테스트 회사 → 요약 → 해시태그 → news 전송까지 한 번에
     """
     try:
-        test_id = f"pipeline_test_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
+        # mapping_id는 99999로 테스트용 설정
+        test_mapping_id = 99999
+
+        # test_id는 summary_형식으로 설정 (mapping_id 추출 가능하게)
+        test_id = f"summary_{test_mapping_id}_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
         logger.info(f"🧪 전체 파이프라인 테스트 시작: {test_id}")
 
         # 하드코딩된 테스트 데이터 (5개 카테고리)
@@ -74,9 +78,6 @@ async def test_full_pipeline(request: TestRequest):
 
         # FileManager를 통해 파일로 저장 (실제 플로우와 동일)
         file_manager = FileManager()
-
-        # mapping_id는 99999로 테스트용 설정
-        test_mapping_id = 99999
 
         logger.info(f"📁 테스트 요약 파일 저장 시작: mapping_id={test_mapping_id}")
 

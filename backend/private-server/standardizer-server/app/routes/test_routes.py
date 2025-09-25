@@ -54,7 +54,7 @@ async def create_test_data(
             company_url="https://testcompany.co.kr",
             company_scale="대기업",
             company_group="테스트그룹",
-            sector_category="전자/정보통신",
+            csn="999-99-99999",  # Company Serial Number
             created_at=datetime.utcnow(),
             updated_at=datetime.utcnow()
         )
@@ -101,7 +101,9 @@ async def create_test_data(
                     "company_id": test_company.company_id,
                     "company_name": test_company.company_name,
                     "company_url": test_company.company_url,
-                    "sector_category": test_company.sector_category
+                    "company_scale": test_company.company_scale,
+                    "company_group": test_company.company_group,
+                    "csn": test_company.csn
                 },
                 "mapping": {
                     "mapping_id": test_mapping.mapping_id,
