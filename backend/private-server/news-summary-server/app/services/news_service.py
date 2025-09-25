@@ -35,13 +35,13 @@ class NewsService:
             '신사업': ['신사업', '새로운', '신규', '확장', '진출', '사업', '출시', '론칭']
         }
     
-    async def search_and_process_news(self, job_id: int, hashtag_id: int, summary_id: int,
+    async def search_and_process_news(self, mapping_id: int, hashtag_id: int, summary_id: int,
                                     hashtag: str, company_name: str = "") -> int:
         """
         해시태그로 뉴스 검색하고 처리
 
         Args:
-            job_id: 작업 ID
+            mapping_id: 매핑 ID
             hashtag_id: 해시태그 ID
             summary_id: 요약 ID
             hashtag: 검색할 해시태그
@@ -54,7 +54,7 @@ class NewsService:
             logger.info(f"Searching news for hashtag: {hashtag}, company: {company_name}")
 
             # 중복 처리 방지 체크
-            existing_count = await self._check_existing_news(job_id, hashtag_id, hashtag)
+            existing_count = await self._check_existing_news(mapping_id, hashtag_id, hashtag)
             if existing_count > 0:
                 logger.info(f"News already processed for hashtag: {hashtag} (count: {existing_count})")
                 return existing_count
@@ -67,10 +67,10 @@ class NewsService:
                 return 0
 
             # 2. Raw 뉴스를 DB에 저장 (status='raw')
-            saved_count = await self._save_raw_news(job_id, hashtag_id, summary_id, raw_news_list)
+            saved_count = await self._save_raw_news(mapping_id, hashtag_id, summary_id, raw_news_list)
 
             # 3. 즉시 크롤링 + 요약 처리 (백그라운드 아님)
-            await self._process_news_content(job_id, hashtag_id, hashtag)
+            await self._process_news_content(mapping_id, hashtag_id, hashtag)
 
             return saved_count
 
@@ -78,17 +78,17 @@ class NewsService:
             logger.error(f"Error searching news for hashtag {hashtag}: {e}")
             return 0
 
-    async def _check_existing_news(self, job_id: int, hashtag_id: int, hashtag: str) -> int:
+    async def _check_existing_news(self, mapping_id: int, hashtag_id: int, hashtag: str) -> int:
         """해당 해시태그로 이미 처리된 뉴스가 있는지 확인"""
         try:
             query = """
             SELECT COUNT(*) as count
             FROM news_summaries
-            WHERE job_id = %s AND hashtag_id = %s
+            WHERE mapping_id = %s AND hashtag_id = %s
             """
 
             async with database.get_connection() as cursor:
-                await cursor.execute(query, (job_id, hashtag_id))
+                await cursor.execute(query, (mapping_id, hashtag_id))
                 result = await cursor.fetchone()
                 return result[0] if result else 0
 
@@ -303,12 +303,12 @@ class NewsService:
             return 0.0
         return intersection / union
     
-    async def _save_raw_news(self, job_id: int, hashtag_id: int, summary_id: int, 
+    async def _save_raw_news(self, mapping_id: int, hashtag_id: int, summary_id: int, 
                            news_list: List[Dict]) -> int:
         """Raw 뉴스를 DB에 저장"""
         insert_query = """
         INSERT INTO news_summaries (
-            job_id, hashtag_id, summary_id,
+            mapping_id, hashtag_id, summary_id,
             news_title, news_url, news_created_at, status
         ) VALUES (%s, %s, %s, %s, %s, %s, 'raw')
         ON DUPLICATE KEY UPDATE
@@ -321,7 +321,7 @@ class NewsService:
             for news in news_list:
                 try:
                     await cursor.execute(insert_query, (
-                        job_id,
+                        mapping_id,
                         hashtag_id,
                         summary_id,
                         news['title'][:500],
@@ -335,11 +335,11 @@ class NewsService:
         logger.info(f"Saved {saved_count} raw news items")
         return saved_count
     
-    async def _process_news_content(self, job_id: int, hashtag_id: int, hashtag: str):
+    async def _process_news_content(self, mapping_id: int, hashtag_id: int, hashtag: str):
         """뉴스 크롤링 + 요약 처리"""
         try:
             # status='raw'인 뉴스들 조회
-            raw_news = await self._get_raw_news(job_id, hashtag_id)
+            raw_news = await self._get_raw_news(mapping_id, hashtag_id)
 
             for news in raw_news:
                 try:
@@ -363,16 +363,16 @@ class NewsService:
         except Exception as e:
             logger.error(f"Error in news processing: {e}")
     
-    async def _get_raw_news(self, job_id: int, hashtag_id: int) -> List[Dict]:
+    async def _get_raw_news(self, mapping_id: int, hashtag_id: int) -> List[Dict]:
         """Raw 상태의 뉴스 조회"""
         query = """
         SELECT news_id, news_url, news_title, status
         FROM news_summaries
-        WHERE job_id = %s AND hashtag_id = %s AND status = 'raw'
+        WHERE mapping_id = %s AND hashtag_id = %s AND status = 'raw'
         """
 
         async with database.get_connection() as cursor:
-            await cursor.execute(query, (job_id, hashtag_id))
+            await cursor.execute(query, (mapping_id, hashtag_id))
             rows = await cursor.fetchall()
 
             columns = [desc[0] for desc in cursor.description]

@@ -13,6 +13,7 @@ import os
 from typing import Dict, Any, Optional, List, Tuple
 from datetime import datetime
 from ..config import config
+from ..database import database
 
 logger = logging.getLogger(__name__)
 
@@ -310,7 +311,8 @@ class S3Service:
 
         for filename in summary_files:
             try:
-                file_path = f"/app/data/jobs/{job_id}/summaries/{filename}"
+                mapping_id = await database.get_mapping_id_by_job_id(job_id)
+                file_path = f"/app/data/mapping/{mapping_id}/summaries/{filename}"
                 chapter_name = filename.replace("_summary.txt", "")
                 if os.path.exists(file_path):
                     with open(file_path, "r", encoding="utf-8") as f:

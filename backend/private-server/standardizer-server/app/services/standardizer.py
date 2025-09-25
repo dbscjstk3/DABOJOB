@@ -218,6 +218,9 @@ class StandardizerService:
         current_category = None
         last_section_number = 0
 
+        # "1. 사업의 개요"를 찾았는지 여부
+        found_business_overview = False
+
         logger.info(f"DART 문서 파싱 시작: 총 {len(lines)}줄")
 
         total_sections_found = 0
@@ -237,9 +240,14 @@ class StandardizerService:
 
                 logger.info(f"{i+1}번째 줄: 섹션 패턴 발견: '{line_stripped}'")
 
-                # 순차적 증가 확인
-                # 첫 번째 1번만 허용하고, 그 이후는 반드시 순차 증가만 허용
-                if (section_number == 1 and last_section_number == 0) or section_number == last_section_number + 1:
+                # "1. 사업의 개요"를 찾으면 여기서부터 시작
+                if section_number == 1 and ("사업" in section_title and "개요" in section_title):
+                    found_business_overview = True
+                    last_section_number = 0  # 리셋
+                    logger.info(f"✅ '1. 사업의 개요' 발견! 여기부터 파싱 시작")
+
+                # "1. 사업의 개요"를 찾은 후에만 섹션 처리
+                if found_business_overview and ((section_number == 1 and last_section_number == 0) or section_number == last_section_number + 1):
                     total_sections_found += 1
 
                     # 이전 섹션 저장
@@ -268,8 +276,10 @@ class StandardizerService:
 
                     logger.info(f"섹션 #{section_number}: '{section_title}' - 키워드 '{matched_keyword}' 매칭 -> '{current_category}' 카테고리")
                     continue
-                else:
+                elif found_business_overview:
                     logger.warning(f"섹션 번호 {section_number}가 순차적이지 않음 (이전: {last_section_number}), 무시함")
+                else:
+                    logger.debug(f"'1. 사업의 개요' 이전 섹션 무시: '{line_stripped}'")
 
             # 섹션 내용 추가
             if current_category:

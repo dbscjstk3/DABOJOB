@@ -15,12 +15,12 @@ logger = logging.getLogger(__name__)
 class CompanyProcessor:
     """기업 분석 데이터 처리 클래스"""
     
-    async def process_hashtag_completion(self, job_id: int, category: str, hashtags: list) -> bool:
+    async def process_hashtag_completion(self, mapping_id: int, category: str, hashtags: list) -> bool:
         """
         해시태그 추출 완료 시 기업 분석 데이터 처리
         
         Args:
-            job_id: 작업 ID (mapping_id와 동일)
+            mapping_id: 작업 ID
             category: 카테고리 
             hashtags: 해시태그 목록
             
@@ -28,38 +28,38 @@ class CompanyProcessor:
             처리 성공 여부
         """
         try:
-            logger.info(f"Processing company analysis for job_id={job_id}, category={category}")
+            logger.info(f"Processing company analysis for mapping_id={mapping_id}, category={category}")
             
-            # FileManager로 해당 job_id의 파일 읽기
-            file_manager = FileManager(mapping_id=job_id)
+            # FileManager로 해당 mapping_id의 파일 읽기
+            file_manager = FileManager(mapping_id=mapping_id)
             
             # 기업 분석 데이터 추출
             analysis_data = file_manager.get_company_analysis_data()
             
             if not analysis_data:
-                logger.warning(f"No analysis data found for job_id={job_id}")
+                logger.warning(f"No analysis data found for mapping_id={mapping_id}")
                 return False
             
             # DB에 저장
-            summary_id = await database.save_company_analysis(job_id, analysis_data)
+            summary_id = await database.save_company_analysis(mapping_id, analysis_data)
             
             if summary_id:
-                logger.info(f"Successfully saved company analysis for job_id={job_id}, summary_id={summary_id}")
+                logger.info(f"Successfully saved company analysis for mapping_id={mapping_id}, summary_id={summary_id}")
                 
                 # 해시태그의 summary_id 업데이트
-                updated_count = await database.update_hashtags_summary_id(job_id, summary_id)
+                updated_count = await database.update_hashtags_summary_id(mapping_id, summary_id)
                 logger.info(f"Updated {updated_count} hashtags with summary_id={summary_id}")
                 
                 # 최종 리포트 생성 및 S3 업로드
-                await self._generate_and_upload_report(job_id)
+                await self._generate_and_upload_report(mapping_id)
                 
                 return True
             else:
-                logger.error(f"Failed to save company analysis for job_id={job_id}")
+                logger.error(f"Failed to save company analysis for mapping_id={mapping_id}")
                 return False
                 
         except Exception as e:
-            logger.error(f"Error processing company analysis for job_id={job_id}: {e}")
+            logger.error(f"Error processing company analysis for mapping_id={mapping_id}: {e}")
             return False
     
     async def get_company_analysis(self, mapping_id: int) -> Optional[Dict[str, Any]]:
