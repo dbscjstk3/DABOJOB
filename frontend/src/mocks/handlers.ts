@@ -8,16 +8,16 @@ import type { NewsResponse, JobPostingResponse } from '@/lib/api';
 
 export const handlers = [
   // 테스트용 관리자 로그인
-  http.get('/api/auth/me', () => {
-    console.log('🎭 MSW: 관리자 로그인 API 호출됨');
-    return HttpResponse.json({
-      id: 1,
-      name: 'Admin',
-      email: 'admin@example.com',
-      role: 'ROLE_ADMIN',
-      provider: 'local',
-    });
-  }),
+  // http.get('/api/auth/me', () => {
+  //   console.log('🎭 MSW: 관리자 로그인 API 호출됨');
+  //   return HttpResponse.json({
+  //     id: 1,
+  //     name: 'Admin',
+  //     email: 'admin@example.com',
+  //     role: 'ROLE_ADMIN',
+  //     provider: 'local',
+  //   });
+  // }),
 
   // Summary Detail API 목 핸들러
   http.get('/api/summary/:summaryId', ({ params }) => {
