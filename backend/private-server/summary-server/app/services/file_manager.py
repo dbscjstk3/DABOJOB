@@ -203,10 +203,10 @@ class FileManager:
             if job_id_or_mapping_id.startswith('summary_') or job_id_or_mapping_id.startswith('test_'):
                 # job_id 형태인 경우
                 mapping_id = self._extract_mapping_id_from_job_id(job_id_or_mapping_id)
-                job_path = self.data_root / f"mapping_{mapping_id}"
+                job_path = self.data_root / str(mapping_id)
             else:
                 # 단순 mapping_id인 경우
-                job_path = self.data_root / f"mapping_{job_id_or_mapping_id}"
+                job_path = self.data_root / str(job_id_or_mapping_id)
 
             summaries_path = job_path / "summaries"
             
