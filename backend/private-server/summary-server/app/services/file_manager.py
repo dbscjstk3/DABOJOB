@@ -58,7 +58,7 @@ class FileManager:
             Path: 생성된 디렉토리 경로
         """
         try:
-            job_path = self.data_root / f"mapping_{mapping_id}"
+            job_path = self.data_root / str(mapping_id)
 
             # 하위 디렉토리들 생성
             directories = ["raw", "standardized", "summaries", "processed"]
@@ -137,7 +137,7 @@ class FileManager:
             # job_id에서 mapping_id 추출 (summary_2_20250925_150658 -> 2)
             mapping_id = self._extract_mapping_id_from_job_id(job_id)
 
-            # news 서버와 동일한 경로 사용: /app/data/mapping/mapping_2/
+            # news 서버와 동일한 경로 사용: /app/data/mapping/2/
             job_path = self.create_mapping_directory(mapping_id)
             summaries_path = job_path / "summaries"
             
