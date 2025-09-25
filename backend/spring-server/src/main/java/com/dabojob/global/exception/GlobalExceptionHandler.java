@@ -6,6 +6,7 @@ import jakarta.validation.ConstraintViolationException;
 import java.time.LocalDateTime;
 import java.util.HashMap;
 import java.util.Map;
+import lombok.extern.slf4j.Slf4j;
 import org.hibernate.TypeMismatchException;
 import org.springframework.data.redis.RedisConnectionFailureException;
 import org.springframework.data.redis.RedisSystemException;
@@ -19,6 +20,7 @@ import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
+@Slf4j
 @RestControllerAdvice
 public class GlobalExceptionHandler {
 
@@ -227,12 +229,38 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ErrorResponse> handleGenericException(Exception e) {
+        // 상세한 에러 로그 출력
+        log.error("=== UNEXPECTED ERROR OCCURRED ===");
+        log.error("Exception Type: {}", e.getClass().getName());
+        log.error("Exception Message: {}", e.getMessage());
+        log.error("Stack Trace: ", e);
+
+        // 원인이 되는 근본 예외도 출력
+        Throwable rootCause = e;
+        while (rootCause.getCause() != null) {
+            rootCause = rootCause.getCause();
+        }
+        log.error("Root Cause Type: {}", rootCause.getClass().getName());
+        log.error("Root Cause Message: {}", rootCause.getMessage());
+        log.error("=== END OF ERROR INFO ===");
+
         ErrorResponse errorResponse = ErrorResponse.builder()
                 .message("Internal server error")
                 .code("INTERNAL_SERVER_ERROR")
                 .timestamp(LocalDateTime.now())
                 .build();
 
-        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(errorResponse);  // 500
+        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(errorResponse);
     }
+
+//    @ExceptionHandler(Exception.class)
+//    public ResponseEntity<ErrorResponse> handleGenericException(Exception e) {
+//        ErrorResponse errorResponse = ErrorResponse.builder()
+//                .message("Internal server error")
+//                .code("INTERNAL_SERVER_ERROR")
+//                .timestamp(LocalDateTime.now())
+//                .build();
+//
+//        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(errorResponse);  // 500
+//    }
 }
