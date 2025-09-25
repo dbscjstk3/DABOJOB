@@ -1,0 +1,37 @@
+j13a402a.p.ssafy.io {
+    encode zstd gzip
+
+    # 공통 보안 헤더(선택)
+    header {
+        Strict-Transport-Security "max-age=31536000; includeSubDomains; preload"
+        X-Content-Type-Options "nosniff"
+        X-Frame-Options "SAMEORIGIN"
+        Referrer-Policy "no-referrer-when-downgrade"
+    }
+
+    # 표지 페이지 (선택)
+    @root path /
+    handle @root {
+        respond "OK: j13a402a.p.ssafy.io is up. Try /standardizer, /summary, /news" 200
+    }
+
+    # 경로 기반 라우팅
+    handle_path /standardizer* {
+        reverse_proxy standardizer-server:8000
+    }
+
+    handle_path /summary* {
+        reverse_proxy summary-server:8100
+    }
+
+    handle_path /news* {
+        reverse_proxy news-summary-server:8200
+    }
+
+    # WebSocket 필요 시 예시
+    # @ws {
+    #   header Connection *Upgrade*
+    #   header Upgrade websocket
+    # }
+    # reverse_proxy @ws standardizer-server:8000
+}
