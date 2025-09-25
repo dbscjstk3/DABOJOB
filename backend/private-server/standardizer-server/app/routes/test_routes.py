@@ -15,7 +15,7 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/test", tags=["Test Data"])
 
 class TestDataRequest(BaseModel):
-    test_name: str = "테스트데이터생성"
+    test_name: str = "삼성전자_테스트데이터"
     mapping_id: int = 99999
 
 @router.post("/create-test-data")
@@ -24,12 +24,12 @@ async def create_test_data(
     db: Session = Depends(get_db)
 ):
     """
-    🧪 테스트용 회사 + 매핑 데이터 생성
-    Summary 서버 테스트와 연동할 수 있는 DB 데이터 생성
+    🧪 삼성전자 테스트 데이터 생성
+    Summary 서버 테스트와 연동할 수 있는 삼성전자 DB 데이터 생성
     """
     try:
         test_mapping_id = request.mapping_id
-        logger.info(f"🧪 테스트 데이터 생성 시작: mapping_id={test_mapping_id}")
+        logger.info(f"🧪 삼성전자 테스트 데이터 생성 시작: mapping_id={test_mapping_id}")
 
         # 1. 기존 데이터 정리 (같은 mapping_id가 있으면 삭제)
         existing_mapping = db.query(CompanyDartMapping).filter(
@@ -60,11 +60,11 @@ async def create_test_data(
 
         # 2. 테스트 회사 데이터 생성
         test_company = Company(
-            company_name="테스트회사(주)",
-            company_url="https://testcompany.co.kr",
+            company_name="삼성전자(주)",
+            company_url="https://www.samsung.com/sec/",
             company_scale="대기업",
-            company_group="테스트그룹",
-            csn="999-99-99999",  # Company Serial Number
+            company_group="삼성그룹",
+            csn="131-81-00998",  # Samsung Electronics CSN
             created_at=datetime.utcnow(),
             updated_at=datetime.utcnow()
         )
@@ -80,13 +80,13 @@ async def create_test_data(
             company_id=test_company.company_id,
             crawled_company_name=test_company.company_name,
             crawled_company_url=test_company.company_url,
-            dart_corp_name="테스트회사",
-            dart_corp_code="00999999",
-            dart_stock_code="999999",
+            dart_corp_name="삼성전자",
+            dart_corp_code="00126380",
+            dart_stock_code="005930",
             mapping_status=MappingStatus.verified,
             confidence_score=100,
-            gpt_response="테스트용 매핑 데이터",
-            manual_notes="테스트 API로 생성된 데이터",
+            gpt_response="삼성전자 테스트용 매핑 데이터",
+            manual_notes="테스트 API로 생성된 삼성전자 데이터",
             processed_at=datetime.utcnow(),
             verified_at=datetime.utcnow(),
             verified_by="test_api",
@@ -101,13 +101,13 @@ async def create_test_data(
         # 4. 테스트 채용공고 데이터 생성
         test_job_posting = JobPosting(
             company_id=test_company.company_id,
-            saramin_job_id="test99999",
-            saramin_job_title="테스트 개발자 채용",
-            saramin_job_url="https://www.saramin.co.kr/zf_user/jobs/relay/view?rec_idx=test99999",
-            work_location="서울특별시 강남구",
-            career_info="경력 3년 이상",
+            saramin_job_id="samsung99999",
+            saramin_job_title="삼성전자 SW개발자 채용",
+            saramin_job_url="https://www.saramin.co.kr/zf_user/jobs/relay/view?rec_idx=samsung99999",
+            work_location="경기도 수원시 영통구",
+            career_info="경력 3~10년",
             education_requirement="대졸 이상",
-            salary_info="연봉 4000만원 이상",
+            salary_info="회사 내규에 따름",
             posting_date=datetime.utcnow().date(),
             application_deadline=datetime.utcnow().date(),
             registration_info="상시모집",
@@ -126,7 +126,7 @@ async def create_test_data(
         # 5. 커밋
         db.commit()
 
-        logger.info(f"🎉 테스트 데이터 생성 완료!")
+        logger.info(f"🎉 삼성전자 테스트 데이터 생성 완료!")
 
         return {
             "success": True,
@@ -158,7 +158,7 @@ async def create_test_data(
                     "status": test_job_posting.status.value
                 }
             },
-            "message": f"✅ 테스트용 회사/매핑/채용공고 데이터 생성 완료! (mapping_id: {test_mapping_id}, job_id: {test_job_posting.job_id})",
+            "message": f"✅ 삼성전자 테스트 데이터 생성 완료! (mapping_id: {test_mapping_id}, job_id: {test_job_posting.job_id})",
             "next_step": f"이제 Summary 서버에서 POST /test/full-pipeline 호출하세요"
         }
 
@@ -284,7 +284,7 @@ def test_health():
         "status": "healthy",
         "message": "테스트 데이터 API 정상 작동",
         "available_apis": [
-            "POST /test/create-test-data - 테스트 회사/매핑/채용공고 데이터 생성",
+            "POST /test/create-test-data - 삼성전자 테스트 데이터 생성 (회사/매핑/채용공고)",
             "GET /test/check-data/{mapping_id} - 테스트 데이터 확인",
             "DELETE /test/cleanup/{mapping_id} - 테스트 데이터 정리"
         ]
