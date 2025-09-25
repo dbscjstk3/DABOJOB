@@ -11,12 +11,12 @@ from pydantic import BaseModel
 import asyncio
 import json
 import logging
+import os
 
 from ..database import get_db
 from ..models.crawler_models import JobPosting, Company, CompanyDartMapping, MappingStatus
 from ..utils.redis_helper import redis_helper
 from ..services.dart_extractor import DartDocumentExtractor
-from ..config import DART_API_KEY
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/admin/calendar", tags=["Admin Calendar"])
