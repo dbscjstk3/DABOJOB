@@ -67,6 +67,13 @@ const searchDetailRoute = createRoute({
   },
 });
 
+// Admin calendar route - same UI, role/데이터는 컴포넌트 내부에서 분기
+const adminCalendarRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/admin',
+  component: CalendarPage,
+});
+
 // Admin routes - IP 화이트리스트로 서버에서 접근 제어
 const adminMappingRoute = createRoute({
   getParentRoute: () => rootRoute,
@@ -133,6 +140,7 @@ const routeTree = rootRoute.addChildren([
   calendarListRoute,
   calendarDetailRoute,
   searchDetailRoute,
+  adminCalendarRoute,
   adminMappingRoute,
   loginRoute,
   authCallbackRoute,

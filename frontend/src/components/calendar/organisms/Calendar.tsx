@@ -8,6 +8,7 @@ import { cn } from '../../../lib/utils';
 import { fetchJobPostingsByDateRange, fetchAdminJobPostings } from '../../../lib/api';
 import type { JobPostingResponse, AdminCompany } from '@/lib/api';
 import { useAuthStore } from '@/stores/useAuthStore';
+import { useLocation } from '@tanstack/react-router';
 
 export interface CalendarProps {
   viewDate: Date;
@@ -48,7 +49,9 @@ export const Calendar: React.FC<CalendarProps> = ({
 
   // 사용자 정보 가져오기
   const { user } = useAuthStore();
-  const isAdmin = user?.role === 'admin' || user?.role === 'ROLE_ADMIN';
+  const location = useLocation();
+  const isAdminPath = location.pathname === '/admin';
+  const isAdmin = isAdminPath || user?.role === 'admin' || user?.role === 'ROLE_ADMIN';
 
   // 디버깅용 로그
   console.log('🔍 Calendar Debug:', {
