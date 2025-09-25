@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useParams, useNavigate, Link } from '@tanstack/react-router';
 import Typography from '@/components/common/atoms/Typography';
 import { Button } from '@/components/common/atoms/Button';

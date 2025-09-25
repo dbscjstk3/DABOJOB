@@ -48,7 +48,7 @@ export default function SearchDetailPage() {
   // 페이지 변경 핸들러
   const handlePageChange = (newPage: number) => {
     navigate({
-      search: (prev) => ({
+      search: (prev: SearchParams) => ({
         ...prev,
         page: newPage, // UI는 1부터 시작
       }),
