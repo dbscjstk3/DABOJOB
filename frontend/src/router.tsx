@@ -1,5 +1,11 @@
 import React from 'react';
-import { createRouter, createRootRoute, createRoute, useNavigate } from '@tanstack/react-router';
+import {
+  createRouter,
+  createRootRoute,
+  createRoute,
+  useNavigate,
+  useParams,
+} from '@tanstack/react-router';
 import LoginPage from './pages/LoginPage';
 import CalendarPage from './pages/CalendarPage';
 import CalendarDetailPage from './pages/CalendarDetailPage';
@@ -61,6 +67,16 @@ const searchDetailRoute = createRoute({
   },
 });
 
+// Admin routes - IP 화이트리스트로 서버에서 접근 제어
+const adminMappingRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/admin/mapping/$companyId',
+  component: function AdminMappingPage() {
+    const { companyId } = useParams({ from: '/admin/mapping/$companyId' });
+    return <div>Admin Mapping Page - Company ID: {companyId}</div>;
+  },
+});
+
 const authCallbackRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/auth/callback',
@@ -117,6 +133,7 @@ const routeTree = rootRoute.addChildren([
   calendarListRoute,
   calendarDetailRoute,
   searchDetailRoute,
+  adminMappingRoute,
   loginRoute,
   authCallbackRoute,
 ]);

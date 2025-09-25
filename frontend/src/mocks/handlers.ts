@@ -7,6 +7,18 @@ import { searchJobPostings } from './data/jobPostings';
 import type { NewsResponse, JobPostingResponse } from '@/lib/api';
 
 export const handlers = [
+  // 테스트용 관리자 로그인
+  http.get('/api/auth/me', () => {
+    console.log('🎭 MSW: 관리자 로그인 API 호출됨');
+    return HttpResponse.json({
+      id: 1,
+      name: 'Admin',
+      email: 'admin@example.com',
+      role: 'ROLE_ADMIN',
+      provider: 'local',
+    });
+  }),
+
   // Summary Detail API 목 핸들러
   http.get('/api/summary/:summaryId', ({ params }) => {
     const summaryId = params.summaryId as string;
@@ -253,14 +265,28 @@ export const handlers = [
   http.get('/api/job-postings/hot', () => {
     console.log('🎭 MSW: 인기 공고 API 호출됨');
 
-    // 최근 7일간 많이 클릭된 공고들의 jobPostingId 배열
-    const hotJobPostingIds = [1, 5, 8, 2, 12, 7, 3, 11, 9, 17];
+    // 실시간 인기 공고 데이터
+    const hotJobPostings = [
+      {
+        jobPostingId: '1',
+        title: '백엔드 개발자 (Spring Boot)',
+      },
+      {
+        jobPostingId: '2',
+        title: '프론트엔드 개발자 (React)',
+      },
+      {
+        jobPostingId: '3',
+        title: '데이터 엔지니어',
+      },
+    ];
 
     console.log(
-      `✅ MSW: 인기 공고 ID ${hotJobPostingIds.length}개 반환: [${hotJobPostingIds.join(', ')}]`,
+      `✅ MSW: 인기 공고 ${hotJobPostings.length}개 반환:`,
+      hotJobPostings.map((job) => `${job.jobPostingId}: ${job.title}`).join(', '),
     );
 
-    return HttpResponse.json(hotJobPostingIds, {
+    return HttpResponse.json(hotJobPostings, {
       status: 200,
       headers: {
         'Content-Type': 'application/json',
@@ -285,7 +311,7 @@ export const handlers = [
         url: 'https://www.saramin.co.kr/zf_user/jobs/relay/view?rec_idx=123456',
         jobSectorName: '반도체 설계',
         jobSectorCategory: 'IT/하드웨어',
-        careerInfo: '경력 3년 이상',
+        careerInfo: 'senior',
         postingDate: '2024-12-15',
         deadlineDate: '2025-12-31',
       },
@@ -298,7 +324,7 @@ export const handlers = [
         url: 'https://www.saramin.co.kr/zf_user/jobs/relay/view?rec_idx=789012',
         jobSectorName: '소프트웨어 개발',
         jobSectorCategory: 'IT/소프트웨어',
-        careerInfo: '신입',
+        careerInfo: 'junior',
         postingDate: '2024-12-10',
         deadlineDate: '2024-12-25',
       },
@@ -311,7 +337,7 @@ export const handlers = [
         url: 'https://www.saramin.co.kr/zf_user/jobs/relay/view?rec_idx=345678',
         jobSectorName: '연구개발',
         jobSectorCategory: '연구/R&D',
-        careerInfo: '경력무관',
+        careerInfo: 'experienced',
         postingDate: '2024-12-20',
         deadlineDate: '2025-02-28',
       },
@@ -324,7 +350,7 @@ export const handlers = [
         url: 'https://www.saramin.co.kr/zf_user/jobs/relay/view?rec_idx=111111',
         jobSectorName: '백엔드 개발',
         jobSectorCategory: 'IT/서비스',
-        careerInfo: '경력 2년 이상',
+        careerInfo: 'experienced',
         postingDate: '2024-12-18',
         deadlineDate: '2025-01-15',
       },
@@ -337,7 +363,7 @@ export const handlers = [
         url: 'https://www.saramin.co.kr/zf_user/jobs/relay/view?rec_idx=222222',
         jobSectorName: '프론트엔드 개발',
         jobSectorCategory: 'IT/서비스',
-        careerInfo: '신입',
+        careerInfo: 'junior',
         postingDate: '2024-12-16',
         deadlineDate: '2025-01-10',
       },
@@ -350,7 +376,7 @@ export const handlers = [
         url: 'https://www.saramin.co.kr/zf_user/jobs/relay/view?rec_idx=333333',
         jobSectorName: '풀스택 개발',
         jobSectorCategory: 'IT/서비스',
-        careerInfo: '경력 1년 이상',
+        careerInfo: 'experienced',
         postingDate: '2024-12-14',
         deadlineDate: '2025-01-20',
       },
@@ -363,7 +389,7 @@ export const handlers = [
         url: 'https://www.saramin.co.kr/zf_user/jobs/relay/view?rec_idx=444444',
         jobSectorName: '모바일 개발',
         jobSectorCategory: 'IT/서비스',
-        careerInfo: '경력 3년 이상',
+        careerInfo: 'senior',
         postingDate: '2024-12-12',
         deadlineDate: '2025-01-25',
       },
@@ -376,7 +402,7 @@ export const handlers = [
         url: 'https://www.saramin.co.kr/zf_user/jobs/relay/view?rec_idx=555555',
         jobSectorName: '데이터 엔지니어',
         jobSectorCategory: 'IT/서비스',
-        careerInfo: '경력 2년 이상',
+        careerInfo: 'experienced',
         postingDate: '2024-12-11',
         deadlineDate: '2025-01-30',
       },
@@ -389,7 +415,7 @@ export const handlers = [
         url: 'https://www.saramin.co.kr/zf_user/jobs/relay/view?rec_idx=666666',
         jobSectorName: '클라우드 엔지니어',
         jobSectorCategory: 'IT/서비스',
-        careerInfo: '경력 4년 이상',
+        careerInfo: 'senior',
         postingDate: '2024-12-09',
         deadlineDate: '2025-02-05',
       },
@@ -402,7 +428,7 @@ export const handlers = [
         url: 'https://www.saramin.co.kr/zf_user/jobs/relay/view?rec_idx=777777',
         jobSectorName: 'AI 연구',
         jobSectorCategory: '연구/R&D',
-        careerInfo: '박사',
+        careerInfo: 'senior',
         postingDate: '2024-12-08',
         deadlineDate: '2025-02-10',
       },
@@ -418,6 +444,361 @@ export const handlers = [
     }
 
     return HttpResponse.json(jobPostingData, {
+      status: 200,
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    });
+  }),
+
+  // 관리자용 채용공고 API 핸들러
+  http.get('/api/admin/job-postings/calendar', ({ request }) => {
+    const url = new URL(request.url);
+    const year = url.searchParams.get('year');
+    const month = url.searchParams.get('month');
+
+    console.log(`🎭 MSW: 관리자용 채용공고 API 호출됨 - ${year}년 ${month}월`);
+
+    // 관리자용 응답 데이터 (대기업 위주)
+    const adminResponse = {
+      year: parseInt(year || '2025'),
+      month: parseInt(month || '9'),
+      total_companies: 12,
+      companies: [
+        // 삼성 그룹
+        {
+          company_id: 1,
+          company_name: '삼성전자(주)',
+          mapping_status: 'verified',
+          mapping_id: 1,
+          first_posting_date: '2025-09-15',
+          last_posting_date: '2025-09-25',
+          job_count: 8,
+          mapping_created_at: '2025-09-15T08:00:00',
+          can_remap: false,
+          job_postings: [
+            {
+              job_id: 1,
+              job_title: '[삼성전자] 2025년 하반기 신입사원 공채',
+              posting_date: '2025-09-15',
+              application_deadline: '2025-10-15',
+              job_url: 'https://www.saramin.co.kr/zf_user/jobs/relay/view?rec_idx=51900001',
+            },
+            {
+              job_id: 2,
+              job_title: '[삼성전자] 반도체 개발 엔지니어',
+              posting_date: '2025-09-20',
+              application_deadline: '2025-10-20',
+              job_url: 'https://www.saramin.co.kr/zf_user/jobs/relay/view?rec_idx=51900002',
+            },
+            {
+              job_id: 3,
+              job_title: '[삼성전자] AI/ML 연구원',
+              posting_date: '2025-09-25',
+              application_deadline: '2025-10-25',
+              job_url: 'https://www.saramin.co.kr/zf_user/jobs/relay/view?rec_idx=51900003',
+            },
+          ],
+        },
+        {
+          company_id: 2,
+          company_name: '삼성SDS(주)',
+          mapping_status: 'verified',
+          mapping_id: 2,
+          first_posting_date: '2025-09-18',
+          last_posting_date: '2025-09-28',
+          job_count: 5,
+          mapping_created_at: '2025-09-18T08:00:00',
+          can_remap: false,
+          job_postings: [
+            {
+              job_id: 4,
+              job_title: '[삼성SDS] 클라우드 아키텍트',
+              posting_date: '2025-09-18',
+              application_deadline: '2025-10-18',
+              job_url: 'https://www.saramin.co.kr/zf_user/jobs/relay/view?rec_idx=51900004',
+            },
+            {
+              job_id: 5,
+              job_title: '[삼성SDS] DevOps 엔지니어',
+              posting_date: '2025-09-28',
+              application_deadline: '2025-10-28',
+              job_url: 'https://www.saramin.co.kr/zf_user/jobs/relay/view?rec_idx=51900005',
+            },
+          ],
+        },
+        // LG 그룹
+        {
+          company_id: 3,
+          company_name: 'LG전자(주)',
+          mapping_status: 'suggested',
+          mapping_id: 3,
+          first_posting_date: '2025-09-16',
+          last_posting_date: '2025-09-26',
+          job_count: 6,
+          mapping_created_at: '2025-09-16T08:00:00',
+          can_remap: true,
+          job_postings: [
+            {
+              job_id: 6,
+              job_title: '[LG전자] 2025년 하반기 신입사원 공채',
+              posting_date: '2025-09-16',
+              application_deadline: '2025-10-16',
+              job_url: 'https://www.saramin.co.kr/zf_user/jobs/relay/view?rec_idx=51900006',
+            },
+            {
+              job_id: 7,
+              job_title: '[LG전자] 가전제품 개발 엔지니어',
+              posting_date: '2025-09-26',
+              application_deadline: '2025-10-26',
+              job_url: 'https://www.saramin.co.kr/zf_user/jobs/relay/view?rec_idx=51900007',
+            },
+          ],
+        },
+        {
+          company_id: 4,
+          company_name: 'LG화학(주)',
+          mapping_status: 'processing',
+          mapping_id: 4,
+          first_posting_date: '2025-09-19',
+          last_posting_date: '2025-09-29',
+          job_count: 4,
+          mapping_created_at: '2025-09-19T08:00:00',
+          can_remap: true,
+          job_postings: [
+            {
+              job_id: 8,
+              job_title: '[LG화학] 화학공학 연구원',
+              posting_date: '2025-09-19',
+              application_deadline: '2025-10-19',
+              job_url: 'https://www.saramin.co.kr/zf_user/jobs/relay/view?rec_idx=51900008',
+            },
+          ],
+        },
+        // SK 그룹
+        {
+          company_id: 5,
+          company_name: 'SK하이닉스(주)',
+          mapping_status: 'verified',
+          mapping_id: 5,
+          first_posting_date: '2025-09-17',
+          last_posting_date: '2025-09-27',
+          job_count: 7,
+          mapping_created_at: '2025-09-17T08:00:00',
+          can_remap: false,
+          job_postings: [
+            {
+              job_id: 9,
+              job_title: '[SK하이닉스] 메모리 반도체 개발',
+              posting_date: '2025-09-17',
+              application_deadline: '2025-10-17',
+              job_url: 'https://www.saramin.co.kr/zf_user/jobs/relay/view?rec_idx=51900009',
+            },
+            {
+              job_id: 10,
+              job_title: '[SK하이닉스] 공정 엔지니어',
+              posting_date: '2025-09-27',
+              application_deadline: '2025-10-27',
+              job_url: 'https://www.saramin.co.kr/zf_user/jobs/relay/view?rec_idx=51900010',
+            },
+          ],
+        },
+        {
+          company_id: 6,
+          company_name: 'SK텔레콤(주)',
+          mapping_status: 'failed',
+          mapping_id: 6,
+          first_posting_date: '2025-09-21',
+          last_posting_date: '2025-09-21',
+          job_count: 3,
+          mapping_created_at: '2025-09-21T08:00:00',
+          can_remap: true,
+          job_postings: [
+            {
+              job_id: 11,
+              job_title: '[SK텔레콤] 5G 네트워크 엔지니어',
+              posting_date: '2025-09-21',
+              application_deadline: '2025-10-21',
+              job_url: 'https://www.saramin.co.kr/zf_user/jobs/relay/view?rec_idx=51900011',
+            },
+          ],
+        },
+        // 현대자동차 그룹
+        {
+          company_id: 7,
+          company_name: '현대자동차(주)',
+          mapping_status: 'verified',
+          mapping_id: 7,
+          first_posting_date: '2025-09-14',
+          last_posting_date: '2025-09-24',
+          job_count: 9,
+          mapping_created_at: '2025-09-14T08:00:00',
+          can_remap: false,
+          job_postings: [
+            {
+              job_id: 12,
+              job_title: '[현대자동차] 2025년 하반기 신입사원 공채',
+              posting_date: '2025-09-14',
+              application_deadline: '2025-10-14',
+              job_url: 'https://www.saramin.co.kr/zf_user/jobs/relay/view?rec_idx=51900012',
+            },
+            {
+              job_id: 13,
+              job_title: '[현대자동차] 자율주행 SW 개발',
+              posting_date: '2025-09-24',
+              application_deadline: '2025-10-24',
+              job_url: 'https://www.saramin.co.kr/zf_user/jobs/relay/view?rec_idx=51900013',
+            },
+          ],
+        },
+        {
+          company_id: 8,
+          company_name: '기아(주)',
+          mapping_status: 'rejected',
+          mapping_id: 8,
+          first_posting_date: '2025-09-22',
+          last_posting_date: '2025-09-22',
+          job_count: 2,
+          mapping_created_at: '2025-09-22T08:00:00',
+          can_remap: true,
+          job_postings: [
+            {
+              job_id: 14,
+              job_title: '[기아] 전기차 개발 엔지니어',
+              posting_date: '2025-09-22',
+              application_deadline: '2025-10-22',
+              job_url: 'https://www.saramin.co.kr/zf_user/jobs/relay/view?rec_idx=51900014',
+            },
+          ],
+        },
+        // 네이버
+        {
+          company_id: 9,
+          company_name: '네이버(주)',
+          mapping_status: 'verified',
+          mapping_id: 9,
+          first_posting_date: '2025-09-13',
+          last_posting_date: '2025-09-23',
+          job_count: 12,
+          mapping_created_at: '2025-09-13T08:00:00',
+          can_remap: false,
+          job_postings: [
+            {
+              job_id: 15,
+              job_title: '[네이버] 백엔드 개발자',
+              posting_date: '2025-09-13',
+              application_deadline: '2025-10-13',
+              job_url: 'https://www.saramin.co.kr/zf_user/jobs/relay/view?rec_idx=51900015',
+            },
+            {
+              job_id: 16,
+              job_title: '[네이버] AI 연구원',
+              posting_date: '2025-09-23',
+              application_deadline: '2025-10-23',
+              job_url: 'https://www.saramin.co.kr/zf_user/jobs/relay/view?rec_idx=51900016',
+            },
+          ],
+        },
+        // 카카오
+        {
+          company_id: 10,
+          company_name: '카카오(주)',
+          mapping_status: 'pending',
+          mapping_id: 10,
+          first_posting_date: '2025-09-20',
+          last_posting_date: '2025-09-30',
+          job_count: 8,
+          mapping_created_at: '2025-09-20T08:00:00',
+          can_remap: true,
+          job_postings: [
+            {
+              job_id: 17,
+              job_title: '[카카오] 프론트엔드 개발자',
+              posting_date: '2025-09-20',
+              application_deadline: '2025-10-20',
+              job_url: 'https://www.saramin.co.kr/zf_user/jobs/relay/view?rec_idx=51900017',
+            },
+            {
+              job_id: 18,
+              job_title: '[카카오] 데이터 사이언티스트',
+              posting_date: '2025-09-30',
+              application_deadline: '2025-10-30',
+              job_url: 'https://www.saramin.co.kr/zf_user/jobs/relay/view?rec_idx=51900018',
+            },
+          ],
+        },
+        // 쿠팡
+        {
+          company_id: 11,
+          company_name: '쿠팡(주)',
+          mapping_status: 'suggested',
+          mapping_id: 11,
+          first_posting_date: '2025-09-25',
+          last_posting_date: '2025-09-25',
+          job_count: 5,
+          mapping_created_at: '2025-09-25T08:00:00',
+          can_remap: true,
+          job_postings: [
+            {
+              job_id: 19,
+              job_title: '[쿠팡] 풀스택 개발자',
+              posting_date: '2025-09-25',
+              application_deadline: '2025-10-25',
+              job_url: 'https://www.saramin.co.kr/zf_user/jobs/relay/view?rec_idx=51900019',
+            },
+          ],
+        },
+        // 배달의민족
+        {
+          company_id: 12,
+          company_name: '우아한형제들(주)',
+          mapping_status: 'processing',
+          mapping_id: 12,
+          first_posting_date: '2025-09-26',
+          last_posting_date: '2025-09-26',
+          job_count: 4,
+          mapping_created_at: '2025-09-26T08:00:00',
+          can_remap: true,
+          job_postings: [
+            {
+              job_id: 20,
+              job_title: '[배달의민족] 백엔드 개발자',
+              posting_date: '2025-09-26',
+              application_deadline: '2025-10-26',
+              job_url: 'https://www.saramin.co.kr/zf_user/jobs/relay/view?rec_idx=51900020',
+            },
+          ],
+        },
+      ],
+    };
+
+    return HttpResponse.json(adminResponse, {
+      status: 200,
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    });
+  }),
+
+  // 관리자용 작업 상태 조회 API 핸들러
+  http.get('/api/admin/jobs/:jobId', ({ params }) => {
+    const { jobId } = params;
+    console.log(`🎭 MSW: 관리자용 작업 상태 조회 API 호출됨 - jobId: ${jobId}`);
+
+    // 작업 상태 시뮬레이션 (jobId에 따라 다른 상태 반환)
+    const statuses: ('processing' | 'finished' | 'completed')[] = [
+      'processing',
+      'finished',
+      'completed',
+    ];
+    const status = statuses[parseInt(jobId as string) % 3];
+
+    const response = {
+      job_id: parseInt(jobId as string),
+      status: status,
+    };
+
+    return HttpResponse.json(response, {
       status: 200,
       headers: {
         'Content-Type': 'application/json',

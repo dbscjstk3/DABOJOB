@@ -42,9 +42,44 @@ export interface JobPostingResponse {
   url: string;
   jobSectorName: string;
   jobSectorCategory: string;
-  careerInfo: string;
+  careerInfo: 'junior' | 'experienced' | 'senior';
   postingDate: string;
   deadlineDate: string;
+}
+
+// 인기 공고 API 응답 타입 정의
+export interface HotJobPostingResponse {
+  jobPostingId: string;
+  title: string;
+}
+
+// 관리자용 채용공고 API 응답 타입 정의
+export interface AdminJobPosting {
+  job_id: number;
+  job_title: string;
+  posting_date: string;
+  application_deadline: string | null;
+  job_url: string;
+}
+
+export interface AdminCompany {
+  company_id: number;
+  company_name: string;
+  mapping_status: 'pending' | 'processing' | 'suggested' | 'verified' | 'rejected' | 'failed';
+  mapping_id: number;
+  first_posting_date: string;
+  last_posting_date: string;
+  job_count: number;
+  mapping_created_at: string;
+  can_remap: boolean;
+  job_postings: AdminJobPosting[];
+}
+
+export interface AdminJobPostingsResponse {
+  year: number;
+  month: number;
+  total_companies: number;
+  companies: AdminCompany[];
 }
 
 // 자동완성 API 응답 타입 정의
@@ -57,7 +92,7 @@ export interface AutocompleteJobPosting {
   jobSectorId: number;
   jobSectorName: string;
   jobSectorCategory: string;
-  careerInfo: string;
+  careerInfo: 'junior' | 'experienced' | 'senior';
   postingDate: string;
   deadlineDate: string;
 }
@@ -97,7 +132,7 @@ export type SearchJobPostingResponse = AutocompleteResponse;
 export const API_ENDPOINTS = {
   AUTH: {
     LOGIN: (provider: string) => `${import.meta.env.VITE_API_BASE_URL}/api/auth/login/${provider}`,
-    ME: `${import.meta.env.VITE_API_BASE_URL}/api/auth/me`,
+    ME: `${API_BASE_URL}/api/auth/me`,
     REFRESH: `${import.meta.env.VITE_API_BASE_URL}/api/auth/refresh`,
     LOGOUT: `${import.meta.env.VITE_API_BASE_URL}/api/auth/logout`,
   },
@@ -122,6 +157,8 @@ export const API_ENDPOINTS = {
     CALENDAR: (startDate: string, endDate: string) =>
       `${API_BASE_URL}/api/job-postings/calendar?startDate=${startDate}&endDate=${endDate}`,
     HOT: `${API_BASE_URL}/api/job-postings/hot`,
+    ADMIN: (year: number, month: number) =>
+      `${API_BASE_URL}/api/admin/job-postings/calendar?year=${year}&month=${month}`,
   },
 } as const;
 
@@ -292,7 +329,7 @@ export const fetchJobPostingsByDateRange = async (
 };
 
 // 인기 공고 API 호출 함수
-export const fetchHotJobPostings = async (): Promise<number[]> => {
+export const fetchHotJobPostings = async (): Promise<HotJobPostingResponse[]> => {
   const response = await fetch(API_ENDPOINTS.JOB_POSTING.HOT, {
     method: 'GET',
     credentials: 'include', // Cookie 포함
@@ -307,4 +344,43 @@ export const fetchHotJobPostings = async (): Promise<number[]> => {
 
   const data = await response.json();
   return data;
+};
+
+// 관리자용 채용공고 API 호출 함수
+export const fetchAdminJobPostings = async (
+  year: number,
+  month: number,
+): Promise<AdminJobPostingsResponse> => {
+  const response = await fetch(API_ENDPOINTS.JOB_POSTING.ADMIN(year, month), {
+    method: 'GET',
+    credentials: 'include', // Cookie 포함
+    headers: {
+      'Content-Type': 'application/json',
+    },
+  });
+
+  if (!response.ok) {
+    throw new Error(`Failed to fetch admin job postings: ${response.status}`);
+  }
+
+  const data = await response.json();
+  return data;
+};
+
+// 관리자용 작업 상태 조회
+export const fetchAdminJobStatus = async (
+  jobId: number,
+): Promise<{ job_id: number; status: 'processing' | 'finished' | 'completed' }> => {
+  const response = await fetch(`/api/admin/jobs/${jobId}`, {
+    credentials: 'include',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+  });
+
+  if (!response.ok) {
+    throw new Error('작업 상태를 불러오는데 실패했습니다.');
+  }
+
+  return response.json();
 };

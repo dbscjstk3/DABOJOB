@@ -34,6 +34,7 @@ const typographyVariants = cva('font-pretendard', {
       gray: 'text-[#757575]',
       red: 'text-[#FB2C36]',
       white: 'text-white',
+      yellow: 'text-[#F59E0B]',
     },
     align: {
       left: 'text-left',

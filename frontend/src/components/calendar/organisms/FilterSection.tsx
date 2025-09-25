@@ -14,9 +14,9 @@ export interface FilterSectionProps {
 
 // 채용 형태 옵션
 const employmentTypeOptions: FilterOption[] = [
-  { value: '신입', label: '신입' },
-  { value: '경력', label: '경력' },
-  { value: '인턴', label: '인턴' },
+  { value: 'junior', label: '신입' },
+  { value: 'experienced', label: '경력' },
+  { value: 'senior', label: '시니어' },
 ];
 
 // 직무 카테고리 옵션

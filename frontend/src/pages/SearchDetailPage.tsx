@@ -38,9 +38,9 @@ export default function SearchDetailPage() {
   // 경력 정보 변환 함수
   const formatCareerInfo = (careerInfo: string): string => {
     const careerMap: { [key: string]: string } = {
-      NEWBIE: '신입',
-      JUNIOR: '주니어',
-      SENIOR: '시니어',
+      junior: '신입',
+      experienced: '경력',
+      senior: '시니어',
     };
     return careerMap[careerInfo] || careerInfo;
   };
