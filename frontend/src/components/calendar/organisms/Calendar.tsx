@@ -6,7 +6,7 @@ import { FilterSection } from './FilterSection';
 import { RecruitModal } from './RecruitModal';
 import { cn } from '../../../lib/utils';
 import { fetchJobPostingsByDateRange, fetchAdminJobPostings } from '../../../lib/api';
-import type { JobPostingResponse, AdminCompany } from '@/lib/api';
+import type { JobPostingResponse, AdminCalendarCompany } from '@/lib/api';
 import { useAuthStore } from '@/stores/useAuthStore';
 import { useLocation } from '@tanstack/react-router';
 
@@ -43,7 +43,7 @@ export const Calendar: React.FC<CalendarProps> = ({
 
   // API 데이터 상태
   const [jobPostings, setJobPostings] = useState<JobPostingResponse[]>([]);
-  const [adminCompanies, setAdminCompanies] = useState<AdminCompany[]>([]);
+  const [adminCompanies, setAdminCompanies] = useState<AdminCalendarCompany[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -143,7 +143,7 @@ export const Calendar: React.FC<CalendarProps> = ({
 
   // 날짜별로 그룹화된 관리자용 회사 데이터
   const adminCompaniesByDate = useMemo(() => {
-    const grouped: Record<string, AdminCompany[]> = {};
+    const grouped: Record<string, AdminCalendarCompany[]> = {};
 
     console.log('🔍 관리자용 회사 데이터 그룹화:', adminCompanies);
 
@@ -195,7 +195,7 @@ export const Calendar: React.FC<CalendarProps> = ({
   };
 
   // 관리자용 회사 데이터 가져오기
-  const getAdminCompaniesForDay = (day: number): AdminCompany[] => {
+  const getAdminCompaniesForDay = (day: number): AdminCalendarCompany[] => {
     const year = viewDate.getFullYear();
     const month = viewDate.getMonth();
     const dateKey = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
@@ -229,7 +229,7 @@ export const Calendar: React.FC<CalendarProps> = ({
 
   // 관리자용 회사 클릭 핸들러
   const navigate = useNavigate();
-  const handleAdminCompanyClick = (company: AdminCompany) => {
+  const handleAdminCalendarCompanyClick = (company: AdminCalendarCompany) => {
     console.log('Admin company clicked:', company);
 
     switch (company.mapping_status) {
@@ -299,7 +299,7 @@ export const Calendar: React.FC<CalendarProps> = ({
             onOpenModal={handleOpenModal}
             // 관리자용 props
             getAdminCompaniesForDay={getAdminCompaniesForDay}
-            onAdminCompanyClick={handleAdminCompanyClick}
+            onAdminCalendarCompanyClick={handleAdminCalendarCompanyClick}
           />
         )}
       </div>
@@ -316,7 +316,7 @@ export const Calendar: React.FC<CalendarProps> = ({
           onDateChange={handleModalDateChange}
           // 관리자용 props
           adminCompanies={getAdminCompaniesForDay(selectedDay)}
-          onAdminCompanyClick={handleAdminCompanyClick}
+          onAdminCalendarCompanyClick={handleAdminCalendarCompanyClick}
         />
       )}
     </div>

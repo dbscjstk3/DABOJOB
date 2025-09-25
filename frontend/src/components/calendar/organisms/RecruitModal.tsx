@@ -4,9 +4,9 @@ import { Typography } from '../../common/atoms/Typography';
 import { RecruitBadge } from '../atoms/RecruitBadge';
 import { Button } from '../../common/atoms/Button';
 import { CalendarHeader } from '../molecules/CalendarHeader';
-import type { JobPostingResponse, AdminCompany } from '@/lib/api';
+import type { JobPostingResponse, AdminCalendarCompany } from '@/lib/api';
 import { groupCompaniesByGroup } from '@/lib/companyUtils';
-import { fetchAdminJobStatus } from '@/lib/api';
+// import { fetchAdminJobStatus } from '@/lib/api';
 
 export interface RecruitModalProps {
   isOpen: boolean;
@@ -17,8 +17,8 @@ export interface RecruitModalProps {
   selectedYear: number;
   onDateChange?: (date: Date) => void;
   // 관리자용 props
-  adminCompanies?: AdminCompany[];
-  onAdminCompanyClick?: (company: AdminCompany) => void;
+  adminCompanies?: AdminCalendarCompany[];
+  onAdminCalendarCompanyClick?: (company: AdminCalendarCompany) => void;
 }
 
 export const RecruitModal: React.FC<RecruitModalProps> = ({
@@ -30,14 +30,12 @@ export const RecruitModal: React.FC<RecruitModalProps> = ({
   selectedYear,
   onDateChange,
   adminCompanies = [],
-  onAdminCompanyClick,
+  onAdminCalendarCompanyClick,
 }) => {
   const navigate = useNavigate();
 
   // 작업 상태 관리
-  const [jobStatuses, setJobStatuses] = useState<
-    Record<number, 'processing' | 'finished' | 'completed'>
-  >({});
+  const [jobStatuses] = useState<Record<number, 'processing' | 'finished' | 'completed'>>({});
   const [loadingStatuses, setLoadingStatuses] = useState<Set<number>>(new Set());
 
   // verified 상태인 회사들의 작업 상태 조회
@@ -53,11 +51,12 @@ export const RecruitModal: React.FC<RecruitModalProps> = ({
             setLoadingStatuses((prev) => new Set(prev).add(job.job_id));
 
             try {
-              const statusData = await fetchAdminJobStatus(job.job_id);
-              setJobStatuses((prev) => ({
-                ...prev,
-                [job.job_id]: statusData.status,
-              }));
+              // TODO: fetchAdminJobStatus API 구현 필요
+              // const statusData = await fetchAdminJobStatus(job.job_id);
+              // setJobStatuses((prev) => ({
+              //   ...prev,
+              //   [job.job_id]: statusData.status,
+              // }));
             } catch (error) {
               console.error(`작업 상태 조회 실패 (job_id: ${job.job_id}):`, error);
             } finally {
@@ -440,7 +439,7 @@ export const RecruitModal: React.FC<RecruitModalProps> = ({
                                   ? 'bg-green-50 border-green-200 hover:bg-green-100'
                                   : 'bg-red-50 border-red-200 hover:bg-red-100'
                               }`}
-                              onClick={() => onAdminCompanyClick?.(company)}
+                              onClick={() => onAdminCalendarCompanyClick?.(company)}
                             >
                               <div className="flex items-start justify-between mb-2">
                                 <div className="flex-1">
