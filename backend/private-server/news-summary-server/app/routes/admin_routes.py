@@ -558,11 +558,11 @@ async def complete_mapping_to_s3(mapping_id: int) -> Dict[str, Any]:
     테스트용: mapping_id로 요약 데이터 찾기 → DB 저장 → completed → S3 업로드 → finished
     실패 시 상태 rollback
     """
-    job_id = None
-    original_status = None
+    job_ids = []
+    original_statuses = {}
 
     try:
-        # 1. mapping_id로 job_id와 현재 상태 찾기
+        # 1. mapping_id로 모든 job_id와 상태 찾기
         async with database.get_connection() as cursor:
             query = """
             SELECT jp.job_id, jp.status
@@ -570,16 +570,19 @@ async def complete_mapping_to_s3(mapping_id: int) -> Dict[str, Any]:
             JOIN job_postings j ON jp.job_id = j.job_id
             JOIN company_dart_mappings cdm ON j.company_id = cdm.company_id
             WHERE cdm.mapping_id = %s
-            LIMIT 1
             """
             await cursor.execute(query, (mapping_id,))
-            result = await cursor.fetchone()
+            results = await cursor.fetchall()
 
-            if not result:
+            if not results:
                 raise HTTPException(status_code=404, detail=f"No job found for mapping_id {mapping_id}")
 
-            job_id, original_status = result
-            logger.info(f"Found job_id {job_id} with status '{original_status}' for mapping_id {mapping_id}")
+            job_data = [(row[0], row[1]) for row in results]
+            job_ids = [job_id for job_id, _ in job_data]
+            original_statuses = {job_id: status for job_id, status in job_data}
+
+            logger.info(f"Found job_ids {job_ids} for mapping_id {mapping_id}")
+            logger.info(f"Original statuses: {original_statuses}")
 
         # 2. FileManager로 실제 요약 데이터 읽기
         file_manager = FileManager(mapping_id)
@@ -592,49 +595,71 @@ async def complete_mapping_to_s3(mapping_id: int) -> Dict[str, Any]:
         await database.save_company_analysis_summaries(mapping_id, analysis_data)
         logger.info(f"✅ Saved summary data to DB for mapping_id: {mapping_id}")
 
-        # 4. job 상태를 completed로 변경
-        success = await database.update_job_processing_status(job_id, "completed")
-        if not success:
-            raise Exception("Failed to update job status to completed")
-        logger.info(f"✅ Updated job {job_id} status to 'completed'")
+        # 4. 모든 job 상태를 completed로 변경
+        completed_jobs = []
+        for job_id in job_ids:
+            success = await database.update_job_processing_status(job_id, "completed")
+            if success:
+                completed_jobs.append(job_id)
+            else:
+                logger.error(f"Failed to update job status to completed for job_id {job_id}")
 
-        # 5. S3 업로드 실행
-        logger.info(f"🚀 Starting S3 upload for job {job_id}")
-        uploaded_files = await s3_service.upload_job_completion_data(job_id)
+        if not completed_jobs:
+            raise Exception("Failed to update any job status to completed")
+        logger.info(f"✅ Updated jobs {completed_jobs} status to 'completed'")
+
+        # 5. S3 업로드 실행 (첫 번째 job_id 사용)
+        primary_job_id = job_ids[0]
+        logger.info(f"🚀 Starting S3 upload for primary job_id {primary_job_id}")
+        uploaded_files = await s3_service.upload_job_completion_data(primary_job_id)
 
         if not uploaded_files:
             raise Exception("S3 upload failed - no files uploaded")
         logger.info(f"✅ S3 upload completed: {list(uploaded_files.keys())}")
 
-        # 6. job 상태를 finished로 변경
-        success = await database.update_job_processing_status(job_id, "finished")
-        if not success:
-            logger.warning(f"Failed to update status to finished for job {job_id}")
-        else:
-            logger.info(f"✅ Updated job {job_id} status to 'finished'")
+        # 6. 모든 job 상태를 finished로 변경
+        finished_jobs = []
+        for job_id in job_ids:
+            success = await database.update_job_processing_status(job_id, "finished")
+            if success:
+                finished_jobs.append(job_id)
+            else:
+                logger.warning(f"Failed to update status to finished for job {job_id}")
+
+        logger.info(f"✅ Updated jobs {finished_jobs} status to 'finished'")
 
         return {
             "success": True,
             "mapping_id": mapping_id,
-            "job_id": job_id,
-            "original_status": original_status,
+            "job_ids": job_ids,
+            "primary_job_id": primary_job_id,
+            "original_statuses": original_statuses,
+            "completed_jobs": completed_jobs,
+            "finished_jobs": finished_jobs,
             "final_status": "finished",
             "summary_data_keys": list(analysis_data.keys()),
             "uploaded_files": uploaded_files,
-            "message": "Successfully completed full flow: summaries → DB → completed → S3 → finished"
+            "message": f"Successfully completed full flow for {len(job_ids)} jobs: summaries → DB → completed → S3 → finished"
         }
 
     except Exception as e:
         logger.error(f"❌ Error in complete flow for mapping_id {mapping_id}: {e}")
 
-        # Rollback: 원래 상태로 되돌리기
-        if job_id and original_status:
+        # Rollback: 모든 job을 원래 상태로 되돌리기
+        if 'job_ids' in locals() and 'original_statuses' in locals():
             try:
-                rollback_success = await database.update_job_processing_status(job_id, original_status)
-                if rollback_success:
-                    logger.info(f"🔄 Rolled back job {job_id} status to '{original_status}'")
+                rolled_back_jobs = []
+                for job_id in job_ids:
+                    original_status = original_statuses.get(job_id)
+                    if original_status:
+                        rollback_success = await database.update_job_processing_status(job_id, original_status)
+                        if rollback_success:
+                            rolled_back_jobs.append(job_id)
+
+                if rolled_back_jobs:
+                    logger.info(f"🔄 Rolled back jobs {rolled_back_jobs} to their original statuses")
                 else:
-                    logger.error(f"🔄 Failed to rollback job {job_id} status")
+                    logger.error(f"🔄 Failed to rollback any job status")
             except Exception as rollback_error:
                 logger.error(f"🔄 Rollback error: {rollback_error}")
 
