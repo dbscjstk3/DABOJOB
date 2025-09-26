@@ -411,7 +411,9 @@ class SaraminCrawler(BaseCrawler):
                 self._delete_crawl_state(crawl_id)
 
             return {
-                'status': 'success',
+                'status': 'completed',
+                'total_jobs': saved_count,
+                'pages_processed': max_pages,
                 'total_found': len(all_jobs),
                 'total_saved': saved_count,
                 'jobs': all_jobs,
