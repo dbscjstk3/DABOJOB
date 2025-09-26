@@ -529,13 +529,21 @@ class RedisConsumer:
     def start_background_consumer(self):
         """백그라운드 스레드에서 컨슈머 실행"""
         def run_consumer():
+            # 새로운 이벤트 루프 생성 (메인 스레드와 격리)
             loop = asyncio.new_event_loop()
             asyncio.set_event_loop(loop)
-            loop.run_until_complete(self.consume_async())
-        
+
+            try:
+                # 백그라운드에서 지속적으로 실행
+                loop.run_until_complete(self.consume_async())
+            except Exception as e:
+                logger.error(f"Background consumer error: {e}")
+            finally:
+                loop.close()
+
         thread = threading.Thread(target=run_consumer, daemon=True)
         thread.start()
-        logger.info(f"Started background consumer thread")
+        logger.info(f"Started background consumer thread: {thread.name}")
         return thread
     
     def stop(self):
@@ -591,9 +599,9 @@ class RedisConsumer:
             logger.error(f"Failed to get processed results: {e}")
             return {}
     
-    def get_job_completion_status(self, job_id: int) -> Dict[str, Any]:
+    async def get_job_completion_status_async(self, job_id: int) -> Dict[str, Any]:
         """
-        작업 완료 상태 조회
+        작업 완료 상태 조회 (비동기 버전)
 
         Args:
             job_id: 작업 ID
@@ -602,22 +610,58 @@ class RedisConsumer:
             완료 상태 정보
         """
         try:
-            # job_id를 mapping_id로 변환하여 올바른 counter 키 사용
-            mapping_id = None
-            try:
-                # job_id로 mapping_id 조회
-                import asyncio
-                mapping_id = asyncio.run(self._get_mapping_id_from_job_id(job_id))
-            except Exception as e:
-                logger.error(f"Failed to get mapping_id for job_id {job_id}: {e}")
+            # job_id를 mapping_id로 변환
+            mapping_id = await self._get_mapping_id_from_job_id(job_id)
+
+            if not mapping_id:
+                logger.warning(f"No mapping_id found for job_id {job_id}")
                 return {
                     'job_id': job_id,
                     'completed_chapters': 0,
                     'total_chapters': 5,
                     'is_completed': False,
                     'progress_percentage': 0,
-                    'error': 'Failed to resolve mapping_id'
+                    'error': 'Mapping_id not found'
                 }
+
+            # mapping_id 기반으로 올바른 counter 키 사용
+            counter_key = f"completed:{mapping_id}"
+            current_count = self.client.get(counter_key)
+            current_count = int(current_count) if current_count else 0
+
+            return {
+                'job_id': job_id,
+                'mapping_id': mapping_id,
+                'completed_chapters': current_count,
+                'total_chapters': 5,
+                'is_completed': current_count >= 5,
+                'progress_percentage': (current_count / 5) * 100
+            }
+
+        except Exception as e:
+            logger.error(f"Failed to get completion status for job {job_id}: {e}")
+            return {
+                'job_id': job_id,
+                'completed_chapters': 0,
+                'total_chapters': 5,
+                'is_completed': False,
+                'progress_percentage': 0,
+                'error': str(e)
+            }
+
+    def get_job_completion_status(self, job_id: int) -> Dict[str, Any]:
+        """
+        작업 완료 상태 조회 (동기 wrapper - 이벤트 루프 충돌 방지)
+
+        Args:
+            job_id: 작업 ID
+
+        Returns:
+            완료 상태 정보
+        """
+        try:
+            # job_id를 mapping_id로 직접 변환 (동기 방식)
+            mapping_id = self._get_mapping_id_sync(job_id)
 
             if not mapping_id:
                 logger.warning(f"No mapping_id found for job_id {job_id}")
@@ -770,6 +814,60 @@ class RedisConsumer:
             logger.error(f"Failed to force process pending messages: {e}")
             return 0
     
+    def _get_mapping_id_sync(self, job_id: int) -> Optional[int]:
+        """
+        job_id로 mapping_id를 조회 (동기 버전 - DB 직접 접근)
+
+        Args:
+            job_id: 작업 ID
+
+        Returns:
+            mapping_id (없으면 None)
+        """
+        try:
+            import pymysql
+            from ..database import database
+
+            # database 설정에서 연결 정보 가져오기
+            if not database.config:
+                logger.error("Database config not available")
+                return None
+
+            connection = pymysql.connect(
+                host=database.config['host'],
+                user=database.config['user'],
+                password=database.config['password'],
+                database=database.config['database'],
+                port=database.config['port'],
+                autocommit=True
+            )
+
+            with connection.cursor() as cursor:
+                query = """
+                SELECT cdm.mapping_id
+                FROM company_dart_mappings cdm
+                JOIN job_postings jp ON cdm.company_id = jp.company_id
+                WHERE jp.job_id = %s
+                LIMIT 1
+                """
+                cursor.execute(query, (job_id,))
+                result = cursor.fetchone()
+
+                if result:
+                    mapping_id = result[0]
+                    logger.debug(f"Found mapping_id for job_id {job_id}: {mapping_id}")
+                    return mapping_id
+                else:
+                    logger.warning(f"No mapping_id found for job_id: {job_id}")
+                    return None
+
+        except Exception as e:
+            logger.error(f"Error getting mapping_id for job_id {job_id}: {e}")
+            return None
+        finally:
+            if 'connection' in locals():
+                connection.close()
+
     def cleanup(self):
         """리소스 정리"""
         self.stop()
