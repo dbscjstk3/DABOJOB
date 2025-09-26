@@ -323,7 +323,7 @@ export const API_ENDPOINTS = {
       `${API_BASE_URL}/api/job-postings/calendar?startDate=${startDate}&endDate=${endDate}`,
     HOT: `${API_BASE_URL}/api/job-postings/hot`,
     ADMIN: (year: string, month: string) =>
-      `${ADMIN_API_BASE_URL}/api/admin/calendar?year=${year}&month=${month}`,
+      `${ADMIN_API_BASE_URL}/api/admin/calendar/companies?year=${year}&month=${month}`,
   },
   ADMIN: {
     MAPPING: (companyId: number, year: number, month: number) =>
