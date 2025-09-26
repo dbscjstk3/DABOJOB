@@ -167,52 +167,55 @@ class RedisConsumer:
                 company_name = await self._get_company_name(mapping_id)
                 logger.info(f"Found company_name for mapping_id {mapping_id}: {company_name or 'None - will search without company filter'}")
 
-            # 해시태그 매핑 보장 + ID 회수 (멱등)
-            hashtag_map = await database.ensure_hashtag_ids(mapping_id, chapter, hashtags)
-            # hashtag_map 예: {"TV": 651231, "스마트폰": 85120, ...}
-            if not hashtag_map:
-                logger.warning(
-                    f"ensure_hashtag_ids returned empty for mapping_id {mapping_id}, chapter {chapter} (hashtags={hashtags})"
-                )
-                await self._increment_counter_and_check_completion(mapping_id)
-                return True
-            
-            # 6) 뉴스 검색/처리 — 항상 hashtag_id 기준으로만 수행
-            total_news_count = 0
-            for hashtag in hashtags:
-                try:
-                    # 해시태그를 DB에 저장하고 ID 가져오기
-                    hashtag_id = await self._save_and_get_hashtag_id(mapping_id, chapter, hashtag)
-
-                    news_count = await news_service.search_and_process_news(
-                        mapping_id=mapping_id,
-                        hashtag_id=hashtag_id,
-                        summary_id=0,  # 임시
-                        hashtag=hashtag,
-                        company_name=company_name or ""  # 조회한 기업명 사용
+                # 해시태그 매핑 보장 + ID 회수 (멱등)
+                hashtag_map = await database.ensure_hashtag_ids(mapping_id, chapter, hashtags)
+                # hashtag_map 예: {"TV": 651231, "스마트폰": 85120, ...}
+                if not hashtag_map:
+                    logger.warning(
+                        f"ensure_hashtag_ids returned empty for mapping_id {mapping_id}, chapter {chapter} (hashtags={hashtags})"
                     )
-                    total_news_count += news_count
-                    logger.info(f"Found {news_count} news for hashtag: {hashtag} (hashtag_id: {hashtag_id})")
-                except Exception as e:
-                    logger.error(f"Error searching news for hashtag {hashtag}: {e}")
+                    await self._increment_counter_and_check_completion(mapping_id)
+                    return True
 
-            logger.info(f"Total news found for mapping_id {mapping_id}, chapter {chapter}: {total_news_count}")
+                # 6) 뉴스 검색/처리 — ensure_hashtag_ids에서 반환된 hashtag_map 사용
+                total_news_count = 0
+                for hashtag in hashtags:
+                    try:
+                        # ensure_hashtag_ids에서 이미 가져온 hashtag_id 사용 (중복 처리 제거)
+                        hashtag_id = hashtag_map.get(hashtag)
+                        if not hashtag_id:
+                            logger.warning(f"No hashtag_id found for hashtag: {hashtag}, skipping")
+                            continue
 
-            # Counter 증가 및 완료 체크
-            await self._increment_counter_and_check_completion(mapping_id)
+                        news_count = await news_service.search_and_process_news(
+                            mapping_id=mapping_id,
+                            hashtag_id=hashtag_id,
+                            summary_id=0,  # 임시
+                            hashtag=hashtag,
+                            company_name=company_name or ""  # 조회한 기업명 사용
+                        )
+                        total_news_count += news_count
+                        logger.info(f"Found {news_count} news for hashtag: {hashtag} (hashtag_id: {hashtag_id})")
+                    except Exception as e:
+                        logger.error(f"Error searching news for hashtag {hashtag}: {e}")
 
-            # 처리 결과를 Redis에 저장 (옵션)
-            result_key = f"news:result:{mapping_id}:{chapter}"
-            result_data = {
-                'mapping_id': mapping_id,
-                'chapter': chapter,
-                'hashtags': json.dumps(hashtags, ensure_ascii=False),
-                'processed_at': datetime.now().isoformat(),
-                'status': 'processed'
-            }
-            self.client.hset(result_key, mapping=result_data)
-            self.client.expire(result_key, 86400)  # 24시간 후 만료
-            
+                logger.info(f"Total news found for mapping_id {mapping_id}, chapter {chapter}: {total_news_count}")
+
+                # Counter 증가 및 완료 체크
+                await self._increment_counter_and_check_completion(mapping_id)
+
+                # 처리 결과를 Redis에 저장 (옵션)
+                result_key = f"news:result:{mapping_id}:{chapter}"
+                result_data = {
+                    'mapping_id': mapping_id,
+                    'chapter': chapter,
+                    'hashtags': json.dumps(hashtags, ensure_ascii=False),
+                    'processed_at': datetime.now().isoformat(),
+                    'status': 'processed'
+                }
+                self.client.hset(result_key, mapping=result_data)
+                self.client.expire(result_key, 86400)  # 24시간 후 만료
+
                 return True
 
             finally:
@@ -296,6 +299,40 @@ class RedisConsumer:
             logger.error(f"Error getting job_id for mapping_id {mapping_id}: {e}")
             return None
 
+    async def _get_mapping_id_from_job_id(self, job_id: int) -> Optional[int]:
+        """
+        job_id로 mapping_id를 조회
+
+        Args:
+            job_id: 작업 ID
+
+        Returns:
+            mapping_id (없으면 None)
+        """
+        try:
+            async with database.get_connection() as cursor:
+                query = """
+                SELECT cdm.mapping_id
+                FROM company_dart_mappings cdm
+                JOIN job_postings jp ON cdm.company_id = jp.company_id
+                WHERE jp.job_id = %s
+                LIMIT 1
+                """
+                await cursor.execute(query, (job_id,))
+                result = await cursor.fetchone()
+
+                if result:
+                    mapping_id = result[0]
+                    logger.debug(f"Found mapping_id for job_id {job_id}: {mapping_id}")
+                    return mapping_id
+                else:
+                    logger.warning(f"No mapping_id found for job_id: {job_id}")
+                    return None
+
+        except Exception as e:
+            logger.error(f"Error getting mapping_id for job_id {job_id}: {e}")
+            return None
+
     async def _save_and_get_hashtag_id(self, mapping_id: int, chapter: int, hashtag: str) -> int:
         """해시태그를 DB에 저장하고 ID 반환"""
         try:
@@ -326,8 +363,8 @@ class RedisConsumer:
 
         except Exception as e:
             logger.error(f"Error saving hashtag {hashtag}: {e}")
-            # 에러 시 해시태그 이름으로 고유 ID 생성
-            return abs(hash(f"{mapping_id}_{chapter}_{hashtag}")) % 1000000
+            # DB 오류 시 None 반환하여 상위에서 처리하도록 함
+            raise Exception(f"Failed to save hashtag {hashtag}: {e}")
 
     async def _increment_counter_and_check_completion(self, mapping_id: int):
         """Counter 증가 및 완료 체크 (재요약 충돌 방지)"""
@@ -557,12 +594,42 @@ class RedisConsumer:
             완료 상태 정보
         """
         try:
-            counter_key = f"completed:{job_id}"
+            # job_id를 mapping_id로 변환하여 올바른 counter 키 사용
+            mapping_id = None
+            try:
+                # job_id로 mapping_id 조회
+                import asyncio
+                mapping_id = asyncio.run(self._get_mapping_id_from_job_id(job_id))
+            except Exception as e:
+                logger.error(f"Failed to get mapping_id for job_id {job_id}: {e}")
+                return {
+                    'job_id': job_id,
+                    'completed_chapters': 0,
+                    'total_chapters': 5,
+                    'is_completed': False,
+                    'progress_percentage': 0,
+                    'error': 'Failed to resolve mapping_id'
+                }
+
+            if not mapping_id:
+                logger.warning(f"No mapping_id found for job_id {job_id}")
+                return {
+                    'job_id': job_id,
+                    'completed_chapters': 0,
+                    'total_chapters': 5,
+                    'is_completed': False,
+                    'progress_percentage': 0,
+                    'error': 'Mapping_id not found'
+                }
+
+            # mapping_id 기반으로 올바른 counter 키 사용
+            counter_key = f"completed:{mapping_id}"
             current_count = self.client.get(counter_key)
             current_count = int(current_count) if current_count else 0
 
             return {
                 'job_id': job_id,
+                'mapping_id': mapping_id,
                 'completed_chapters': current_count,
                 'total_chapters': 5,
                 'is_completed': current_count >= 5,
@@ -571,7 +638,14 @@ class RedisConsumer:
 
         except Exception as e:
             logger.error(f"Failed to get completion status for job {job_id}: {e}")
-            return {}
+            return {
+                'job_id': job_id,
+                'completed_chapters': 0,
+                'total_chapters': 5,
+                'is_completed': False,
+                'progress_percentage': 0,
+                'error': str(e)
+            }
 
     def get_consumer_health(self) -> Dict[str, Any]:
         """
@@ -624,9 +698,9 @@ class RedisConsumer:
         except Exception:
             return False
 
-    def force_process_pending(self, max_age_seconds: int = 300) -> int:
+    async def force_process_pending(self, max_age_seconds: int = 300) -> int:
         """
-        강제로 오래된 pending 메시지들을 처리
+        강제로 오래된 pending 메시지들을 처리 (비동기 버전)
 
         Args:
             max_age_seconds: 이 시간(초) 이상 pending된 메시지들을 강제 처리
@@ -665,9 +739,9 @@ class RedisConsumer:
                         )
 
                         if claimed:
-                            # 메시지 처리 시도
+                            # 메시지 처리 시도 (비동기 호출)
                             _, data = claimed[0]
-                            success = asyncio.run(self.process_message(data))
+                            success = await self.process_message(data)
 
                             if success:
                                 self.client.xack(self.stream_key, self.consumer_group, message_id)
