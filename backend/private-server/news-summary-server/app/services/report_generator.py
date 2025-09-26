@@ -139,10 +139,11 @@ class ReportGenerator:
             if chapter not in by_chapter:
                 by_chapter[chapter] = []
             
+            created_at_value = hashtag_item.get('created_at')
             by_chapter[chapter].append({
                 "hashtag_id": hashtag_item.get('hashtag_id'),
                 "hashtag": hashtag,
-                "created_at": hashtag_item.get('created_at').isoformat() if hashtag_item.get('created_at') else None
+                "created_at": created_at_value.isoformat() if created_at_value is not None else None
             })
             
             all_hashtags.append(hashtag)
@@ -178,12 +179,13 @@ class ReportGenerator:
             if news_item.get('status') == 'completed':
                 by_hashtag[hashtag_name]["completed_count"] += 1
             
+            created_at_value = news_item.get('created_at')
             by_hashtag[hashtag_name]["articles"].append({
                 "news_id": news_item.get('news_id'),
                 "title": news_item.get('news_title'),
                 "url": news_item.get('news_url'),
                 "status": news_item.get('status'),
-                "created_at": news_item.get('created_at').isoformat() if news_item.get('created_at') else None
+                "created_at": created_at_value.isoformat() if created_at_value is not None else None
             })
         
         return by_hashtag
@@ -193,17 +195,21 @@ class ReportGenerator:
         articles = []
         
         for news_item in news_data:
+            pub_date_value = news_item.get('news_created_at')
+            created_at_value = news_item.get('created_at')
+            updated_at_value = news_item.get('updated_at')
+
             article = {
                 "news_id": news_item.get('news_id'),
                 "title": news_item.get('news_title'),
                 "url": news_item.get('news_url'),
-                "pub_date": news_item.get('news_created_at').isoformat() if news_item.get('news_created_at') else None,
+                "pub_date": pub_date_value.isoformat() if pub_date_value is not None else None,
                 "content": news_item.get('news_content'),
                 "company_name": news_item.get('company_name'),
                 "status": news_item.get('status'),
                 "hashtag_id": news_item.get('hashtag_id'),
-                "created_at": news_item.get('created_at').isoformat() if news_item.get('created_at') else None,
-                "updated_at": news_item.get('updated_at').isoformat() if news_item.get('updated_at') else None
+                "created_at": created_at_value.isoformat() if created_at_value is not None else None,
+                "updated_at": updated_at_value.isoformat() if updated_at_value is not None else None
             }
             articles.append(article)
         

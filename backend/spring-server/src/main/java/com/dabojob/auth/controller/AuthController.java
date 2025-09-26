@@ -26,10 +26,16 @@ public class AuthController {
 
     private final AuthService authService;
 
+    // 수정 코드
     @GetMapping("/login/{provider}")
     public void loginRedirect(@PathVariable String provider, HttpServletResponse response) throws IOException {
+        if (!isValidProvider(provider)) {
+            log.error("Unsupported OAuth provider: {}", provider);
+            throw new IllegalArgumentException("Unsupported OAuth provider");
+        }
         response.sendRedirect("/oauth2/authorization/" + provider);
     }
+
 
     @PostMapping("/refresh")
     public ResponseEntity<TokenResponse> refreshToken(HttpServletRequest request, HttpServletResponse response) {
@@ -51,9 +57,7 @@ public class AuthController {
     }
 
 
-//    @PostMapping("/revoke")  // 사용자당 하나의 Refresh Token이 아니라, 여러개를 허용할 것이라면 도입. 단 내부 로직 변경 필요.
-//    public ResponseEntity<SuccessResponse> revokeToken(HttpServletRequest request) {
-//        authService.revokeTokenFromCookie(request);
-//        return ResponseEntity.ok(new SuccessResponse(true, "토큰이 무효화되었습니다."));
-//    }
+    private boolean isValidProvider(String provider) {
+        return provider.equals("google") || provider.equals("ssafy");
+    }
 }

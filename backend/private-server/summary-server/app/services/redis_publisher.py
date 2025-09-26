@@ -56,9 +56,20 @@ class RedisPublisher:
             if not tags:
                 return None
 
+            # job_id에서 mapping_id 추출 (summary_4_20250924_151308 -> 4)
+            mapping_id = None
+            try:
+                if job_id.startswith('summary_'):
+                    mapping_id = int(job_id.split('_')[1])
+                else:
+                    mapping_id = int(job_id)
+            except (ValueError, IndexError):
+                logger.error(f"Failed to extract mapping_id from job_id: {job_id}")
+                return None
+
             # 메시지 데이터 준비
             message_data = {
-                'job_id': job_id,
+                'mapping_id': mapping_id,
                 'category': category,
                 'hashtags': json.dumps(tags, ensure_ascii=False),
                 'timestamp': datetime.now().isoformat(),
@@ -91,8 +102,19 @@ class RedisPublisher:
             메시지 ID
         """
         try:
+            # job_id에서 mapping_id 추출
+            mapping_id = None
+            try:
+                if job_id.startswith('summary_'):
+                    mapping_id = int(job_id.split('_')[1])
+                else:
+                    mapping_id = int(job_id)
+            except (ValueError, IndexError):
+                logger.error(f"Failed to extract mapping_id from job_id: {job_id}")
+                return None
+
             completion_data = {
-                'job_id': job_id,
+                'mapping_id': mapping_id,
                 'type': 'hashtag_extraction_complete',
                 'total_categories': str(total_categories),
                 'timestamp': datetime.now().isoformat(),

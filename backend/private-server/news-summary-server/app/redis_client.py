@@ -6,11 +6,7 @@ import json
 import logging
 from datetime import datetime
 from typing import Dict, List, Optional, Tuple
-from config import (
-    REDIS_HOST, REDIS_PORT, REDIS_DB,
-    STREAM_SUMMARY, STREAM_NEWS, STREAM_COMPLETE,
-    GROUP_SUMMARY, GROUP_NEWS
-)
+from config import config
 
 logger = logging.getLogger(__name__)
 
@@ -19,9 +15,9 @@ class RedisStreamClient:
     
     def __init__(self):
         self.redis_client = redis.Redis(
-            host=REDIS_HOST,
-            port=REDIS_PORT,
-            db=REDIS_DB,
+            host=config.REDIS_HOST,
+            port=config.REDIS_PORT,
+            db=config.REDIS_DB,
             decode_responses=True
         )
         
@@ -30,33 +26,33 @@ class RedisStreamClient:
         try:
             # Summary Consumer Group
             self.redis_client.xgroup_create(
-                STREAM_SUMMARY,
-                GROUP_SUMMARY,
+                config.STREAM_SUMMARY,
+                config.GROUP_SUMMARY,
                 id='0',
                 mkstream=True
             )
-            logger.info(f"Created consumer group: {GROUP_SUMMARY}")
+            logger.info(f"Created consumer group: {config.GROUP_SUMMARY}")
         except redis.ResponseError as e:
             if "BUSYGROUP" in str(e):
-                logger.info(f"Consumer group {GROUP_SUMMARY} already exists")
+                logger.info(f"Consumer group {config.GROUP_SUMMARY} already exists")
             else:
-                logger.error(f"Error creating {GROUP_SUMMARY}: {e}")
+                logger.error(f"Error creating {config.GROUP_SUMMARY}: {e}")
                 raise
                 
         try:
             # News Consumer Group
             self.redis_client.xgroup_create(
-                STREAM_NEWS,
-                GROUP_NEWS,
+                config.STREAM_NEWS,
+                config.GROUP_NEWS,
                 id='0',
                 mkstream=True
             )
-            logger.info(f"Created consumer group: {GROUP_NEWS}")
+            logger.info(f"Created consumer group: {config.GROUP_NEWS}")
         except redis.ResponseError as e:
             if "BUSYGROUP" in str(e):
-                logger.info(f"Consumer group {GROUP_NEWS} already exists")
+                logger.info(f"Consumer group {config.GROUP_NEWS} already exists")
             else:
-                logger.error(f"Error creating {GROUP_NEWS}: {e}")
+                logger.error(f"Error creating {config.GROUP_NEWS}: {e}")
                 raise
     
     def send_to_summary(self, mapping_id: int, chapter: int, file_path: str) -> str:
@@ -68,8 +64,8 @@ class RedisStreamClient:
             'timestamp': datetime.now().isoformat()
         }
         
-        message_id = self.redis_client.xadd(STREAM_SUMMARY, message_data)
-        logger.info(f"Sent to {STREAM_SUMMARY}: mapping_id={mapping_id}, chapter={chapter}")
+        message_id = self.redis_client.xadd(config.STREAM_SUMMARY, message_data)
+        logger.info(f"Sent to {config.STREAM_SUMMARY}: mapping_id={mapping_id}, chapter={chapter}")
         return message_id
     
     def send_to_news(self, mapping_id: int, chapter: int, keywords: List[str]) -> str:
@@ -84,8 +80,8 @@ class RedisStreamClient:
             'timestamp': datetime.now().isoformat()
         }
         
-        message_id = self.redis_client.xadd(STREAM_NEWS, message_data)
-        logger.info(f"Sent to {STREAM_NEWS}: mapping_id={mapping_id}, chapter={chapter}, keywords={keywords}")
+        message_id = self.redis_client.xadd(config.STREAM_NEWS, message_data)
+        logger.info(f"Sent to {config.STREAM_NEWS}: mapping_id={mapping_id}, chapter={chapter}, keywords={keywords}")
         return message_id
     
     def send_complete(self, mapping_id: int, s3_path: Optional[str] = None) -> str:
@@ -99,16 +95,16 @@ class RedisStreamClient:
         if s3_path:
             message_data['s3_path'] = s3_path
             
-        message_id = self.redis_client.xadd(STREAM_COMPLETE, message_data)
+        message_id = self.redis_client.xadd(config.STREAM_COMPLETE, message_data)
         logger.info(f"Sent completion notification: mapping_id={mapping_id}")
         return message_id
     
     def consume_summary(self, consumer_name: str, count: int = 10, block: int = 1000) -> List[Tuple[str, Dict]]:
         """Summary Stream 메시지 수신"""
         messages = self.redis_client.xreadgroup(
-            GROUP_SUMMARY,
+            config.GROUP_SUMMARY,
             consumer_name,
-            {STREAM_SUMMARY: '>'},
+            {config.STREAM_SUMMARY: '>'},
             count=count,
             block=block
         )
@@ -118,16 +114,16 @@ class RedisStreamClient:
             for stream, stream_messages in messages:
                 for msg_id, data in stream_messages:
                     result.append((msg_id, data))
-                    logger.info(f"Consumed from {STREAM_SUMMARY}: {msg_id}")
+                    logger.info(f"Consumed from {config.STREAM_SUMMARY}: {msg_id}")
         
         return result
     
     def consume_news(self, consumer_name: str, count: int = 10, block: int = 1000) -> List[Tuple[str, Dict]]:
         """News Stream 메시지 수신"""
         messages = self.redis_client.xreadgroup(
-            GROUP_NEWS,
+            config.GROUP_NEWS,
             consumer_name,
-            {STREAM_NEWS: '>'},
+            {config.STREAM_NEWS: '>'},
             count=count,
             block=block
         )
@@ -137,7 +133,7 @@ class RedisStreamClient:
             for stream, stream_messages in messages:
                 for msg_id, data in stream_messages:
                     result.append((msg_id, data))
-                    logger.info(f"Consumed from {STREAM_NEWS}: {msg_id}")
+                    logger.info(f"Consumed from {config.STREAM_NEWS}: {msg_id}")
         
         return result
     
@@ -148,11 +144,11 @@ class RedisStreamClient:
     
     def ack_summary(self, message_id: str):
         """Summary 메시지 ACK"""
-        self.ack_message(STREAM_SUMMARY, GROUP_SUMMARY, message_id)
+        self.ack_message(config.STREAM_SUMMARY, config.GROUP_SUMMARY, message_id)
     
     def ack_news(self, message_id: str):
         """News 메시지 ACK"""
-        self.ack_message(STREAM_NEWS, GROUP_NEWS, message_id)
+        self.ack_message(config.STREAM_NEWS, config.GROUP_NEWS, message_id)
     
     def increment_completion_counter(self, mapping_id: int) -> int:
         """완료 카운터 증가"""
@@ -172,18 +168,18 @@ class RedisStreamClient:
         info = {}
         
         try:
-            info['summary_length'] = self.redis_client.xlen(STREAM_SUMMARY)
-            info['news_length'] = self.redis_client.xlen(STREAM_NEWS)
-            info['complete_length'] = self.redis_client.xlen(STREAM_COMPLETE)
+            info['summary_length'] = self.redis_client.xlen(config.STREAM_SUMMARY)
+            info['news_length'] = self.redis_client.xlen(config.STREAM_NEWS)
+            info['complete_length'] = self.redis_client.xlen(config.STREAM_COMPLETE)
             
             # Consumer Group 정보
             try:
-                info['summary_groups'] = self.redis_client.xinfo_groups(STREAM_SUMMARY)
+                info['summary_groups'] = self.redis_client.xinfo_groups(config.STREAM_SUMMARY)
             except:
                 info['summary_groups'] = []
                 
             try:
-                info['news_groups'] = self.redis_client.xinfo_groups(STREAM_NEWS)
+                info['news_groups'] = self.redis_client.xinfo_groups(config.STREAM_NEWS)
             except:
                 info['news_groups'] = []
                 
@@ -197,9 +193,9 @@ class RedisStreamClient:
         logger.info("Cleaning up test data...")
         
         # Stream 삭제
-        self.redis_client.delete(STREAM_SUMMARY)
-        self.redis_client.delete(STREAM_NEWS)
-        self.redis_client.delete(STREAM_COMPLETE)
+        self.redis_client.delete(config.STREAM_SUMMARY)
+        self.redis_client.delete(config.STREAM_NEWS)
+        self.redis_client.delete(config.STREAM_COMPLETE)
         
         # 테스트 카운터 삭제
         for mapping_id in [123, 456, 789]:  # 테스트용 mapping_id들

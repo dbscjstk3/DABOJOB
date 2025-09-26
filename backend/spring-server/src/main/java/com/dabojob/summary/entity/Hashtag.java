@@ -23,10 +23,10 @@ import lombok.Setter;
 public class Hashtag extends BaseTimeEntity {
 
     @Id
-    @Column(name="hashtag_id")
+    @Column(name="id")
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long hashtagId;
+    private Long id;
 
-    @Column(name="hashtag_name")
-    private String hashtagName;
+    @Column(name="name", unique = true)
+    private String name;
 }

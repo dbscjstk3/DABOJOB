@@ -177,11 +177,30 @@ services:
       - app-net
     restart: unless-stopped
 
+  caddy:
+    image: caddy:2
+    container_name: private-caddy
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      - ACME_AGREE=true
+      - EMAIL=admin@example.com     # 인증서 연락 이메일 (원하는 주소로 변경)
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data            # 인증서/키 저장
+      - caddy-config:/config
+    networks:
+      - app-net                     # 내부 서비스와 같은 네트워크여야 함
+
 volumes:
   private-db-data:
   ollama-data:
   redis-data:
   shared-data:
+  caddy-data:
+  caddy-config:
 
 networks:
   app-net:

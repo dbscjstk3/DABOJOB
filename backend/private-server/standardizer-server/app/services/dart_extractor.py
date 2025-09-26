@@ -189,18 +189,49 @@ class DartDocumentExtractor:
             
             start_idx = -1
             end_idx = len(full_text)
-            
-            # 시작 지점 찾기
+
+            # 모든 "II. 사업의 내용" 패턴 찾기 (목차 vs 실제 내용 구분)
+            all_matches = []
             for pattern in start_patterns:
-                match = re.search(pattern, full_text, re.IGNORECASE)
-                if match:
-                    start_idx = match.start()
-                    logger.info(f"Found start of business section at position {start_idx}")
-                    break
-            
-            if start_idx == -1:
+                for match in re.finditer(pattern, full_text, re.IGNORECASE):
+                    all_matches.append((match.start(), match.group()))
+
+            if not all_matches:
                 logger.warning("Could not find 'II. 사업의 내용' section")
                 return ""
+
+            logger.info(f"Found {len(all_matches)} business section patterns")
+
+            # 각 매치에서 내용 길이 확인하여 가장 적합한 것 선택
+            best_match = None
+            best_content_length = 0
+
+            for i, (pos, text) in enumerate(all_matches):
+                # 해당 위치에서 다음 major section까지의 내용 길이 확인
+                temp_end_idx = len(full_text)
+                search_text = full_text[pos:]
+
+                for pattern in end_patterns:
+                    match = re.search(pattern, search_text, re.IGNORECASE)
+                    if match:
+                        temp_end_idx = pos + match.start()
+                        break
+
+                content_length = temp_end_idx - pos
+                logger.info(f"Match {i+1} at position {pos}: content length {content_length}")
+
+                # 내용이 100자 이상이고 가장 긴 것을 선택 (목차는 보통 매우 짧음)
+                if content_length > 100 and content_length > best_content_length:
+                    best_match = pos
+                    best_content_length = content_length
+
+            if best_match is None:
+                # fallback: 첫 번째 매치 사용
+                start_idx = all_matches[0][0]
+                logger.warning("No substantial content found, using first match")
+            else:
+                start_idx = best_match
+                logger.info(f"Selected business section at position {start_idx} with {best_content_length} characters")
             
             # 종료 지점 찾기 (시작 지점 이후에서 검색)
             search_text = full_text[start_idx:]
@@ -214,8 +245,9 @@ class DartDocumentExtractor:
             # 섹션 추출
             business_section = full_text[start_idx:end_idx]
             
-            # 텍스트 정리
-            business_section = re.sub(r'\s+', ' ', business_section)  # 과도한 공백 제거
+            # 텍스트 정리 - 줄바꿈은 보존하고 과도한 공백만 제거
+            business_section = re.sub(r'[ \t]+', ' ', business_section)  # 스페이스와 탭만 정리
+            business_section = re.sub(r'\n{3,}', '\n\n', business_section)  # 과도한 줄바꿈만 정리
             business_section = business_section.strip()
             
             return business_section
@@ -293,38 +325,48 @@ class DartDocumentExtractor:
             
             # 대제목 패턴: "1.", "2.", "3." 형태로 시작하는 제목들
             major_section_pattern = r'^[\s]*([0-9]+\.\s+[가-힣].+)$'
-            
+
             subsections = {}
             lines = business_text.split('\n')
             current_title = None
             current_content = []
-            
+
             logger.info(f"Processing {len(lines):,} lines for subsection extraction")
-            
+
             last_section_number = 0
-            
+            found_first_section = False  # "1. 사업의 개요"를 찾았는지 여부
+
             for i, line in enumerate(lines):
                 try:
                     line = line.strip()
                     if not line:
                         continue
-                    
+
                     # 대제목 패턴 확인 (1. 사업의 개요, 2. 주요 제품 및 서비스 등)
                     match = re.match(major_section_pattern, line)
                     if match:
                         title_candidate = match.group(1).strip()
-                        
+
                         # 섹션 번호 추출
                         section_number_match = re.match(r'^(\d+)\.', title_candidate)
                         if section_number_match:
                             section_number = int(section_number_match.group(1))
-                            
-                            # 순차적 증가 확인: 이전 번호보다 1 증가하거나 첫 번째 섹션(1번)
-                            if section_number == 1 or section_number == last_section_number + 1:
+
+                            # 첫 번째 섹션 "1. 사업의 개요"를 찾는 경우
+                            if not found_first_section and section_number == 1 and '사업의 개요' in title_candidate:
+                                found_first_section = True
+                                current_title = title_candidate
+                                current_content = []
+                                last_section_number = 1
+                                logger.info(f"Found first major section: {title_candidate}")
+                                continue
+
+                            # "1. 사업의 개요"를 찾은 후, 순차적으로 증가하는 번호만 섹션으로 인정
+                            elif found_first_section and section_number == last_section_number + 1:
                                 # 이전 소제목의 내용 저장
                                 if current_title and current_content:
                                     subsections[current_title] = '\n'.join(current_content).strip()
-                                
+
                                 # 새 소제목 설정
                                 current_title = title_candidate
                                 current_content = []
@@ -332,8 +374,11 @@ class DartDocumentExtractor:
                                 logger.info(f"Found major section #{len(subsections)+1}: {title_candidate}")
                                 continue
                             else:
-                                # 순차적이지 않은 번호는 무시 (법조항 등)
-                                logger.debug(f"Skipping non-sequential section: {title_candidate} (expected: {last_section_number + 1}, got: {section_number})")
+                                # 첫 섹션을 못 찾았거나 순차적이지 않은 번호는 무시
+                                if not found_first_section:
+                                    logger.debug(f"Skipping numbered item before '1. 사업의 개요': {title_candidate}")
+                                else:
+                                    logger.debug(f"Skipping non-sequential section: {title_candidate} (expected: {last_section_number + 1}, got: {section_number})")
                         else:
                             # 번호를 추출할 수 없는 경우도 무시
                             logger.debug(f"Skipping section without clear number: {title_candidate}")

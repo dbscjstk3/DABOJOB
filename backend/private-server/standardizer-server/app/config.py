@@ -8,18 +8,22 @@ from dotenv import load_dotenv
 load_dotenv()
 
 # Redis 설정
-REDIS_HOST = os.getenv('REDIS_HOST', 'localhost')
+REDIS_HOST = os.getenv('REDIS_HOST', 'redis')  # Summary 서버와 동일하게
 REDIS_PORT = int(os.getenv('REDIS_PORT', 6379))
 REDIS_DB = int(os.getenv('REDIS_DB', 0))
+REDIS_URL = f"redis://{REDIS_HOST}:{REDIS_PORT}/{REDIS_DB}"
 
 # Redis Stream 설정
 STREAM_SUMMARY = "stream:summary"
 STREAM_NEWS = "stream:news"
 STREAM_COMPLETE = "stream:complete"
+JOBS_STREAM = "jobs_stream"
 
 # Consumer Group 설정
 GROUP_SUMMARY = "summary-group"
 GROUP_NEWS = "news-group"
+CONSUMER_GROUP = "standardizer-group"
+CONSUMER_NAME = "worker-1"
 
 # MySQL 설정 (나중에 사용)
 MYSQL_HOST = os.getenv('MYSQL_HOST', 'localhost')

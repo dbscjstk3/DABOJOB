@@ -4,6 +4,7 @@ import asyncio
 import time
 from typing import Optional
 from fastapi import FastAPI, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 import ollama
 from concurrent.futures import ThreadPoolExecutor
@@ -11,12 +12,34 @@ import threading
 
 from .utils import qwen_summarize
 from .services.redis_consumer import RedisConsumer
+from .routes.admin_routes import router as admin_router
 
 # 로깅 설정
-logging.basicConfig(level=logging.DEBUG)
+logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
+# health 체크 로그 필터 (너무 많은 로그 방지)
+class HealthCheckFilter(logging.Filter):
+    def filter(self, record):
+        return "/health" not in record.getMessage()
+
+# uvicorn 로거에 필터 적용
+uvicorn_logger = logging.getLogger("uvicorn.access")
+uvicorn_logger.addFilter(HealthCheckFilter())
+
 app = FastAPI(title="news-summary-server")
+
+# CORS 설정 추가
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["https://j13a402.p.ssafy.io"],  # 프론트엔드 도메인
+    allow_credentials=True,
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    allow_headers=["*"],
+)
+
+# 라우터 등록
+app.include_router(admin_router)
 
 # 환경변수에서 올바른 이름으로 가져오기
 OLLAMA_HOST = os.getenv('OLLAMA_HOST', 'ollama:11434')
@@ -43,41 +66,42 @@ class NewsSummarizeResponse(BaseModel):
     news_summary: str
     status: str = "completed"
 
-async def news_search_callback(job_id: str, category: str, hashtags: list):
-    """해시태그 기반 뉴스 검색 콜백"""
-    logger.info(f"News search for job {job_id}, category {category}: {hashtags}")
-    # TODO: 실제 뉴스 API 호출 로직 구현
-    # 예: news_api.search(hashtags)
-    # 결과를 파일이나 DB에 저장
-    
-    # 임시 처리
-    for hashtag in hashtags:
-        logger.info(f"Searching news with hashtag: {hashtag}")
-
 @app.on_event("startup")
 async def startup_event():
     """서버 시작 시 초기화"""
     global ollama_client, executor, request_semaphore, redis_consumer, consumer_thread
-    
+
     try:
+        # 데이터베이스 연결 초기화
+        from .database import database
+        await database.connect()
+        logger.info("Database connection initialized")
+        # 상태 관리자 초기화 (실패해도 메인 서비스에 영향 없음)
+        try:
+            from .shared.status_integration import news_status
+            await news_status.initialize()
+            logger.info("Status manager initialized")
+        except Exception as e:
+            logger.warning(f"Status manager initialization failed (non-critical): {e}")
+
         host = OLLAMA_HOST if OLLAMA_HOST.startswith('http') else f'http://{OLLAMA_HOST}'
         ollama_client = ollama.Client(host=host)
-        
+
         # 동시 처리 제한을 위한 설정
         max_workers = int(os.getenv('MAX_WORKERS', '2'))  # 동시 처리 수 제한
         executor = ThreadPoolExecutor(max_workers=max_workers)
         request_semaphore = asyncio.Semaphore(max_workers)  # 동시 요청 제한
         
-        # Redis Consumer 시작
+        # Redis Consumer 시작 (일반 뉴스 처리)
         if os.getenv('ENABLE_REDIS_CONSUMER', 'true').lower() == 'true':
             try:
                 redis_consumer = RedisConsumer()
-                redis_consumer.set_news_search_callback(news_search_callback)
                 consumer_thread = redis_consumer.start_background_consumer()
                 logger.info("Redis consumer started successfully")
             except Exception as e:
                 logger.error(f"Failed to start Redis consumer: {e}")
                 # Redis 실패해도 서버는 계속 동작
+
         
         # 연결 테스트
         models = ollama_client.list()
@@ -106,9 +130,10 @@ def health_check() -> dict:
             redis_status = "connected"
         except:
             redis_status = "error"
+
     
     return {
-        "status": "ok" if not shutdown_event.is_set() else "shutting_down", 
+        "status": "ok" if not shutdown_event.is_set() else "shutting_down",
         "service": "news-summary",
         "model": MODEL_NAME,
         "ollama_host": OLLAMA_HOST,
@@ -191,14 +216,30 @@ async def shutdown_event_handler():
     """서버 종료 시 정리"""
     global executor, redis_consumer
     shutdown_event.set()
-    
+
+    # 데이터베이스 연결 해제
+    try:
+        from .database import database
+        await database.disconnect()
+        logger.info("Database connection closed")
+    except:
+        pass
+
+    # 상태 관리자 정리 (실패해도 무시)
+    try:
+        from .shared.status_integration import news_status
+        await news_status.close()
+        logger.info("Status manager closed")
+    except:
+        pass
+
     # Redis Consumer 정리
     if redis_consumer:
         redis_consumer.cleanup()
         logger.info("Redis consumer shutdown completed")
-    
+
     if executor:
-        executor.shutdown(wait=True, timeout=5)
+        executor.shutdown(wait=True)
         logger.info("Executor shutdown completed")
 
 if __name__ == "__main__":

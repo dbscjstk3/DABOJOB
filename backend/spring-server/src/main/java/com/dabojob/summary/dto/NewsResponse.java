@@ -13,21 +13,21 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 public class NewsResponse {
 
-    private Long newsId;
     private Long summaryHashtagId;
-    private String newsUrl;
-    private String newsTitle;
-    private String newsContent;
-    private LocalDate newsCreateDate;
+    private Long newsId;
+    private String url;
+    private String title;
+    private String content;
+    private LocalDate postingDate;
 
     public static NewsResponse of(News news){
         return NewsResponse.builder()
-                .newsId(news.getNewsId())
-                .summaryHashtagId(news.getSummaryHashtag().getSummaryHashtagId())
-                .newsUrl(news.getNewsUrl())
-                .newsTitle(news.getNewsTitle())
-                .newsContent(news.getNewsContent())
-                .newsCreateDate(news.getNewsCreatedAt())
+                .newsId(news.getId())
+                .summaryHashtagId(news.getSummaryHashtag().getId())
+                .url(news.getUrl())
+                .title(news.getTitle())
+                .content(news.getContent())
+                .postingDate(news.getPostingDate())
                 .build();
     }
 }

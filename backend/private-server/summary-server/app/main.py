@@ -9,11 +9,22 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from .routes import summary_routes
+from .routes import admin_resummary_routes
+from .routes import test_routes
 from .workers.summary_worker import SummaryWorker
 
 # 로깅 설정
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
+
+# health 체크 로그 필터 (너무 많은 로그 방지)
+class HealthCheckFilter(logging.Filter):
+    def filter(self, record):
+        return "/health" not in record.getMessage()
+
+# uvicorn 로거에 필터 적용
+uvicorn_logger = logging.getLogger("uvicorn.access")
+uvicorn_logger.addFilter(HealthCheckFilter())
 
 # FastAPI 앱 생성
 app = FastAPI(
@@ -38,11 +49,19 @@ summary_worker = SummaryWorker()
 async def startup_event():
     """서버 시작 시 초기화"""
     try:
+        # 상태 관리자 초기화 (실패해도 메인 서비스에 영향 없음)
+        try:
+            from .shared.status_integration import summary_status
+            await summary_status.initialize()
+            logger.info("Status manager initialized")
+        except Exception as e:
+            logger.warning(f"Status manager initialization failed (non-critical): {e}")
+
         # 백그라운드 워커 시작
         await summary_worker.initialize()
         asyncio.create_task(summary_worker.start())
         logger.info("Summary worker started")
-        
+
     except Exception as e:
         logger.error(f"Failed to initialize services: {e}")
         raise
@@ -53,6 +72,15 @@ async def shutdown_event():
     try:
         await summary_worker.stop()
         logger.info("Summary worker stopped")
+
+        # 상태 관리자 정리 (실패해도 무시)
+        try:
+            from .shared.status_integration import summary_status
+            await summary_status.close()
+            logger.info("Status manager closed")
+        except:
+            pass
+
     except Exception as e:
         logger.error(f"Error during shutdown: {e}")
 
@@ -78,6 +106,8 @@ def health_check() -> dict:
 
 # 라우터 등록
 app.include_router(summary_routes.router)
+app.include_router(admin_resummary_routes.router)
+app.include_router(test_routes.router)
 
 if __name__ == "__main__":
     import uvicorn

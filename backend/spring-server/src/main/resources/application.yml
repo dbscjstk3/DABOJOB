@@ -1,16 +1,43 @@
 spring:
   application:
     name: demo
+  config:
+    import:
+      - classpath:search-config.yml
   datasource:
-    url: ${SPRING_DATASOURCE_URL:jdbc:mysql://mysql:3306/test?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=Asia/Seoul}
+    url: ${SPRING_DATASOURCE_URL:jdbc:mysql://localhost:3306/test?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=Asia/Seoul}
     username: ${SPRING_DATASOURCE_USERNAME:root}
-    password: ${SPRING_DATASOURCE_PASSWORD:password}
+    password: ${SPRING_DATASOURCE_PASSWORD:root}
     driver-class-name: ${SPRING_DATASOURCE_DRIVER:com.mysql.cj.jdbc.Driver}
     hikari:
       idle-timeout: ${SPRING_DATASOURCE_IDLE_TIMEOUT:300000}
       minimum-idle: ${SPRING_DATASOURCE_MIN_IDLE:3}
       maximum-pool-size: ${SPRING_DATASOURCE_MAX_POOL_SIZE:5}
       connection-timeout: ${SPRING_DATASOURCE_CONNECTION_TIMEOUT:600000}
+  elasticsearch:
+    uris: ${SPRING_ELASTICSEARCH_URIS:http://localhost:9200}
+    connection-timeout: 5s
+    socket-timeout: 30s
+  data:
+    elasticsearch:
+      client:
+        reactive:
+          connection-timeout: 5s
+    redis:
+      host: ${SPRING_REDIS_HOST:localhost}
+      port: ${SPRING_REDIS_PORT:6379}
+      password: ${SPRING_REDIS_PASSWORD:root}  # 비밀번호가 없으면 빈 값
+      timeout: ${SPRING_REDIS_TIMEOUT:2000ms}
+      lettuce:
+        pool:
+          max-active: ${SPRING_REDIS_MAX_ACTIVE:8}
+          max-wait: ${SPRING_REDIS_MAX_WAIT:-1ms}
+          max-idle: ${SPRING_REDIS_MAX_IDLE:8}
+          min-idle: ${SPRING_REDIS_MIN_IDLE:0}
+
+  jackson:
+    serialization:
+      write-dates-as-timestamps: false
   jpa:
     open-in-view: ${SPRING_JPA_OPEN_IN_VIEW:false}
     hibernate:
@@ -59,6 +86,9 @@ management:
       probes:
         enabled: true
       show-details: never           # 상세정보 숨김(운영기 기본)
+  health:
+    elasticsearch:
+      enabled: false
 
 jwt:
   secret-key: ${JWT_SECRET_KEY:}

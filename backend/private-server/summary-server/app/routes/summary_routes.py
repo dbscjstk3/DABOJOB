@@ -74,16 +74,19 @@ async def summarize_content(request: SummarizeRequest) -> SummarizeResponse:
         logger.error(f"Summary failed: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
-@router.get("/jobs/{job_id}")
-def get_job_summaries(job_id: str):
-    """작업의 요약 결과 조회"""
+@router.get("/mapping/{mapping_id}")
+def get_summaries_by_mapping_id(mapping_id: int):
+    """mapping_id로 요약 결과 조회"""
     try:
+        # mapping_id를 job_id로 사용 (파일명이 mapping_id로 저장됨)
+        job_id = str(mapping_id)
+
         # 요약 결과 조회
         summaries = file_manager.get_summary_results(job_id)
-        
+
         if not summaries:
-            raise HTTPException(status_code=404, detail=f"No summaries found for job {job_id}")
-        
+            raise HTTPException(status_code=404, detail=f"No summaries found for mapping_id {mapping_id}")
+
         # 각 카테고리별 통계 계산
         summary_stats = {}
         for category, content in summaries.items():
@@ -92,14 +95,46 @@ def get_job_summaries(job_id: str):
                 "exists": bool(content),
                 "preview": content[:100] + "..." if len(content) > 100 else content
             }
-        
+
+        return {
+            "mapping_id": mapping_id,
+            "summaries": summaries,
+            "summary_stats": summary_stats,
+            "total_categories": len(summaries)
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Failed to get summaries for mapping_id {mapping_id}: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.get("/jobs/{job_id}")
+def get_job_summaries(job_id: str):
+    """작업의 요약 결과 조회"""
+    try:
+        # 요약 결과 조회
+        summaries = file_manager.get_summary_results(job_id)
+
+        if not summaries:
+            raise HTTPException(status_code=404, detail=f"No summaries found for job {job_id}")
+
+        # 각 카테고리별 통계 계산
+        summary_stats = {}
+        for category, content in summaries.items():
+            summary_stats[category] = {
+                "length": len(content),
+                "exists": bool(content),
+                "preview": content[:100] + "..." if len(content) > 100 else content
+            }
+
         return {
             "job_id": job_id,
             "summaries": summaries,
             "summary_stats": summary_stats,
             "total_categories": len(summaries)
         }
-        
+
     except HTTPException:
         raise
     except Exception as e:

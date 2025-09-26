@@ -28,9 +28,9 @@ public class SummaryResponse {
 
     public static SummaryResponse of(CompanyAnalysisSummary summary, Map<ChapterType, List<String>> chapterHashtags) {
         return SummaryResponse.builder()
-                .summaryId(summary.getSummaryId())
-                .companyId(summary.getCompany().getCompanyId())
-                .companyName(summary.getCompany().getCompanyName())
+                .summaryId(summary.getId())
+                .companyId(summary.getCompany().getId())
+                .companyName(summary.getCompany().getName())
                 .businessOverview(summary.getBusinessOverview())
                 .productsService(summary.getProductsService())
                 .salesContracts(summary.getSalesContracts())

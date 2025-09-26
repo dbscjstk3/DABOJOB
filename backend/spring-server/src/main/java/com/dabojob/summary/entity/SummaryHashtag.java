@@ -1,7 +1,7 @@
 package com.dabojob.summary.entity;
 
 
-import com.dabojob.company.entity.Company;
+import com.dabojob.global.entity.BaseTimeEntity;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
@@ -26,13 +26,12 @@ import lombok.Setter;
 @AllArgsConstructor
 @Builder
 @Table(name = "summary_hashtags")
-public class SummaryHashtag {
+public class SummaryHashtag extends BaseTimeEntity {
 
-    //TODO: 어느 파트에서 온 해시태그인지 저장하는 필드 필요
     @Id
-    @Column(name="summary_hashtag_id")
+    @Column(name="id")
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long summaryHashtagId;
+    private Long id;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name="summary_id")
@@ -46,7 +45,4 @@ public class SummaryHashtag {
     @JoinColumn(name="hashtag_id")
     private Hashtag hashtag;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name="company_id")
-    private Company company;
 }

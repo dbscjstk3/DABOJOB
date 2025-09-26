@@ -1,14 +1,17 @@
 package com.dabojob.jobposting.entity;
 
+import com.dabojob.company.entity.Company;
 import com.dabojob.global.entity.BaseTimeEntity;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
 import jakarta.persistence.FetchType;
-import jakarta.persistence.GeneratedValue;
-import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
-import jakarta.persistence.OneToOne;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
+import java.time.LocalDate;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
@@ -25,34 +28,29 @@ import lombok.Setter;
 public class JobPosting extends BaseTimeEntity {
 
     @Id
-    @Column(name="job_posting_id")
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long jobPostingId;
+    private Long id;
 
-    @OneToOne(mappedBy = "jobPosting", fetch = FetchType.LAZY)
-    private CompanyJobPosting companyJobPosting;
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name="company_id", nullable = false)
+    private Company company;
 
-    @Column(name="saramin_job_posting_id", unique = true)
-    private String saraminJobPostingId;
-
-    @Column(name="company_name")
-    private String companyName;
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "job_sector_id", nullable = false)
+    private JobSector jobSector;
 
     private String title;
 
     private String url;
 
-    @Column(name = "experience_level_code",columnDefinition = "TINYINT")
-    private Integer experienceLevelCode;
+    @Enumerated(EnumType.STRING)
+    @Column(name="career_info", nullable = false)
+    private CareerInfo careerInfo;
 
-    @Column(name="job_mid_code",columnDefinition = "TINYINT")
-    private Integer jobMidCode;
+    @Column(name="posting_date")
+    private LocalDate postingDate;
 
-    @Column(name="posting_timestamp")
-    private Long postingTimeStamp;
-
-    @Column(name="expiration_timestamp")
-    private Long expirationTimestamp;
+    @Column(name="deadline_date")
+    private LocalDate deadlineDate;
 
 
 }

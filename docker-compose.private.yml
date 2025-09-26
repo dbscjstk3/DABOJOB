@@ -42,7 +42,7 @@ services:
       - .env.private
     environment:
       - TZ=Asia/Seoul
-      - DATABASE_URL=mysql+pymysql://${MYSQL_USER}:${MYSQL_PASSWORD}@mysql:3306/${MYSQL_DATABASE}
+      - DATABASE_URL=mysql+pymysql://${MYSQL_USER}:${MYSQL_PASSWORD}@mysql:3306/${MYSQL_DATABASE}?charset=utf8mb4
       - ENABLE_CRAWLER_SCHEDULER=${ENABLE_CRAWLER_SCHEDULER:-false}
       - DISPLAY=:99
     # 리버스 프록시 뒤에 둘 때는 포트 매핑 비활성화 가능
@@ -81,6 +81,7 @@ services:
       - .env.private
     environment:
       - TZ=Asia/Seoul
+      - DATABASE_URL=mysql+pymysql://${MYSQL_USER}:${MYSQL_PASSWORD}@mysql:3306/${MYSQL_DATABASE}?charset=utf8mb4
     ports:
       - "${SUMMARY_PORT:-8100}:8100"
     depends_on:
@@ -102,6 +103,7 @@ services:
       - .env.private
     environment:
       - TZ=Asia/Seoul
+      - DATABASE_URL=mysql+pymysql://${MYSQL_USER}:${MYSQL_PASSWORD}@mysql:3306/${MYSQL_DATABASE}?charset=utf8mb4
     ports:
       - "${NEWS_SUMMARY_PORT:-8200}:8200"
     depends_on:

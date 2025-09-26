@@ -21,8 +21,8 @@ class RedisClient:
         """
         self.redis_url = redis_url or os.getenv('REDIS_URL', 'redis://redis:6379')
         self.redis = None
-        self.summarization_stream = "summarization_jobs"
-        self.consumer_group = "summary_workers"
+        self.summarization_stream = "stream:summary"
+        self.consumer_group = "summary-group"
         self.consumer_name = "summary_worker_1"
     
     async def initialize(self):

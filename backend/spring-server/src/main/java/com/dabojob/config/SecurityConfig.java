@@ -2,8 +2,8 @@ package com.dabojob.config;
 
 import com.dabojob.auth.jwt.JwtAuthenticationFilter;
 import com.dabojob.auth.oauth.CustomOAuth2UserService;
+import com.dabojob.auth.oauth.OAuth2FailureHandler;
 import com.dabojob.auth.oauth.OAuth2SuccessHandler;
-import com.dabojob.global.exception.DuplicatedEmailException;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
@@ -30,6 +30,7 @@ public class SecurityConfig {
 
     private final CustomOAuth2UserService customOAuth2UserService;
     private final OAuth2SuccessHandler oAuth2SuccessHandler;
+    private final OAuth2FailureHandler oAuth2FailureHandler;
     private final JwtAuthenticationFilter jwtAuthenticationFilter;
 
     @Value("${app.frontend.url}")
@@ -42,7 +43,6 @@ public class SecurityConfig {
                 .cors(cors -> cors.configurationSource(corsConfigurationSource()))
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(authz -> authz
-                        // ✅ Actuator health/info 공개 (context-path 유무 모두 대비)
                         .requestMatchers(
                                 "/health", "/api/health",
                                 "/actuator/health", "/actuator/health/**", "/actuator/info",
@@ -55,7 +55,7 @@ public class SecurityConfig {
                         .requestMatchers("/", "/login", "/error", "/favicon.ico").permitAll()
                         .requestMatchers("/oauth2/**", "/api/auth/login/**").permitAll()
                         .requestMatchers("/api/auth/refresh", "/api/auth/refresh-cookie").permitAll()
-                        .requestMatchers("/api/job-posting/calendar","/api/sync/trigger").permitAll()
+                        .requestMatchers("/api/job-postings/calendar", "/api/job-postings/hot").permitAll()
 
                         // 인증 필요 엔드포인트
                         .requestMatchers("/api/auth/logout", "/api/auth/token-status", "/api/auth/revoke").authenticated()
@@ -67,13 +67,7 @@ public class SecurityConfig {
                 .oauth2Login(oauth2 -> oauth2
                         .userInfoEndpoint(userInfo -> userInfo.userService(customOAuth2UserService))
                         .successHandler(oAuth2SuccessHandler)
-                        .failureHandler((request, response, exception) -> {
-                            String errorMessage = "oauth_failed";
-                            if (exception instanceof DuplicatedEmailException) {
-                                errorMessage = "duplicate_email";
-                            }
-                            response.sendRedirect(frontendUrl + "?error=" + errorMessage);
-                        })
+                        .failureHandler(oAuth2FailureHandler)
                 )
                 .exceptionHandling(exceptions -> exceptions
                         .authenticationEntryPoint((request, response, authException) -> {
@@ -82,7 +76,7 @@ public class SecurityConfig {
                             response.getWriter().write("{\"error\":\"Unauthorized\"}");
                         })
                 )
-                // ✅ JWT 필터는 UsernamePasswordAuthenticationFilter 앞에
+                // JWT 필터는 UsernamePasswordAuthenticationFilter 앞에
                 .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
 
         return http.build();

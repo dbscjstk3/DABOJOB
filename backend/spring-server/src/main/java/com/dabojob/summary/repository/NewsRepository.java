@@ -10,14 +10,14 @@ import org.springframework.stereotype.Repository;
 @Repository
 public interface NewsRepository extends JpaRepository<News, Long> {
 
-    @Query("SELECT n FROM News n WHERE n.summaryHashtag.summaryHashtagId = :summaryHashtagId")
-    List<News> findBySummaryHashtagId(@Param("summaryHashtagId") Long summaryHashtagId);
+    @Query("SELECT n FROM News n WHERE n.summaryHashtag.summary.id = :summaryId")
+    List<News> findBySummaryId(@Param("summaryId") Long summaryId);
 
     @Query("SELECT n FROM News n " +
-            "WHERE n.summaryHashtag.summaryHashtagId = :summaryHashtagId " +
-            "AND n.summaryHashtag.hashtag.hashtagName = :hashtagName")
+            "WHERE n.summaryHashtag.summary.id = :summaryId " +
+            "AND n.summaryHashtag.hashtag.name = :hashtagName")
     List<News> findBySummaryHashtagIdAndHashtagName(
-            @Param("summaryHashtagId") Long summaryHashtagId,
+            @Param("summaryId") Long summaryId,
             @Param("hashtagName") String hashtagName
     );
 }

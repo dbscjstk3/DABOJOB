@@ -147,38 +147,244 @@ class StandardizerService:
         
         return None
     
+    def parse_dart_sections(self, content: str) -> Dict[str, str]:
+        """
+        DART 문서를 섹션별로 파싱하여 5개 카테고리로 분류
+
+        Args:
+            content (str): 전체 DART 문서 내용
+
+        Returns:
+            dict: {카테고리: 해당_섹션_내용}
+        """
+        sections_by_category = {
+            'business_overview': [],
+            'products_services': [],
+            'revenue_orders': [],
+            'contracts_rnd': [],
+            'other_references': []
+        }
+
+        # 대제목 패턴: "1.", "2.", "3." 형태로 시작하는 제목들
+        major_section_pattern = r'^[\s]*([0-9]+)\.\s+(.+)'
+
+        # 섹션 제목과 카테고리 매핑 (실제 DART 구조에 맞춤)
+        section_mapping = {
+            # 사업의 개요 관련
+            '사업의 개요': 'business_overview',
+            '회사의 개요': 'business_overview',
+            '개요': 'business_overview',
+
+            # 주요 제품 및 서비스 관련
+            '주요 제품': 'products_services',
+            '주요제품': 'products_services',
+            '제품': 'products_services',
+            '서비스': 'products_services',
+            '제품 및 서비스': 'products_services',
+            '주요 제품 및 서비스': 'products_services',
+
+            # 매출, 수주, 원재료, 생산 관련
+            '매출': 'revenue_orders',
+            '수주': 'revenue_orders',
+            '수주상황': 'revenue_orders',
+            '매출 및 수주': 'revenue_orders',
+            '매출 및 수주상황': 'revenue_orders',
+            '원재료': 'revenue_orders',
+            '생산설비': 'revenue_orders',
+            '원재료 및 생산설비': 'revenue_orders',
+            '생산': 'revenue_orders',
+
+            # 계약 및 연구개발 관련
+            '주요계약': 'contracts_rnd',
+            '계약': 'contracts_rnd',
+            '연구개발': 'contracts_rnd',
+            '연구개발활동': 'contracts_rnd',
+            '주요계약 및 연구개발': 'contracts_rnd',
+            '주요계약 및 연구개발활동': 'contracts_rnd',
+            'R&D': 'contracts_rnd',
+
+            # 기타 참고사항
+            '기타': 'other_references',
+            '참고사항': 'other_references',
+            '기타 참고사항': 'other_references',
+            '위험관리': 'other_references',
+            '파생거래': 'other_references',
+            '위험관리 및 파생거래': 'other_references'
+        }
+
+        lines = content.split('\n')
+        current_section_title = None
+        current_section_content = []
+        current_category = None
+        last_section_number = 0
+
+        # "1. 사업의 개요"를 찾았는지 여부
+        found_business_overview = False
+
+        logger.info(f"DART 문서 파싱 시작: 총 {len(lines)}줄")
+
+        total_sections_found = 0
+
+        for i, line in enumerate(lines):
+            line_stripped = line.strip()
+            if not line_stripped:
+                if current_section_content:
+                    current_section_content.append('')
+                continue
+
+            # 대제목 패턴 확인 (1. 사업의 개요, 2. 주요 제품 등)
+            match = re.match(major_section_pattern, line_stripped)
+            if match:
+                section_number = int(match.group(1))
+                section_title = match.group(2).strip()
+
+                logger.info(f"{i+1}번째 줄: 섹션 패턴 발견: '{line_stripped}'")
+
+                # "1. 사업의 개요"를 찾으면 여기서부터 시작
+                if section_number == 1 and ("사업" in section_title and "개요" in section_title):
+                    found_business_overview = True
+                    last_section_number = 0  # 리셋
+                    logger.info(f"✅ '1. 사업의 개요' 발견! 여기부터 파싱 시작")
+
+                # "1. 사업의 개요"를 찾은 후에만 섹션 처리
+                if found_business_overview and ((section_number == 1 and last_section_number == 0) or section_number == last_section_number + 1):
+                    total_sections_found += 1
+
+                    # 이전 섹션 저장
+                    if current_section_title and current_section_content and current_category:
+                        section_text = f"\n=== {current_section_title} ===\n\n" + '\n'.join(current_section_content)
+                        sections_by_category[current_category].append(section_text)
+                        logger.info(f"섹션 저장 완료: '{current_section_title}' -> '{current_category}' 카테고리에 {len(section_text)}자")
+
+                    # 새 섹션 시작
+                    current_section_title = f"{section_number}. {section_title}"
+                    current_section_content = []
+                    # 순차적으로 section_number 업데이트
+                    last_section_number = section_number
+
+                    # 카테고리 결정
+                    current_category = None
+                    matched_keyword = None
+                    for keyword, category in section_mapping.items():
+                        if keyword in section_title:
+                            current_category = category
+                            matched_keyword = keyword
+                            break
+
+                    if not current_category:
+                        current_category = 'other_references'
+
+                    logger.info(f"섹션 #{section_number}: '{section_title}' - 키워드 '{matched_keyword}' 매칭 -> '{current_category}' 카테고리")
+                    continue
+                elif found_business_overview:
+                    logger.warning(f"섹션 번호 {section_number}가 순차적이지 않음 (이전: {last_section_number}), 무시함")
+                else:
+                    logger.debug(f"'1. 사업의 개요' 이전 섹션 무시: '{line_stripped}'")
+
+            # 섹션 내용 추가
+            if current_category:
+                current_section_content.append(line_stripped)
+
+        # 마지막 섹션 저장
+        if current_section_title and current_section_content and current_category:
+            section_text = f"\n=== {current_section_title} ===\n\n" + '\n'.join(current_section_content)
+            sections_by_category[current_category].append(section_text)
+            logger.info(f"마지막 섹션 저장 완료: '{current_section_title}' -> '{current_category}' 카테고리에 {len(section_text)}자")
+
+        # 각 카테고리의 섹션들을 하나로 병합
+        result = {}
+        for category, sections in sections_by_category.items():
+            if sections:
+                result[category] = '\n\n'.join(sections)
+                logger.info(f"카테고리 '{category}': {len(sections)}개 섹션, 총 {len(result[category])}자")
+            else:
+                result[category] = ""
+                logger.info(f"카테고리 '{category}': 비어있음")
+
+        # 아무 섹션도 분류되지 않았다면 전체를 other_references로
+        if not any(result.values()):
+            logger.warning(f"어떤 섹션도 분류되지 않음! 전체 내용을 other_references에 저장")
+            result['other_references'] = content
+
+        logger.info(f"DART 파싱 완료: {total_sections_found}개 섹션 발견, {sum(1 for v in result.values() if v)}개 카테고리에 내용 저장됨")
+
+        return result
+
+    async def classify_and_standardize_all_sections(self, company_name: str, content: str) -> Dict[str, str]:
+        """
+        DART 문서 전체를 5개 카테고리로 분류하고 각각 표준화
+
+        Args:
+            company_name (str): 회사명
+            content (str): 전체 DART 문서 내용
+
+        Returns:
+            dict: {카테고리: 표준화된_내용}
+        """
+        try:
+            # 1. DART 문서를 섹션별로 파싱 및 분류
+            logger.info(f"{company_name} 회사의 DART 문서 파싱 시작")
+            sections_by_category = self.parse_dart_sections(content)
+
+            # 2. 각 카테고리별 내용 표준화
+            result = {}
+            for category, section_content in sections_by_category.items():
+                if section_content:
+                    logger.info(f"'{category}' 카테고리 표준화 시작: {len(section_content)}자")
+                    # 표준화 수행
+                    standardized = await self._standardize_content(section_content)
+                    result[category] = standardized
+                    logger.info(f"'{category}' 카테고리 표준화 완료: {len(standardized)}자")
+                else:
+                    result[category] = ""
+                    logger.info(f"'{category}' 카테고리: 내용 없음")
+
+            logger.info(f"{company_name} 회사 DART 문서 분류 및 표준화 완료")
+            return result
+
+        except Exception as e:
+            logger.error(f"Failed to classify and standardize all sections: {e}")
+            # 실패 시 전체를 other_references로
+            return {
+                'business_overview': "",
+                'products_services': "",
+                'revenue_orders': "",
+                'contracts_rnd': "",
+                'other_references': content
+            }
+
     async def classify_and_standardize(self, title: str, content: str) -> Tuple[str, str]:
         """
         텍스트를 5개 카테고리로 분류하고 표준화 처리
         1단계: 제목 기반 매핑 시도
         2단계: 매핑 실패 시 LLM 분류
-        
+
         Args:
             title (str): 챕터 제목
             content (str): 챕터 내용
-            
+
         Returns:
             tuple: (카테고리명, 표준화된 텍스트)
         """
         try:
             # 1단계: 제목 기반 매핑 시도
             category = self.classify_by_title_mapping(title)
-            
+
             if category:
                 logger.info(f"Chapter '{title}' mapped directly to: {category}")
             else:
                 # 2단계: LLM 분류 (매핑 실패 시만)
                 logger.info(f"Chapter '{title}' not found in mapping, using LLM classification")
                 category = await self._classify_with_llm(title, content)
-            
+
             # 표준화 수행 (LLM 호출 없이 Python으로 처리)
             standardized_content = await self._standardize_content(content)
-            
+
             # 챕터 제목을 포함한 최종 텍스트
             final_content = f"\n\n=== {title} ===\n\n{standardized_content}"
-            
+
             return category, final_content
-            
+
         except Exception as e:
             logger.error(f"Text classification and standardization failed: {e}")
             # 실패 시 기본값 반환
