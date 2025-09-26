@@ -76,11 +76,11 @@ class RedisConsumer:
     
     async def process_message(self, message: Dict[str, Any]) -> bool:
         """
-        메시지 처리
-        
+        메시지 처리 (동시 처리 방지를 위한 락 사용)
+
         Args:
             message: 처리할 메시지
-            
+
         Returns:
             처리 성공 여부
         """
@@ -95,6 +95,11 @@ class RedisConsumer:
                 logger.error(f"No mapping_id in message: {message}")
                 return False
 
+            # chapter가 None이거나 빈 문자열이면 에러
+            if not chapter:
+                logger.error(f"No chapter in message: {message}")
+                return False
+
             try:
                 mapping_id = int(mapping_id)
             except (ValueError, TypeError):
@@ -107,40 +112,60 @@ class RedisConsumer:
             else:
                 hashtags = hashtags_json
 
-            logger.info(f"Processing hashtags for mapping_id {mapping_id}, chapter {chapter}: {hashtags}")
+            # mapping_id별 동시 처리 방지 락
+            lock_key = f"processing_lock:{mapping_id}"
+            lock_acquired = False
 
-            # mapping_id로 job_id를 먼저 가져오기
-            job_id = await self._get_job_id_from_mapping(mapping_id)
-            if not job_id:
-                logger.error(f"Could not find job_id for mapping_id {mapping_id}")
-                return False
+            try:
+                # 락 획득 시도 (nx=True: 키가 없을 때만 설정, ex=300: 5분 후 만료)
+                lock_acquired = self.client.set(lock_key, "locked", nx=True, ex=300)
 
-            # 재요약 여부 확인 및 처리
-            is_reprocessing = await database.is_reprocessing_job(job_id)
-            if is_reprocessing:
-                logger.info(f"Reprocessing detected for job_id {job_id}, chapter {chapter}")
+                if not lock_acquired:
+                    logger.warning(f"Another process is already handling mapping_id {mapping_id}, skipping")
+                    return True  # 다른 프로세스가 처리 중이므로 성공으로 간주
 
-                # 상태를 reprocessing으로 변경
-                await database.update_job_processing_status(job_id, "reprocessing")
+                logger.info(f"Acquired processing lock for mapping_id {mapping_id}")
 
-                # 해당 챕터의 기존 데이터 클린업
-                await database.cleanup_job_chapter_data(mapping_id, chapter)
+                # 빈 해시태그 리스트 처리
+                if not hashtags or len(hashtags) == 0:
+                    logger.warning(f"Empty hashtags for mapping_id {mapping_id}, chapter {chapter}, skipping")
+                    await self._increment_counter_and_check_completion(mapping_id)
+                    return True
 
-                # Redis counter 초기화
-                counter_key = f"completed:{mapping_id}"
-                if self.client:
-                    self.client.delete(counter_key)
-                    logger.info(f"Reset Redis counter for reprocessing mapping_id {mapping_id}")
-            else:
-                # 새로운 job인 경우 job_processing 레코드 생성
-                try:
-                    await database.create_job_processing(mapping_id, job_id)
-                except Exception as e:
-                    logger.warning(f"Could not create job_processing record for mapping_id {mapping_id}: {e}")
+                logger.info(f"Processing hashtags for mapping_id {mapping_id}, chapter {chapter}: {hashtags}")
 
-            # mapping_id로 company_name 조회
-            company_name = await self._get_company_name(mapping_id)
-            logger.info(f"Found company_name for mapping_id {mapping_id}: {company_name or 'None - will search without company filter'}")
+                # mapping_id로 job_id를 먼저 가져오기
+                job_id = await self._get_job_id_from_mapping(mapping_id)
+                if not job_id:
+                    logger.error(f"Could not find job_id for mapping_id {mapping_id}")
+                    return False
+
+                # 재요약 여부 확인 및 처리
+                is_reprocessing = await database.is_reprocessing_job(job_id)
+                if is_reprocessing:
+                    logger.info(f"Reprocessing detected for job_id {job_id}, chapter {chapter}")
+
+                    # 상태를 reprocessing으로 변경
+                    await database.update_job_processing_status(job_id, "reprocessing")
+
+                    # 해당 챕터의 기존 데이터 클린업
+                    await database.cleanup_job_chapter_data(mapping_id, chapter)
+
+                    # Redis counter 초기화
+                    counter_key = f"completed:{mapping_id}"
+                    if self.client:
+                        self.client.delete(counter_key)
+                        logger.info(f"Reset Redis counter for reprocessing mapping_id {mapping_id}")
+                else:
+                    # 새로운 job인 경우 job_processing 레코드 생성
+                    try:
+                        await database.create_job_processing(mapping_id, job_id)
+                    except Exception as e:
+                        logger.warning(f"Could not create job_processing record for mapping_id {mapping_id}: {e}")
+
+                # mapping_id로 company_name 조회
+                company_name = await self._get_company_name(mapping_id)
+                logger.info(f"Found company_name for mapping_id {mapping_id}: {company_name or 'None - will search without company filter'}")
 
             # 해시태그 매핑 보장 + ID 회수 (멱등)
             hashtag_map = await database.ensure_hashtag_ids(mapping_id, chapter, hashtags)
@@ -188,10 +213,17 @@ class RedisConsumer:
             self.client.hset(result_key, mapping=result_data)
             self.client.expire(result_key, 86400)  # 24시간 후 만료
             
-            return True
-            
+                return True
+
+            finally:
+                # 락 해제
+                if lock_acquired:
+                    self.client.delete(lock_key)
+                    logger.info(f"Released processing lock for mapping_id {mapping_id}")
+
         except Exception as e:
             logger.error(f"Failed to process message: {e}")
+            return False
 
     async def _get_company_name(self, mapping_id: int) -> Optional[str]:
         """
