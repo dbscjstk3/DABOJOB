@@ -6,12 +6,12 @@ import { ChevronsLeft, SquareArrowOutUpRight } from 'lucide-react';
 import ReportContainer from '@/components/calendar-detail/organisms/ReportContainer';
 import NewsContainer from '@/components/calendar-detail/organisms/NewsContainer';
 import { cn } from '@/lib/utils';
-import { fetchAdminJobCompleteData, type AdminJobCompleteDataResponse } from '@/lib/api';
+import { fetchAdminJobCompleteData, type AdminJobCompleteResponse } from '@/lib/api';
 
 export default function AdminCompleteDataPage() {
   const navigate = useNavigate();
   const { jobId } = useParams({ from: '/admin/jobs/$jobId/complete' });
-  const [data, setData] = useState<AdminJobCompleteDataResponse | null>(null);
+  const [data, setData] = useState<AdminJobCompleteResponse | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [newsFilter, setNewsFilter] = useState<string | null>(null);
