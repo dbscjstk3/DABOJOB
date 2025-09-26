@@ -5,7 +5,7 @@ import { cn } from '../../../lib/utils';
 import { Typography } from '../../common/atoms/Typography';
 import type { AdminCalendarCompany } from '@/lib/api';
 
-const badgeVariants = cva('inline-flex items-center gap-1', {
+const badgeVariants = cva('flex items-center gap-1 whitespace-nowrap', {
   variants: {
     type: {
       start: '',
@@ -146,7 +146,7 @@ export const RecruitBadge: React.FC<RecruitBadgeProps> = ({
         <Typography
           variant="recruits"
           className={cn(
-            'truncate max-w-[8rem]',
+            'flex-1 min-w-0 truncate',
             isClickable ? 'transition-colors duration-200 hover:text-blue-600' : '',
           )}
           weight="regular"
