@@ -61,19 +61,23 @@ async def get_jobs_by_ids(request: JobIdsRequest) -> Dict[str, Any]:
 async def get_job_detail(job_id: int) -> Dict[str, Any]:
     """특정 job의 상세 정보 조회"""
     try:
+        # 데이터베이스 연결 확인
+        if not database.pool:
+            logger.error("Database connection pool not available")
+            raise HTTPException(status_code=503, detail="Database service unavailable")
+
         status = await database.get_job_processing_status(job_id)
         if status is None:
-            raise HTTPException(status_code=404, detail="Job not found")
-
-        # 추가 정보 조회 (필요에 따라)
-        # - 뉴스 개수, 해시태그 정보 등
+            # job_processing 테이블에 해당 job_id가 없는 경우
+            logger.warning(f"Job {job_id} not found in job_processing table")
+            raise HTTPException(status_code=404, detail=f"Job {job_id} not found")
 
         return {"job_id": job_id, "status": status}
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Error getting job detail for {job_id}: {e}")
-        raise HTTPException(status_code=500, detail="Failed to get job detail")
+        logger.error(f"Database error getting job detail for {job_id}: {e}")
+        raise HTTPException(status_code=503, detail="Database service unavailable")
 
 @router.post("/jobs/{job_id}/approve")
 async def approve_job(job_id: int) -> Dict[str, Any]:
