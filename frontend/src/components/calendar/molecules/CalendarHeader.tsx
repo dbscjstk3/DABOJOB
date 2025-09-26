@@ -6,6 +6,7 @@ import { ChevronDown } from 'lucide-react';
 import { cn } from '../../../lib/utils';
 import { fetchHotJobPostings } from '../../../lib/api';
 import type { HotJobPostingResponse } from '../../../lib/api';
+import searchIcon from '@/assets/img/search.png?format=webp&quality=80';
 
 // 실시간 인기 드롭다운 컴포넌트
 const PopularDropdown: React.FC = () => {
@@ -85,7 +86,7 @@ const PopularDropdown: React.FC = () => {
         onClick={() => setIsOpen(!isOpen)}
         className="flex items-center gap-2 md:gap-1 text-sm md:text-base border border-daboja-default text-gray-600 hover:text-gray-800 transition-colors px-2 py-1 mr-8 md:px-5 md:py-5 rounded-lg hover:bg-gray-50"
       >
-        <img src="/src/assets/img/search.png" alt="검색" className="w-8 h-8 md:w-10 md:h-10" />
+        <img src={searchIcon} alt="검색" className="w-8 h-8 md:w-10 md:h-10" />
         <span className="font-bold text-xs md:text-base">실시간 인기</span>
         <span className="text-gray-500 text-xs md:text-base hidden sm:inline transition-opacity duration-500 w-72 text-center">
           {loading
