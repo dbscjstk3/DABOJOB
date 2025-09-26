@@ -1,13 +1,14 @@
 import React, { useState, useEffect, useMemo } from 'react';
+import { useNavigate } from '@tanstack/react-router';
 import { CalendarGrid } from '../molecules/CalendarGrid';
 import { CalendarHeader } from '../molecules/CalendarHeader';
 import { FilterSection } from './FilterSection';
 import { RecruitModal } from './RecruitModal';
 import { cn } from '../../../lib/utils';
-import { fetchJobPostingsByDateRange } from '../../../lib/api';
-import type { JobPostingResponse } from '@/lib/api';
+import { fetchAdminJobPostings } from '../../../lib/api';
+import type { AdminCalendarCompany } from '@/lib/api';
 
-export interface CalendarProps {
+export interface AdminCalendarProps {
   viewDate: Date;
   onViewDateChange: (date: Date) => void;
   employmentTypeFilter: string[];
@@ -17,7 +18,7 @@ export interface CalendarProps {
   className?: string;
 }
 
-export const Calendar: React.FC<CalendarProps> = ({
+export const AdminCalendar: React.FC<AdminCalendarProps> = ({
   viewDate,
   onViewDateChange,
   employmentTypeFilter,
@@ -34,46 +35,33 @@ export const Calendar: React.FC<CalendarProps> = ({
   const [selectedDay, setSelectedDay] = useState<number | null>(null);
   const [modalDate, setModalDate] = useState<Date>(new Date());
 
-  // API 데이터 상태 (일반 사용자용만)
-  const [jobPostings, setJobPostings] = useState<JobPostingResponse[]>([]);
+  // API 데이터 상태 (관리자용만)
+  const [adminCompanies, setAdminCompanies] = useState<AdminCalendarCompany[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   // 디버깅용 로그
-  console.log('🔍 Calendar Debug:', {
+  console.log('🔍 AdminCalendar Debug:', {
     currentViewDate: viewDate,
     currentYear: viewDate.getFullYear(),
     currentMonth: viewDate.getMonth() + 1, // 1-based month
   });
 
-  // 달력 기간 계산 (현재 월의 첫째 날과 마지막 날)
-  const calendarDateRange = useMemo(() => {
-    const year = viewDate.getFullYear();
-    const month = viewDate.getMonth();
-    const startDate = new Date(year, month, 1);
-    const endDate = new Date(year, month + 1, 0);
-
-    return {
-      startDate: startDate.toISOString().split('T')[0], // YYYY-MM-DD 형식
-      endDate: endDate.toISOString().split('T')[0],
-    };
-  }, [viewDate]);
-
-  // 일반 사용자용 API 호출
+  // 관리자용 API 호출
   useEffect(() => {
     const fetchData = async () => {
       setIsLoading(true);
       setError(null);
 
       try {
-        console.log('🔍 일반 사용자용 API 호출 중...');
-        const data = await fetchJobPostingsByDateRange(
-          calendarDateRange.startDate,
-          calendarDateRange.endDate,
-        );
-        setJobPostings(data);
+        console.log('🔍 관리자용 API 호출 중...');
+        const year = viewDate.getFullYear();
+        const month = viewDate.getMonth() + 1; // API는 1-based month를 사용
+        const response = await fetchAdminJobPostings(year, month);
+        console.log('🔍 관리자용 API 응답:', response);
+        setAdminCompanies(response.companies);
       } catch (err) {
-        console.error('📅 Calendar: API 호출 실패', err);
+        console.error('📅 AdminCalendar: API 호출 실패', err);
         setError(err instanceof Error ? err.message : '데이터를 불러오는데 실패했습니다.');
       } finally {
         setIsLoading(false);
@@ -81,53 +69,53 @@ export const Calendar: React.FC<CalendarProps> = ({
     };
 
     fetchData();
-  }, [calendarDateRange, viewDate]);
+  }, [viewDate]);
 
-  // 날짜별로 그룹화된 채용공고 데이터 (일반 사용자용)
-  const jobPostingsByDate = useMemo(() => {
-    const grouped: Record<string, JobPostingResponse[]> = {};
+  // 날짜별로 그룹화된 관리자용 회사 데이터
+  const adminCompaniesByDate = useMemo(() => {
+    const grouped: Record<string, AdminCalendarCompany[]> = {};
 
-    jobPostings.forEach((posting) => {
-      // 공고일과 마감일 모두 처리
-      // 시간대 문제를 방지하기 위해 로컬 날짜로 직접 파싱
-      const postingDate = posting.postingDate; // 이미 YYYY-MM-DD 형식
-      const deadlineDate = posting.deadlineDate; // 이미 YYYY-MM-DD 형식
+    console.log('🔍 관리자용 회사 데이터 그룹화:', adminCompanies);
 
-      // 공고일
-      if (!grouped[postingDate]) {
-        grouped[postingDate] = [];
+    adminCompanies.forEach((company) => {
+      // 첫 공고일과 마지막 공고일 모두 처리
+      const firstPostingDate = company.first_posting_date;
+      const lastPostingDate = company.last_posting_date;
+
+      console.log(`🔍 회사 ${company.company_name}: ${firstPostingDate} ~ ${lastPostingDate}`);
+
+      // 첫 공고일
+      if (!grouped[firstPostingDate]) {
+        grouped[firstPostingDate] = [];
       }
-      grouped[postingDate].push(posting);
+      grouped[firstPostingDate].push(company);
 
-      // 마감일 (공고일과 다른 경우에만)
-      if (postingDate !== deadlineDate) {
-        if (!grouped[deadlineDate]) {
-          grouped[deadlineDate] = [];
+      // 마지막 공고일 (첫 공고일과 다른 경우에만)
+      if (firstPostingDate !== lastPostingDate) {
+        if (!grouped[lastPostingDate]) {
+          grouped[lastPostingDate] = [];
         }
-        grouped[deadlineDate].push(posting);
+        grouped[lastPostingDate].push(company);
       }
     });
 
+    console.log('🔍 그룹화된 관리자용 회사 데이터:', grouped);
     return grouped;
-  }, [jobPostings]);
+  }, [adminCompanies]);
 
-  // 필터링된 공고 데이터 (일반 사용자용)
-  const getFilteredRecruits = (day: number): JobPostingResponse[] => {
+  // 일반 사용자용 필터링 함수 (빈 배열 반환 - 관리자는 일반 공고를 보지 않음)
+  const getFilteredRecruits = (): never[] => {
+    return [];
+  };
+
+  // 관리자용 회사 데이터 가져오기
+  const getAdminCompaniesForDay = (day: number): AdminCalendarCompany[] => {
     const year = viewDate.getFullYear();
     const month = viewDate.getMonth();
-    // 시간대 문제를 방지하기 위해 로컬 날짜로 직접 생성
     const dateKey = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
-    const dayPostings = jobPostingsByDate[dateKey] || [];
-
-    const filtered = dayPostings.filter((recruit) => {
-      const employmentTypeMatch =
-        employmentTypeFilter.length === 0 || employmentTypeFilter.includes(recruit.careerInfo);
-      const jobCategoryMatch =
-        jobCategoryFilter.length === 0 || jobCategoryFilter.includes(recruit.jobSectorCategory);
-      return employmentTypeMatch && jobCategoryMatch;
-    });
-
-    return filtered;
+    const companies = adminCompaniesByDate[dateKey] || [];
+    console.log(`🔍 ${dateKey} 관리자용 회사 데이터:`, companies);
+    return companies;
   };
 
   // 모달 열기 함수
@@ -153,6 +141,38 @@ export const Calendar: React.FC<CalendarProps> = ({
     }
   };
 
+  // 관리자용 회사 클릭 핸들러
+  const navigate = useNavigate();
+  const handleAdminCalendarCompanyClick = (company: AdminCalendarCompany) => {
+    console.log('Admin company clicked:', company);
+
+    switch (company.mapping_status) {
+      case 'pending':
+      case 'processing':
+        // 매핑 대기 중이거나 처리 중인 경우 - 클릭 불가
+        alert('아직 매핑이 완료되지 않았습니다. 잠시 후 다시 시도해주세요.');
+        break;
+
+      case 'suggested':
+      case 'rejected':
+      case 'failed':
+        // 관리자 수동 매핑 페이지로 이동
+        navigate({
+          to: '/admin/mapping/$companyId',
+          params: { companyId: company.company_id.toString() },
+        });
+        break;
+
+      case 'verified':
+        // verified 상태는 정상적으로 클릭 가능 (모달 열기)
+        // 이 경우는 RecruitModal에서 처리됨
+        break;
+
+      default:
+        console.warn('Unknown mapping status:', company.mapping_status);
+    }
+  };
+
   return (
     <div className={cn('w-full', className)}>
       {/* 필터 섹션 */}
@@ -167,13 +187,10 @@ export const Calendar: React.FC<CalendarProps> = ({
         {/* 달력 헤더 */}
         <CalendarHeader viewDate={viewDate} onViewDateChange={onViewDateChange} />
 
-        {/* 헤더와 달력 사이 간격 */}
-        <div className="mb-14"></div>
-
         {/* 로딩 상태 */}
         {isLoading && (
           <div className="flex justify-center items-center h-64">
-            <div className="text-gray-500">채용공고를 불러오는 중...</div>
+            <div className="text-gray-500">관리자 데이터를 불러오는 중...</div>
           </div>
         )}
 
@@ -192,24 +209,30 @@ export const Calendar: React.FC<CalendarProps> = ({
             expandedDays={expandedDays}
             onExpandedDaysChange={setExpandedDays}
             onOpenModal={handleOpenModal}
+            // 관리자용 props
+            getAdminCompaniesForDay={getAdminCompaniesForDay}
+            onAdminCalendarCompanyClick={handleAdminCalendarCompanyClick}
           />
         )}
       </div>
 
-      {/* 채용 공고 모달 (일반 사용자용) */}
+      {/* 채용 공고 모달 (관리자용) */}
       {selectedDay && (
         <RecruitModal
           isOpen={isModalOpen}
           onClose={handleCloseModal}
-          recruits={getFilteredRecruits(selectedDay)}
+          recruits={[]} // 관리자는 일반 공고를 보지 않음
           selectedDate={modalDate.getDate()}
           selectedMonth={modalDate.getMonth()}
           selectedYear={modalDate.getFullYear()}
           onDateChange={handleModalDateChange}
+          // 관리자용 props
+          adminCompanies={getAdminCompaniesForDay(selectedDay)}
+          onAdminCalendarCompanyClick={handleAdminCalendarCompanyClick}
         />
       )}
     </div>
   );
 };
 
-export default Calendar;
+export default AdminCalendar;

@@ -298,14 +298,17 @@ export const handlers = [
       {
         jobPostingId: '1',
         title: '백엔드 개발자 (Spring Boot)',
+        companyName: '삼성전자',
       },
       {
         jobPostingId: '2',
         title: '프론트엔드 개발자 (React)',
+        companyName: 'LG전자',
       },
       {
         jobPostingId: '3',
         title: '데이터 엔지니어',
+        companyName: '에이치디현대쉘베이스오일',
       },
     ];
 
@@ -315,6 +318,109 @@ export const handlers = [
     );
 
     return HttpResponse.json(hotJobPostings, {
+      status: 200,
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    });
+  }),
+
+  // Admin 캘린더용 기업/공고 목록 목 핸들러
+  http.get('/api/admin/calendar', ({ request }) => {
+    const url = new URL(request.url);
+    const year = parseInt(url.searchParams.get('year') || '1970', 10);
+    const month = parseInt(url.searchParams.get('month') || '1', 10);
+
+    console.log(`🎭 MSW: Admin 캘린더 API 호출됨 - Year: ${year}, Month: ${month}`);
+
+    const toDate = (d: number) =>
+      `${year}-${String(month).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+
+    const companies = [
+      {
+        company_id: 1,
+        company_name: '삼성전자',
+        mapping_status: 'verified' as const,
+        mapping_id: 101,
+        first_posting_date: toDate(1),
+        last_posting_date: toDate(5),
+        job_count: 2,
+        mapping_created_at: `${toDate(1)}T09:00:00Z`,
+        can_remap: true,
+        job_postings: [
+          {
+            job_id: 1001,
+            job_title: '백엔드 개발자 (Spring)',
+            posting_date: toDate(1),
+            application_deadline: `${toDate(20)}T18:00:00Z`,
+            job_url: 'https://example.com/jobs/1001',
+          },
+          {
+            job_id: 1002,
+            job_title: '프론트엔드 개발자 (React)',
+            posting_date: toDate(5),
+            application_deadline: `${toDate(25)}T18:00:00Z`,
+            job_url: 'https://example.com/jobs/1002',
+          },
+        ],
+      },
+      {
+        company_id: 2,
+        company_name: 'LG전자',
+        mapping_status: 'suggested' as const,
+        mapping_id: 102,
+        first_posting_date: toDate(10),
+        last_posting_date: toDate(10),
+        job_count: 1,
+        mapping_created_at: `${toDate(10)}T09:00:00Z`,
+        can_remap: true,
+        job_postings: [
+          {
+            job_id: 2001,
+            job_title: '데이터 엔지니어',
+            posting_date: toDate(10),
+            application_deadline: `${toDate(30)}T18:00:00Z`,
+            job_url: 'https://example.com/jobs/2001',
+          },
+        ],
+      },
+      {
+        company_id: 3,
+        company_name: 'SK하이닉스',
+        mapping_status: 'failed' as const,
+        mapping_id: 103,
+        first_posting_date: toDate(15),
+        last_posting_date: toDate(18),
+        job_count: 2,
+        mapping_created_at: `${toDate(15)}T09:00:00Z`,
+        can_remap: true,
+        job_postings: [
+          {
+            job_id: 3001,
+            job_title: 'AI 플랫폼 개발자',
+            posting_date: toDate(15),
+            application_deadline: `${toDate(28)}T18:00:00Z`,
+            job_url: 'https://example.com/jobs/3001',
+          },
+          {
+            job_id: 3002,
+            job_title: '클라우드 엔지니어',
+            posting_date: toDate(18),
+            application_deadline: `${toDate(28)}T18:00:00Z`,
+            job_url: 'https://example.com/jobs/3002',
+          },
+        ],
+      },
+    ];
+
+    const response = {
+      year,
+      month,
+      total_companies: companies.length,
+      companies,
+    };
+
+    return HttpResponse.json(response, {
       status: 200,
       headers: {
         'Content-Type': 'application/json',

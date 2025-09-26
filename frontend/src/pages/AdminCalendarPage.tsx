@@ -1,15 +1,16 @@
 import { useState } from 'react';
-import { Calendar } from '../components/calendar/organisms/Calendar';
+import { AdminCalendar } from '@/components/calendar/organisms/AdminCalendar';
 
-export default function CalendarPage() {
-  // 현재 보이는 연/월 상태 (2025년 9월로 설정)
-  const [viewDate, setViewDate] = useState(new Date(2025, 8, 1)); // 9월은 인덱스 8
-  // 필터 상태
+export default function AdminCalendarPage() {
+  // 달력 상태 관리
+  const [viewDate, setViewDate] = useState(new Date());
+
+  // 필터 상태 관리
   const [employmentTypeFilter, setEmploymentTypeFilter] = useState<string[]>([]);
   const [jobCategoryFilter, setJobCategoryFilter] = useState<string[]>([]);
 
   return (
-    <Calendar
+    <AdminCalendar
       viewDate={viewDate}
       onViewDateChange={setViewDate}
       employmentTypeFilter={employmentTypeFilter}

@@ -10,11 +10,13 @@ import LoginPage from './pages/LoginPage';
 import CalendarPage from './pages/CalendarPage';
 import CalendarDetailPage from './pages/CalendarDetailPage';
 import SearchDetailPage from './pages/SearchDetailPage';
+import AdminCompleteDataPage from './pages/AdminCompleteDataPage';
 import NotFoundPage from './pages/NotFoundPage';
 import { AdminMappingPage } from './pages/AdminMappingPage';
 import AdminCompletedPage from './pages/AdminCompletedPage';
 import { useAuthStore } from './stores/useAuthStore';
 import { RootLayout } from './components/common/organisms/RootLayout';
+import AdminCalendarPage from './pages/AdminCalendarPage';
 
 const rootRoute = createRootRoute({
   component: RootLayout,
@@ -24,12 +26,6 @@ const rootRoute = createRootRoute({
 const calendarListRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/',
-  beforeLoad: () => {
-    const role = useAuthStore.getState().user?.role;
-    if (role === 'admin' || role === 'ROLE_ADMIN') {
-      throw redirect({ to: '/admin' });
-    }
-  },
   component: CalendarPage,
 });
 
@@ -79,13 +75,41 @@ const searchDetailRoute = createRoute({
 const adminCalendarRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/admin',
-  component: CalendarPage,
+  beforeLoad: async () => {
+    // 사용자 정보가 없으면 먼저 가져오기
+    const { user, fetchUser } = useAuthStore.getState();
+    if (!user) {
+      await fetchUser();
+    }
+
+    // 다시 한번 확인
+    const currentUser = useAuthStore.getState().user;
+    const role = currentUser?.role;
+    if (!(role === 'admin' || role === 'ROLE_ADMIN')) {
+      throw redirect({ to: '/' });
+    }
+  },
+  component: AdminCalendarPage,
 });
 
 // Admin routes - IP 화이트리스트로 서버에서 접근 제어
 const adminMappingRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/admin/mapping/$companyId',
+  beforeLoad: async () => {
+    // 사용자 정보가 없으면 먼저 가져오기
+    const { user, fetchUser } = useAuthStore.getState();
+    if (!user) {
+      await fetchUser();
+    }
+
+    // 다시 한번 확인
+    const currentUser = useAuthStore.getState().user;
+    const role = currentUser?.role;
+    if (!(role === 'admin' || role === 'ROLE_ADMIN')) {
+      throw redirect({ to: '/' });
+    }
+  },
   component: AdminMappingPage,
 });
 
@@ -152,6 +176,26 @@ const routeTree = rootRoute.addChildren([
   calendarDetailRoute,
   searchDetailRoute,
   adminCalendarRoute,
+  adminMappingRoute,
+  createRoute({
+    getParentRoute: () => rootRoute,
+    path: '/admin/jobs/$jobId/complete',
+    beforeLoad: async () => {
+      // 사용자 정보가 없으면 먼저 가져오기
+      const { user, fetchUser } = useAuthStore.getState();
+      if (!user) {
+        await fetchUser();
+      }
+
+      // 다시 한번 확인
+      const currentUser = useAuthStore.getState().user;
+      const role = currentUser?.role;
+      if (!(role === 'admin' || role === 'ROLE_ADMIN')) {
+        throw redirect({ to: '/' });
+      }
+    },
+    component: AdminCompleteDataPage,
+  }),
   loginRoute,
   authCallbackRoute,
   adminMappingRoute,

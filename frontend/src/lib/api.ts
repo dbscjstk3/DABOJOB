@@ -3,6 +3,9 @@
 export const API_BASE_URL =
   import.meta.env.VITE_USE_MSW === 'true' ? '' : import.meta.env.VITE_API_BASE_URL;
 
+export const ADMIN_API_BASE_URL =
+  import.meta.env.VITE_USE_MSW === 'true' ? '' : import.meta.env.VITE_ADMIN_API_BASE_URL;
+
 export const ADMIN_JOB_API_BASE_URL =
   import.meta.env.VITE_USE_MSW === 'true' ? '' : import.meta.env.VITE_ADMIN_JOB_API_BASE_URL;
 
@@ -43,7 +46,6 @@ export interface JobPostingResponse {
   jobPostingId: number;
   companyId: number;
   companyName: string;
-  companyType: string;
   title: string;
   url: string;
   jobSectorName: string;
@@ -57,6 +59,7 @@ export interface JobPostingResponse {
 export interface HotJobPostingResponse {
   jobPostingId: string;
   title: string;
+  companyName: string;
 }
 
 // 관리자용 캘린더 채용공고 API 응답 타입 정의
@@ -320,13 +323,14 @@ export const API_ENDPOINTS = {
       `${API_BASE_URL}/api/job-postings/calendar?startDate=${startDate}&endDate=${endDate}`,
     HOT: `${API_BASE_URL}/api/job-postings/hot`,
     ADMIN: (year: number, month: number) =>
-      `${API_BASE_URL}/api/admin/job-postings/calendar?year=${year}&month=${month}`,
+      `${ADMIN_API_BASE_URL}/api/admin/calendar?year=${year}&month=${month}`,
   },
   ADMIN: {
     MAPPING: (companyId: number, year: number, month: number) =>
-      `${API_BASE_URL}/api/admin/calendar/companies/${companyId}?year=${year}&month=${month}`,
+      `${ADMIN_API_BASE_URL}/api/admin/calendar/companies/${companyId}?year=${year}&month=${month}`,
     REMAP: (companyId: number) =>
-      `${import.meta.env.VITE_ADMIN_API_BASE_URL}/api/admin/calendar/companies/${companyId}/remap`,
+      `${ADMIN_API_BASE_URL}/api/admin/calendar/companies/${companyId}/remap`,
+    JOB_STATUS: (jobId: number) => `${ADMIN_API_BASE_URL}/api/admin/jobs/${jobId}`,
   },
   ADMIN_JOB: {
     COMPLETE_DATA: (jobId: string | number) =>
@@ -525,7 +529,6 @@ export const fetchRecentSearches = async (limit?: number): Promise<string[]> => 
 export const fetchHotJobPostings = async (): Promise<HotJobPostingResponse[]> => {
   const response = await fetch(API_ENDPOINTS.JOB_POSTING.HOT, {
     method: 'GET',
-    credentials: 'include', // Cookie 포함
     headers: {
       'Content-Type': 'application/json',
     },
@@ -655,3 +658,57 @@ export const approveJob = async (jobId: string | number): Promise<AdminJobApprov
 
   return response.json();
 };
+
+// 관리자: 개별 채용공고 작업 상태 조회
+export interface AdminJobStatusResponse {
+  job_id: number;
+  status: 'completed' | 'reprocessing' | 'finished';
+}
+
+export const fetchAdminJobStatus = async (jobId: number): Promise<AdminJobStatusResponse> => {
+  const response = await fetch(API_ENDPOINTS.ADMIN.JOB_STATUS(jobId), {
+    method: 'GET',
+    credentials: 'include',
+    headers: { 'Content-Type': 'application/json' },
+  });
+  if (!response.ok) {
+    throw new Error(`Failed to fetch admin job status: ${response.status}`);
+  }
+  return response.json();
+};
+
+// 관리자용 완료 데이터 타입
+export interface AdminJobCompleteDataResponse {
+  job_id: number;
+  status: 'completed';
+  company_info: {
+    company_name: string;
+    company_scale: string;
+  };
+  summary_reports: {
+    business_overview: string;
+    products_services: string;
+    revenue_orders: string;
+    contracts_rnd: string;
+    others: string;
+  };
+  news_data: Record<
+    string,
+    Record<
+      string,
+      {
+        hashtag_id: number;
+        news_items: Array<{
+          news_id: number;
+          title: string;
+          url: string;
+          published_date: string;
+          summary: string;
+          company_name: string;
+          status: 'completed' | 'processing' | 'finished';
+        }>;
+      }
+    >
+  >;
+  generated_at: string;
+}
