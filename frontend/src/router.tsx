@@ -15,6 +15,7 @@ import NotFoundPage from './pages/NotFoundPage';
 import { AdminMappingPage } from './pages/AdminMappingPage';
 import { useAuthStore } from './stores/useAuthStore';
 import { RootLayout } from './components/common/organisms/RootLayout';
+import AdminCalendarPage from './pages/AdminCalendarPage';
 
 const rootRoute = createRootRoute({
   component: RootLayout,
@@ -87,7 +88,7 @@ const adminCalendarRoute = createRoute({
       throw redirect({ to: '/' });
     }
   },
-  component: CalendarPage,
+  component: AdminCalendarPage,
 });
 
 // Admin routes - IP 화이트리스트로 서버에서 접근 제어
