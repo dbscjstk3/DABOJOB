@@ -360,9 +360,9 @@ public class FileProcessingService {
     private CompanyScale parseCompanyScale(String companyScale) {
         // 임시 처리 - 나중에 쉽게 변경 가능
         if (companyScale == null || companyScale.isEmpty()) {
-            return CompanyScale.ETC;
+            return CompanyScale.BIG;
         }
-        return CompanyScale.ETC;
+        return CompanyScale.MEDIUM;
     }
 
     private LocalDate parseLocalDate(String dateStr) {
