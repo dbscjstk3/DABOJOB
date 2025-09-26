@@ -6,9 +6,11 @@ from ..crawlers.saramin_crawler import SaraminCrawler
 from ..models.crawler_models import JobPosting, Company, CrawlingLog, JobSector, Region
 from ..database import get_db
 import asyncio
+import logging
 from concurrent.futures import ThreadPoolExecutor
 from ..utils.redis_helper import redis_helper
 
+logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/crawler", tags=["Crawler"])
 
 executor = ThreadPoolExecutor(max_workers=2)
@@ -26,10 +28,30 @@ async def resume_saramin_crawl(
     - crawl_id: 재개할 크롤링 작업 ID
     """
     try:
-        # Redis에서 크롤링 상태 확인
+        # Redis에서 크롤링 상태 확인 (두 가지 키 모두 체크)
         status = await redis_helper.get_status(f"crawl:{crawl_id}")
 
-        if not status:
+        # crawl_state 키도 체크 (실제 진행 상황이 저장된 곳)
+        import redis
+        import json
+        redis_client = redis.Redis(host='redis', port=6379, db=0, decode_responses=True)
+        crawl_state = redis_client.get(f"crawl_state:{crawl_id}")
+
+        if crawl_state:
+            state_data = json.loads(crawl_state)
+            logger.info(f"Found crawl_state for {crawl_id}: last_page={state_data.get('last_page')}")
+
+            # status가 없으면 crawl_state를 기반으로 생성
+            if not status:
+                status = {
+                    "status": "running",
+                    "max_pages": state_data.get('max_pages', 30),
+                    "progress": {
+                        "current_page": state_data.get('last_page', 0)
+                    }
+                }
+
+        if not status and not crawl_state:
             raise HTTPException(status_code=404, detail=f"크롤링 작업을 찾을 수 없습니다: {crawl_id}")
 
         if status.get("status") != "running":
