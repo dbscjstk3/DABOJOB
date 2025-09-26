@@ -185,8 +185,8 @@ async def extract_hashtags_only(request: HashtagExtractionRequest):
         for category, content in summaries.items():
             logger.info(f"   - {category}: {len(content) if content else 0} chars")
 
-        # 2. job_id 생성 (해시태그 추출용)
-        job_id = f"hashtag_{mapping_id}_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
+        # 2. job_id 생성 (기존과 동일한 형식 사용)
+        job_id = f"summary_{mapping_id}_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
         logger.info(f"📝 Generated job_id: {job_id}")
 
         # 3. Redis Publisher 및 HashtagExtractor 초기화
