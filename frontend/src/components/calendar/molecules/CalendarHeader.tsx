@@ -85,11 +85,15 @@ const PopularDropdown: React.FC = () => {
       <button
         type="button"
         onClick={() => setIsOpen(!isOpen)}
-        className="flex items-center gap-1 md:gap-1 text-sm md:text-base border border-daboja-default text-gray-600 hover:text-gray-800 transition-colors py-1 md:px-5 md:py-5 md:mr-4 rounded-lg hover:bg-gray-50"
+        className="flex items-center gap-1 sm:gap-1.5 md:gap-2 lg:gap-3 text-xs sm:text-sm md:text-base border border-daboja-default text-gray-600 hover:text-gray-800 transition-colors py-1 px-1.5 sm:px-2 sm:py-1.5 md:px-3 md:py-2 lg:px-5 lg:py-5 lg:mr-4 rounded-lg hover:bg-gray-50 w-fit min-w-0"
       >
-        <img src={searchIcon} alt="검색" className="w-8 h-8 md:w-10 md:h-10" />
-        <span className="font-bold text-xs md:text-base">실시간 인기</span>
-        <span className="text-gray-500 text-xs md:text-base hidden sm:inline transition-opacity duration-500 w-72 text-center">
+        <img
+          src={searchIcon}
+          alt="검색"
+          className="w-4 h-4 sm:w-5 sm:h-5 md:w-6 md:h-6 lg:w-8 lg:h-8 xl:w-10 xl:h-10"
+        />
+        <span className="font-bold text-xs sm:text-sm md:text-base">실시간 인기</span>
+        <span className="text-gray-500 text-xs sm:text-sm md:text-base hidden sm:inline transition-opacity duration-500 w-10 sm:w-12 md:w-16 lg:w-20 xl:w-24 text-center truncate">
           {loading
             ? '로딩중...'
             : (() => {
@@ -100,21 +104,21 @@ const PopularDropdown: React.FC = () => {
         </span>
         <ChevronDown
           className={cn(
-            'h-3 w-3 md:h-4 md:w-4 text-gray-400 transition-transform duration-200',
+            'h-3 w-3 sm:h-3 sm:w-3 md:h-4 md:w-4 text-gray-400 transition-transform duration-200',
             isOpen && 'rotate-180',
           )}
         />
       </button>
 
       {isOpen && (
-        <div className="absolute top-full right-0 md:right-2 mt-1 bg-white border border-gray-200 rounded-lg shadow-lg z-50 w-[16rem] md:w-[30rem] max-h-60 overflow-y-auto">
-          <div className="py-1 md:py-2">
+        <div className="absolute top-full right-0 sm:right-0 md:right-0 lg:right-2 xl:right-4 mt-1 bg-white border border-gray-200 rounded-lg shadow-lg z-50 w-[10rem] sm:w-[12rem] md:w-[14rem] lg:w-[18rem] xl:w-[24rem] 2xl:w-[30rem] max-h-60 overflow-y-auto">
+          <div className="py-1 sm:py-1 md:py-1.5 lg:py-2">
             {loading ? (
-              <div className="px-3 py-2 md:px-4 md:py-3 text-xs md:text-sm text-gray-500 text-center">
+              <div className="px-2 py-1 sm:px-2.5 sm:py-1.5 md:px-3 md:py-2 lg:px-4 lg:py-3 text-xs sm:text-sm md:text-sm text-gray-500 text-center">
                 로딩중...
               </div>
             ) : hotJobPostings.length === 0 ? (
-              <div className="px-3 py-2 md:px-4 md:py-3 text-xs md:text-sm text-gray-500 text-center">
+              <div className="px-2 py-1 sm:px-2.5 sm:py-1.5 md:px-3 md:py-2 lg:px-4 lg:py-3 text-xs sm:text-sm md:text-sm text-gray-500 text-center">
                 인기 공고가 없습니다
               </div>
             ) : (
@@ -123,14 +127,14 @@ const PopularDropdown: React.FC = () => {
                   <div
                     key={jobPosting.jobPostingId}
                     onClick={() => handleHotJobPostingClick(jobPosting)}
-                    className="px-3 py-2 md:px-4 md:py-3 text-xs md:text-sm hover:bg-gray-100 cursor-pointer transition-colors"
+                    className="px-2 py-1 sm:px-2.5 sm:py-1.5 md:px-3 md:py-2 lg:px-4 lg:py-3 text-xs sm:text-sm md:text-sm hover:bg-gray-100 cursor-pointer transition-colors"
                   >
-                    <div className="flex items-center gap-2 md:gap-3">
-                      <span className="font-bold text-red-500 w-6 md:w-8 text-sm md:text-base">
+                    <div className="flex items-center gap-1 sm:gap-1.5 md:gap-2 lg:gap-3">
+                      <span className="font-bold text-red-500 w-3 sm:w-4 md:w-5 lg:w-6 xl:w-8 text-xs sm:text-sm md:text-base flex-shrink-0">
                         {index + 1}위
                       </span>
-                      <div className="flex-1 min-w-0">
-                        <div className="text-gray-700 text-sm md:text-base font-medium truncate">
+                      <div className="flex-1 min-w-0 overflow-hidden">
+                        <div className="text-gray-700 text-xs sm:text-sm md:text-base font-medium truncate">
                           {jobPosting.companyName || jobPosting.title}
                         </div>
                         {jobPosting.companyName && (
@@ -227,7 +231,7 @@ export const CalendarHeader: React.FC<CalendarHeaderProps> = ({
 
       {/* 우측 실시간 인기 드롭다운 */}
       {showPopularDropdown && (
-        <div className="absolute top-0 right-0 flex items-center h-full">
+        <div className="absolute top-0 right-0 sm:right-0 md:right-0 lg:right-2 xl:right-4 flex items-center h-full">
           <PopularDropdown />
         </div>
       )}
