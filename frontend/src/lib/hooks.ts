@@ -8,6 +8,7 @@ import {
   fetchJobPosting,
   fetchAutocomplete,
   fetchSearchJobPostings,
+  fetchRecentSearches,
   fetchAdminMappingData,
   updateAdminMapping,
   fetchAdminJobCompleteData,
@@ -120,6 +121,17 @@ export const useAutocomplete = (searchQuery: string) => {
     staleTime: 30 * 1000, // 30초
     gcTime: 60 * 1000, // 1분
     retry: 0, // 자동완성은 재시도 안함
+  });
+};
+
+// 최근 검색어를 가져오는 커스텀 훅
+export const useRecentSearches = (limit: number = 5) => {
+  return useQuery<string[], Error>({
+    queryKey: ['recentSearches', limit],
+    queryFn: () => fetchRecentSearches(limit),
+    staleTime: 5 * 60 * 1000, // 5분
+    gcTime: 10 * 60 * 1000, // 10분
+    retry: 0, // 실패 시 재시도 안함
   });
 };
 

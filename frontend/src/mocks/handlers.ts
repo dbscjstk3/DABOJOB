@@ -213,6 +213,40 @@ export const handlers = [
     });
   }),
 
+  // 최근 검색어 API 목 핸들러
+  http.get('/api/job-postings/search/recent', ({ request }) => {
+    const url = new URL(request.url);
+    const limit = parseInt(url.searchParams.get('limit') || '10', 10);
+
+    console.log(`🎭 MSW: 최근 검색어 API 호출됨 - limit: ${limit}`);
+
+    // 최근 검색어 목 데이터
+    const recentSearches = [
+      '백엔드 개발자',
+      '프론트엔드',
+      '스타트업',
+      '삼성전자',
+      '풀스택 개발자',
+      'React 개발자',
+      'Node.js',
+      'Python 개발자',
+      'AI 엔지니어',
+      '데이터 분석가',
+    ];
+
+    // limit만큼 잘라서 반환
+    const limitedSearches = recentSearches.slice(0, limit);
+
+    console.log(`✅ MSW: ${limitedSearches.length}개의 최근 검색어 반환`);
+
+    return HttpResponse.json(limitedSearches, {
+      status: 200,
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    });
+  }),
+
   // 검색 API 목 핸들러
   http.get('/api/job-postings', ({ request }) => {
     const url = new URL(request.url);
