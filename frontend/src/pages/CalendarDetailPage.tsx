@@ -32,8 +32,9 @@ export default function CalendarDetailPage() {
 
   // API 호출
   const { data, isLoading, error } = useSummaryDetail(summaryId);
-  const { data: allNewsData } = useNews(summaryId);
-  const { data: hashtagNewsData } = useNewsByHashtag(summaryId, newsFilter);
+  // data?.summaryId를 사용하여 뉴스 API 호출
+  const { data: allNewsData } = useNews(data?.summaryId?.toString());
+  const { data: hashtagNewsData } = useNewsByHashtag(data?.summaryId?.toString(), newsFilter);
   const { data: jobData } = useJobPosting(jobPostingId);
 
   // 표시할 뉴스 데이터 결정 (태그가 선택되면 태그별 뉴스, 아니면 전체 뉴스)
