@@ -70,12 +70,8 @@ class NewsSummarizeResponse(BaseModel):
 async def startup_event():
     """서버 시작 시 초기화"""
     global ollama_client, executor, request_semaphore, redis_consumer, consumer_thread
-
+    
     try:
-        # 데이터베이스 연결 초기화
-        from .database import database
-        await database.connect()
-        logger.info("Database connection initialized")
         # 상태 관리자 초기화 (실패해도 메인 서비스에 영향 없음)
         try:
             from .shared.status_integration import news_status
@@ -216,15 +212,7 @@ async def shutdown_event_handler():
     """서버 종료 시 정리"""
     global executor, redis_consumer
     shutdown_event.set()
-
-    # 데이터베이스 연결 해제
-    try:
-        from .database import database
-        await database.disconnect()
-        logger.info("Database connection closed")
-    except:
-        pass
-
+    
     # 상태 관리자 정리 (실패해도 무시)
     try:
         from .shared.status_integration import news_status
@@ -237,6 +225,7 @@ async def shutdown_event_handler():
     if redis_consumer:
         redis_consumer.cleanup()
         logger.info("Redis consumer shutdown completed")
+
 
     if executor:
         executor.shutdown(wait=True)
