@@ -176,14 +176,16 @@ async def start_saramin_crawl(
                 result = crawler.crawl(max_pages=max_pages, crawl_id=crawl_id)
                 logger.info(f"✅ 크롤링 완료: {result.get('status')}")
 
-                # Redis 상태 업데이트
-                loop.run_until_complete(redis_helper.set_status(f"crawl:{crawl_id}", {
+                # Redis 상태 업데이트 (JSON 직렬화 가능한 데이터만)
+                redis_data = {
                     "status": result.get("status", "failed"),
                     "max_pages": max_pages,
                     "started_at": datetime.now().isoformat(),
                     "completed_at": datetime.now().isoformat(),
-                    "result": result
-                }))
+                    "total_jobs": result.get("total_jobs", 0),
+                    "pages_processed": result.get("pages_processed", 0)
+                }
+                loop.run_until_complete(redis_helper.set_status(f"crawl:{crawl_id}", redis_data))
 
                 # 크롤링 성공 시 자동 매핑 트리거
                 if result and result.get("status") == "completed":

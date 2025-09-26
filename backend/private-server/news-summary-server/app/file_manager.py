@@ -121,7 +121,7 @@ class FileManager:
         """모든 요약 읽기"""
         summaries = {}
 
-        chapters = ["business_overview", "products_services", "revenue_orders", "contracts_rnd", "others"]
+        chapters = ["business_overview", "products_services", "revenue_orders", "contracts_rnd", "other_references"]
         for chapter in chapters:
             summary = self.read_summary(chapter)
             if summary:
