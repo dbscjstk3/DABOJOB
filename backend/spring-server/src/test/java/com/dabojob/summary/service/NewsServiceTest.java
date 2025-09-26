@@ -71,83 +71,83 @@ class NewsServiceTest {
     @Test
     @DisplayName("정상 케이스: hashtagName이 null일 때 summaryId로만 조회")
     void getNews_WithNullHashtagName_Success() {
-//        // given
-//        String summaryId = "100";
-//        String hashtagName = null;
-//        List<News> mockNewsList = Arrays.asList(news1, news2);
-//
-//        when(newsRepository.findBySummaryHashtagId(100L))
-//                .thenReturn(mockNewsList);
-//
-//        // when
-//        List<NewsResponse> result = newsService.getNews(summaryId, hashtagName);
-//
-//        // then
-//        assertThat(result).hasSize(2);
-//        assertThat(result.get(0).getSummaryHashtagId()).isEqualTo(100L);
-//        assertThat(result.get(0).getTitle()).isEqualTo("뉴스 제목 1");
-//        assertThat(result.get(0).getUrl()).isEqualTo("https://example.com/news1");
-//        assertThat(result.get(1).getTitle()).isEqualTo("뉴스 제목 2");
-//
-//        verify(newsRepository).findBySummaryHashtagId(100L);
-//        verify(newsRepository, never()).findBySummaryHashtagIdAndHashtagName(anyLong(), anyString());
+        // given
+        String summaryId = "100";
+        String hashtagName = null;
+        List<News> mockNewsList = Arrays.asList(news1, news2);
+
+        when(newsRepository.findBySummaryId(100L))
+                .thenReturn(mockNewsList);
+
+        // when
+        List<NewsResponse> result = newsService.getNews(summaryId, hashtagName);
+
+        // then
+        assertThat(result).hasSize(2);
+        assertThat(result.get(0).getSummaryHashtagId()).isEqualTo(100L);
+        assertThat(result.get(0).getTitle()).isEqualTo("뉴스 제목 1");
+        assertThat(result.get(0).getUrl()).isEqualTo("https://example.com/news1");
+        assertThat(result.get(1).getTitle()).isEqualTo("뉴스 제목 2");
+
+        verify(newsRepository).findBySummaryId(100L);
+        verify(newsRepository, never()).findBySummaryIdAndHashtagName(anyLong(), anyString());
     }
 
     @Test
     @DisplayName("정상 케이스: hashtagName이 있을 때 summaryId와 hashtagName으로 조회")
     void getNews_WithHashtagName_Success() {
-//        // given
-//        String summaryId = "100";
-//        String hashtagName = "테스트해시태그";
-//        List<News> mockNewsList = Arrays.asList(news1);
-//
-//        when(newsRepository.findBySummaryHashtagIdAndHashtagName(100L, hashtagName))
-//                .thenReturn(mockNewsList);
-//
-//        // when
-//        List<NewsResponse> result = newsService.getNews(summaryId, hashtagName);
-//
-//        // then
-//        assertThat(result).hasSize(1);
-//        assertThat(result.get(0).getSummaryHashtagId()).isEqualTo(100L);
-//        assertThat(result.get(0).getTitle()).isEqualTo("뉴스 제목 1");
-//
-//        verify(newsRepository).findBySummaryHashtagIdAndHashtagName(100L, hashtagName);
-//        verify(newsRepository, never()).findBySummaryHashtagId(anyLong());
+        // given
+        String summaryId = "100";
+        String hashtagName = "테스트해시태그";
+        List<News> mockNewsList = Arrays.asList(news1);
+
+        when(newsRepository.findBySummaryIdAndHashtagName(100L, hashtagName))
+                .thenReturn(mockNewsList);
+
+        // when
+        List<NewsResponse> result = newsService.getNews(summaryId, hashtagName);
+
+        // then
+        assertThat(result).hasSize(1);
+        assertThat(result.get(0).getSummaryHashtagId()).isEqualTo(100L);
+        assertThat(result.get(0).getTitle()).isEqualTo("뉴스 제목 1");
+
+        verify(newsRepository).findBySummaryIdAndHashtagName(100L, hashtagName);
+        verify(newsRepository, never()).findBySummaryId(anyLong());
     }
 
     @Test
     @DisplayName("정상 케이스: Repository에서 빈 리스트 반환")
     void getNews_EmptyResult_Success() {
-//        // given
-//        String summaryId = "100";
-//        String hashtagName = null;
-//
-//        when(newsRepository.findBySummaryHashtagId(100L))
-//                .thenReturn(Collections.emptyList());
-//
-//        // when
-//        List<NewsResponse> result = newsService.getNews(summaryId, hashtagName);
-//
-//        // then
-//        assertThat(result).isEmpty();
-//        verify(newsRepository).findBySummaryHashtagId(100L);
+        // given
+        String summaryId = "100";
+        String hashtagName = null;
+
+        when(newsRepository.findBySummaryId(100L))
+                .thenReturn(Collections.emptyList());
+
+        // when
+        List<NewsResponse> result = newsService.getNews(summaryId, hashtagName);
+
+        // then
+        assertThat(result).isEmpty();
+        verify(newsRepository).findBySummaryId(100L);
     }
 
     @Test
     @DisplayName("예외 케이스: summaryId가 숫자가 아닌 문자열")
     void getNews_InvalidSummaryIdFormat_ThrowsException() {
-//        // given
-//        String invalidSummaryId = "abc123";
-//        String hashtagName = null;
-//
-//        // when & then
-//        assertThatThrownBy(() -> newsService.getNews(invalidSummaryId, hashtagName))
-//                .isInstanceOf(IllegalArgumentException.class)
-//                .hasMessage("Invalid ID format");
-//
-//        verify(newsRepository, never()).findBySummaryHashtagId(anyLong());
-//        verify(newsRepository, never()).findBySummaryHashtagIdAndHashtagName(anyLong(), anyString());
+        // given
+        String invalidSummaryId = "abc123";
+        String hashtagName = null;
+
+        // when & then
+        assertThatThrownBy(() -> newsService.getNews(invalidSummaryId, hashtagName))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("Invalid ID format");
+
+        verify(newsRepository, never()).findBySummaryId(anyLong());
+        verify(newsRepository, never()).findBySummaryIdAndHashtagName(anyLong(), anyString());
     }
 
 

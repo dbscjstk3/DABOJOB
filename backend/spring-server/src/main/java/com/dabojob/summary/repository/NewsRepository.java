@@ -16,7 +16,7 @@ public interface NewsRepository extends JpaRepository<News, Long> {
     @Query("SELECT n FROM News n " +
             "WHERE n.summaryHashtag.summary.id = :summaryId " +
             "AND n.summaryHashtag.hashtag.name = :hashtagName")
-    List<News> findBySummaryHashtagIdAndHashtagName(
+    List<News> findBySummaryIdAndHashtagName(
             @Param("summaryId") Long summaryId,
             @Param("hashtagName") String hashtagName
     );

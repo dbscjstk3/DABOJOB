@@ -22,7 +22,7 @@ public class NewsService {
             if (hashtagName == null) {
                 newsList = newsRepository.findBySummaryId(parsedSummaryId);
             } else{
-                newsList = newsRepository.findBySummaryHashtagIdAndHashtagName(parsedSummaryId, hashtagName);
+                newsList = newsRepository.findBySummaryIdAndHashtagName(parsedSummaryId, hashtagName);
             }
 
             return newsList.stream()
