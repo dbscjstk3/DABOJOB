@@ -330,11 +330,11 @@ export const API_ENDPOINTS = {
       `${ADMIN_API_BASE_URL}/api/admin/calendar/companies/${companyId}?year=${year}&month=${month}`,
     REMAP: (companyId: number) =>
       `${ADMIN_API_BASE_URL}/api/admin/calendar/companies/${companyId}/remap`,
-    JOB_STATUS: (jobId: number) => `${ADMIN_API_BASE_URL}/api/admin/jobs/${jobId}`,
+    JOB_STATUS: (jobId: number) => `${ADMIN_SUMMARY_API_BASE_URL}/api/admin/jobs/${jobId}`,
   },
   ADMIN_JOB: {
     COMPLETE_DATA: (jobId: string | number) =>
-      `${ADMIN_JOB_API_BASE_URL}/api/admin/jobs/${jobId}/complete-data`,
+      `${ADMIN_SUMMARY_API_BASE_URL}/api/admin/jobs/${jobId}/complete-data`,
     REPROCESSING: (jobId: string | number) =>
       `${ADMIN_SUMMARY_API_BASE_URL}/api/admin/jobs/${jobId}/reprocessing`,
     APPROVE: (jobId: string | number) =>
