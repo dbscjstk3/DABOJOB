@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from '@tanstack/react-router';
 import { Typography } from '../../common/atoms/Typography';
 import { RecruitBadge } from '../atoms/RecruitBadge';
@@ -40,6 +40,10 @@ export const RecruitModal: React.FC<RecruitModalProps> = ({
   >({});
   const [loadingStatuses, setLoadingStatuses] = useState<Set<number>>(new Set());
 
+  // 이미 시도(성공/실패 포함)한 작업 ID 기록 → 실패 시에도 무한 재시도 방지 (ref로 재렌더 방지)
+  const attemptedJobIdsRef = useRef<Set<number>>(new Set());
+  const hasRequestedRef = useRef<boolean>(false);
+
   // verified 상태인 회사들의 작업 상태 조회
   useEffect(() => {
     const fetchJobStatuses = async () => {
@@ -49,7 +53,10 @@ export const RecruitModal: React.FC<RecruitModalProps> = ({
 
       for (const company of verifiedCompanies) {
         for (const job of company.job_postings) {
-          if (!jobStatuses[job.job_id] && !loadingStatuses.has(job.job_id)) {
+          if (!jobStatuses[job.job_id] &&
+            !loadingStatuses.has(job.job_id) &&
+            !attemptedJobIdsRef.current.has(job.job_id)
+          ) {
             setLoadingStatuses((prev) => new Set(prev).add(job.job_id));
 
             try {
@@ -58,8 +65,10 @@ export const RecruitModal: React.FC<RecruitModalProps> = ({
                 ...prev,
                 [job.job_id]: statusData.status,
               }));
+              attemptedJobIdsRef.current.add(job.job_id);
             } catch (error) {
               console.error(`작업 상태 조회 실패 (job_id: ${job.job_id}):`, error);
+              attemptedJobIdsRef.current.add(job.job_id);
             } finally {
               setLoadingStatuses((prev) => {
                 const newSet = new Set(prev);
@@ -72,10 +81,20 @@ export const RecruitModal: React.FC<RecruitModalProps> = ({
       }
     };
 
-    if (isOpen && adminCompanies.length > 0) {
+    if (isOpen && adminCompanies.length > 0 && !hasRequestedRef.current) {
+      hasRequestedRef.current = true;
       fetchJobStatuses();
     }
   }, [isOpen, adminCompanies, jobStatuses, loadingStatuses]);
+
+  // 모달이 닫힐 때 ref 초기화 (필요 시 다음 오픈에서 재조회)
+  useEffect(() => {
+    if (!isOpen) {
+      hasRequestedRef.current = false;
+      attemptedJobIdsRef.current = new Set();
+      setLoadingStatuses(new Set());
+    }
+  }, [isOpen]);
 
   if (!isOpen) return null;
 
