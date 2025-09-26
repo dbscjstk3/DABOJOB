@@ -41,24 +41,7 @@ public class ViewCountService {
 
     public void incrementViewCount(String jobPostingId, String userId) {
         try{
-            Long parsedJobPostingId = Long.parseLong(jobPostingId);
-            JobPosting jobPosting = jobPostingRepository.findById(parsedJobPostingId).orElse(null);
-            if (jobPosting == null) {
-                throw new EntityNotFoundException("Job posting not found");
-            }
 
-            String companyName = jobPosting.getCompany().getName();
-            String title = jobPosting.getTitle();
-
-            incrementViewCountWithJobInfo(parsedJobPostingId, userId, title, companyName);
-        } catch (NumberFormatException e) {
-            log.warn("Invalid job posting ID. Job ID: {}", jobPostingId);
-            throw new IllegalArgumentException("Invalid job posting ID");
-        }
-    }
-
-    private void incrementViewCountWithJobInfo(Long jobPostingId, String userId, String title, String companyName) {
-        try {
             if (jobPostingId == null) {
                 log.debug("Null job posting ID provided");
                 return;
@@ -68,18 +51,27 @@ public class ViewCountService {
                 return;
             }
 
-            String jobIdStr = String.valueOf(jobPostingId);
+            Long parsedJobPostingId = Long.parseLong(jobPostingId);
+            JobPosting jobPosting = jobPostingRepository.findById(parsedJobPostingId).orElse(null);
+
+            if (jobPosting == null) {
+                log.debug("Job posting with id {} not found", parsedJobPostingId);
+                return;
+            }
+
+            String companyName = jobPosting.getCompany().getName();
+            String title = jobPosting.getTitle();
             String cleanUserId = userId.trim();
 
-            String userViewKey = String.format(USER_VIEW_KEY, cleanUserId, jobIdStr);
-            String viewCountKey = String.format(VIEW_COUNT_KEY, jobIdStr);
-            String titleKey = String.format(JOB_TITLES_KEY, jobIdStr);
-            String companyKey = String.format(JOB_COMPANIES_KEY, jobIdStr);
+            String userViewKey = String.format(USER_VIEW_KEY, cleanUserId, jobPostingId);
+            String viewCountKey = String.format(VIEW_COUNT_KEY, jobPostingId);
+            String titleKey = String.format(JOB_TITLES_KEY, jobPostingId);
+            String companyKey = String.format(JOB_COMPANIES_KEY, jobPostingId);
 
             Boolean hasViewed = stringRedisTemplate.hasKey(userViewKey);
 
-            if (Boolean.TRUE.equals(hasViewed)) {
-                log.debug("User {} already viewed job {} within 1 hour", cleanUserId, jobIdStr);
+            if (hasViewed) {
+                log.debug("User {} already viewed job {} within 1 hour", cleanUserId, jobPostingId);
                 return;
             }
 
@@ -93,7 +85,7 @@ public class ViewCountService {
             }
 
             // Hot jobs에 추가
-            stringRedisTemplate.opsForZSet().incrementScore(HOT_JOBS_KEY, jobIdStr, 1.0);
+            stringRedisTemplate.opsForZSet().incrementScore(HOT_JOBS_KEY, jobPostingId, 1.0);
             stringRedisTemplate.expire(HOT_JOBS_KEY, VIEW_COUNT_TTL);
 
             // 제목과 회사명 저장
@@ -104,11 +96,14 @@ public class ViewCountService {
                 stringRedisTemplate.opsForValue().set(companyKey, companyName.trim(), JOB_INFO_TTL);
             }
 
+        } catch (NumberFormatException e) {
+            log.warn("Invalid job posting ID. Job ID: {}", jobPostingId);
+            throw new IllegalArgumentException("Invalid job posting ID");
         } catch (Exception e) {
-            log.warn("Failed to increment view count for job {} by user {}: {}",
-                    jobPostingId, userId, e.getMessage());
+            log.warn("Failed to increment view count for job {} by user {}: {}", jobPostingId, userId, e.getMessage());
         }
     }
+
 
     // 특정 채용공고의 조회수 조회
     public long getViewCount(Long jobPostingId) {
@@ -214,7 +209,7 @@ public class ViewCountService {
         try {
             String jobIdStr = String.valueOf(jobPostingId);
             String userViewKey = String.format(USER_VIEW_KEY, userId, jobIdStr);
-            return Boolean.TRUE.equals(stringRedisTemplate.hasKey(userViewKey));
+            return stringRedisTemplate.hasKey(userViewKey);
 
         } catch (Exception e) {
             log.error("Failed to check user view status for job {} by user {}", jobPostingId, userId, e);
