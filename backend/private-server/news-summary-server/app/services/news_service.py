@@ -59,8 +59,9 @@ class NewsService:
                 logger.info(f"News already processed for hashtag: {hashtag} (count: {existing_count})")
                 return existing_count
 
-            # 1. Naver API로 뉴스 검색 (3개로 제한)
-            raw_news_list = await self._search_naver_news(hashtag, company_name, target_articles=3)
+            # 1. Naver API로 뉴스 검색 (테스트용: 1개로 제한)
+            raw_news_list = await self._search_naver_news(hashtag, company_name, target_articles=1)
+            # 기존: target_articles=3 (운영용)
 
             if not raw_news_list:
                 logger.warning(f"No news found for hashtag: {hashtag}")
@@ -97,7 +98,7 @@ class NewsService:
             return 0
 
     async def _search_naver_news(self, hashtag: str, company_name: str = "",
-                               target_articles: int = 3) -> List[Dict[str, Any]]:
+                               target_articles: int = 1) -> List[Dict[str, Any]]:  # 테스트용: 기본값 1개
         """Naver 뉴스 API 검색 (참고 코드 기반)"""
         try:
             hashtag_clean = hashtag.replace('#', '').lower()
