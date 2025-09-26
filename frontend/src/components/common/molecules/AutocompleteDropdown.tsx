@@ -1,22 +1,28 @@
 import { useState, useRef, useEffect } from 'react';
 import { useNavigate } from '@tanstack/react-router';
+import { Clock } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import Typography from '@/components/common/atoms/Typography';
 import type { AutocompleteJobPosting } from '@/lib/api';
 
 interface AutocompleteDropdownProps {
   items: AutocompleteJobPosting[];
+  recentSearches?: string[];
   isOpen: boolean;
   onClose: () => void;
   onItemClick?: (item: AutocompleteJobPosting) => void;
+  onRecentSearchClick?: (search: string) => void;
+  containerRef?: React.RefObject<HTMLDivElement>;
   className?: string;
 }
 
 export default function AutocompleteDropdown({
   items,
+  recentSearches = [],
   isOpen,
   onClose,
   onItemClick,
+  onRecentSearchClick,
   className,
 }: AutocompleteDropdownProps) {
   const navigate = useNavigate();
@@ -50,24 +56,33 @@ export default function AutocompleteDropdown({
   // 키보드 네비게이션
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (!isOpen || items.length === 0) return;
+      if (!isOpen) return;
+
+      const totalItems = recentSearches.length + items.length;
+      if (totalItems === 0) return;
 
       switch (e.key) {
         case 'ArrowDown':
           e.preventDefault();
-          setSelectedIndex((prev) => (prev < items.length - 1 ? prev + 1 : 0));
+          setSelectedIndex((prev) => (prev < totalItems - 1 ? prev + 1 : 0));
           break;
         case 'ArrowUp':
           e.preventDefault();
-          setSelectedIndex((prev) => (prev > 0 ? prev - 1 : items.length - 1));
+          setSelectedIndex((prev) => (prev > 0 ? prev - 1 : totalItems - 1));
           break;
         case 'Enter':
-          // selectedIndex가 유효한 경우에만 처리
-          if (selectedIndex >= 0 && selectedIndex < items.length) {
+          if (selectedIndex >= 0) {
             e.preventDefault();
-            handleItemClick(items[selectedIndex]);
+            // 최근 검색어 섹션
+            if (selectedIndex < recentSearches.length) {
+              handleRecentSearchClick(recentSearches[selectedIndex]);
+            }
+            // 자동완성 섹션
+            else if (selectedIndex < totalItems) {
+              const autocompleteIndex = selectedIndex - recentSearches.length;
+              handleItemClick(items[autocompleteIndex]);
+            }
           }
-          // selectedIndex가 -1이면 기본 동작(form submit) 허용
           break;
         case 'Escape':
           e.preventDefault();
@@ -78,7 +93,7 @@ export default function AutocompleteDropdown({
 
     document.addEventListener('keydown', handleKeyDown);
     return () => document.removeEventListener('keydown', handleKeyDown);
-  }, [isOpen, items, selectedIndex, onClose]);
+  }, [isOpen, items, recentSearches, selectedIndex, onClose]);
 
   const handleItemClick = (item: AutocompleteJobPosting) => {
     if (onItemClick) {
@@ -91,6 +106,19 @@ export default function AutocompleteDropdown({
         to: '/calendar/$id',
         params: { id: String(item.companyId) },
         search: { jobPostingId: String(item.jobPostingId) },
+      });
+    }
+    onClose();
+  };
+
+  const handleRecentSearchClick = (search: string) => {
+    if (onRecentSearchClick) {
+      onRecentSearchClick(search);
+    } else {
+      // 기본 동작: 검색 페이지로 이동
+      navigate({
+        to: '/search',
+        search: { q: search, page: 1 },
       });
     }
     onClose();
@@ -109,7 +137,7 @@ export default function AutocompleteDropdown({
     return deadline >= today ? 'started' : 'ended';
   };
 
-  if (!isOpen || items.length === 0) return null;
+  if (!isOpen || (items.length === 0 && recentSearches.length === 0)) return null;
 
   return (
     <div className="relative">
@@ -122,16 +150,44 @@ export default function AutocompleteDropdown({
         )}
       >
         <div className="max-h-[400px] overflow-y-auto">
+          {/* 최근 검색어 섹션 - 자동완성과 동일한 스타일 */}
+          {recentSearches.length > 0 && (
+            <>
+              {recentSearches.map((search, index) => (
+                <div
+                  key={`recent-${index}`}
+                  className={cn(
+                    'px-4 py-3 hover:bg-slate-50 cursor-pointer transition-colors border-b border-slate-100',
+                    selectedIndex === index && 'bg-slate-50',
+                  )}
+                  onClick={() => handleRecentSearchClick(search)}
+                  onMouseEnter={() => setSelectedIndex(index)}
+                >
+                  <div className="flex items-center gap-3">
+                    {/* 시계 아이콘 */}
+                    <Clock className="h-4 w-4 text-slate-400" />
+
+                    {/* 검색어 텍스트 */}
+                    <Typography variant="default" weight="medium" className="flex-1">
+                      {search}
+                    </Typography>
+                  </div>
+                </div>
+              ))}
+            </>
+          )}
+
+          {/* 자동완성 결과 섹션 */}
           {items.map((item, index) => (
             <div
               key={item.jobPostingId}
               className={cn(
                 'px-4 py-3 hover:bg-slate-50 cursor-pointer transition-colors border-b border-slate-100 last:border-b-0',
-                selectedIndex === index && 'bg-slate-50',
+                selectedIndex === recentSearches.length + index && 'bg-slate-50',
               )}
               onClick={() => handleItemClick(item)}
               onMouseEnter={() => {
-                setSelectedIndex(index);
+                setSelectedIndex(recentSearches.length + index);
               }}
             >
               <div className="flex items-center gap-3">
@@ -163,22 +219,6 @@ export default function AutocompleteDropdown({
           ))}
         </div>
       </div>
-
-      {/* 호버 카드 (미리보기) */}
-      {/* {hoveredItem && (
-        <div className="absolute left-[calc(100%+12px)] top-0 w-[400px] z-50 pointer-events-none">
-          <SearchResultCard
-            status={getJobStatus(hoveredItem.deadlineDate)}
-            companyName={hoveredItem.companyName}
-            title={hoveredItem.title}
-            experienceLevel={hoveredItem.careerInfo}
-            period={formatDeadline(hoveredItem.deadlineDate)}
-            jobCategory={`${hoveredItem.jobSectorCategory} · ${hoveredItem.jobSectorName}`}
-            url={hoveredItem.url}
-            className="shadow-xl"
-          />
-        </div>
-      )} */}
     </div>
   );
 }

@@ -6,6 +6,12 @@ export const API_BASE_URL =
 export const ADMIN_API_BASE_URL =
   import.meta.env.VITE_USE_MSW === 'true' ? '' : import.meta.env.VITE_ADMIN_API_BASE_URL;
 
+export const ADMIN_JOB_API_BASE_URL =
+  import.meta.env.VITE_USE_MSW === 'true' ? '' : import.meta.env.VITE_ADMIN_JOB_API_BASE_URL;
+
+export const ADMIN_SUMMARY_API_BASE_URL =
+  import.meta.env.VITE_USE_MSW === 'true' ? '' : import.meta.env.VITE_ADMIN_SUMMARY_API_BASE_URL;
+
 // Summary API 응답 타입 정의
 export interface SummaryResponse {
   summaryId: number;
@@ -132,6 +138,79 @@ export interface AutocompleteResponse {
 // 검색 API 응답 타입 정의 (AutocompleteResponse와 동일한 구조)
 export type SearchJobPostingResponse = AutocompleteResponse;
 
+// Admin Job Complete API 타입 정의
+export interface AdminJobCompleteResponse {
+  job_id: number;
+  status: string;
+  company_info: {
+    company_name: string;
+    company_scale: string;
+  };
+  summary_reports: {
+    business_overview: string;
+    products_services: string;
+    revenue_orders: string;
+    contracts_rnd: string;
+    others: string;
+  };
+  news_data: {
+    business_overview?: Record<string, NewsHashtagGroup>;
+    products_services?: Record<string, NewsHashtagGroup>;
+    revenue_orders?: Record<string, NewsHashtagGroup>;
+    contracts_rnd?: Record<string, NewsHashtagGroup>;
+    others?: Record<string, NewsHashtagGroup>;
+  };
+  generated_at: string;
+}
+
+export interface NewsHashtagGroup {
+  hashtag_id: number;
+  news_items: AdminNewsItem[];
+}
+
+export interface AdminNewsItem {
+  news_id: number;
+  title: string;
+  url: string;
+  published_date: string;
+  summary: string;
+  company_name: string;
+  status: string;
+}
+
+// Admin Job Actions API 타입 정의
+export interface AdminJobReprocessingResponse {
+  success: boolean;
+  message: string;
+  cleanup_stats: {
+    job_id: number;
+    previous_status: string;
+    new_status: string;
+    deleted_news_summaries: number;
+    deleted_hashtag_news: number;
+    deleted_hashtags: number;
+    deleted_summaries: number;
+    cleanup_timestamp: string;
+    stream_cleanup: {
+      removed_messages: number;
+      acked_pending: number;
+    };
+  };
+  next_steps: string[];
+}
+
+export interface AdminJobApproveResponse {
+  job_id: number;
+  status: 'finished';
+  uploaded_files: {
+    companies: string;
+    job_postings: string;
+    job_sectors: string;
+    Dart: string;
+  };
+  message: string;
+}
+
 // Admin Mapping API 타입 정의
 export interface AdminCompany {
   company_id: number;
@@ -235,6 +314,11 @@ export const API_ENDPOINTS = {
       if (size !== undefined) url += `&size=${size}`;
       return url;
     },
+    RECENT_SEARCHES: (limit?: number) => {
+      let url = `${API_BASE_URL}/api/job-postings/search/recent`;
+      if (limit !== undefined) url += `?limit=${limit}`;
+      return url;
+    },
     CALENDAR: (startDate: string, endDate: string) =>
       `${API_BASE_URL}/api/job-postings/calendar?startDate=${startDate}&endDate=${endDate}`,
     HOT: `${API_BASE_URL}/api/job-postings/hot`,
@@ -247,6 +331,14 @@ export const API_ENDPOINTS = {
     REMAP: (companyId: number) =>
       `${ADMIN_API_BASE_URL}/api/admin/calendar/companies/${companyId}/remap`,
     JOB_STATUS: (jobId: number) => `${ADMIN_API_BASE_URL}/api/admin/jobs/${jobId}`,
+  },
+  ADMIN_JOB: {
+    COMPLETE_DATA: (jobId: string | number) =>
+      `${ADMIN_JOB_API_BASE_URL}/api/admin/jobs/${jobId}/complete-data`,
+    REPROCESSING: (jobId: string | number) =>
+      `${ADMIN_SUMMARY_API_BASE_URL}/api/admin/jobs/${jobId}/reprocessing`,
+    APPROVE: (jobId: string | number) =>
+      `${ADMIN_JOB_API_BASE_URL}/api/admin/jobs/${jobId}/approve`,
   },
 } as const;
 
@@ -416,6 +508,23 @@ export const fetchJobPostingsByDateRange = async (
   return data;
 };
 
+// 최근 검색어 API 호출 함수
+export const fetchRecentSearches = async (limit?: number): Promise<string[]> => {
+  const response = await fetch(API_ENDPOINTS.JOB_POSTING.RECENT_SEARCHES(limit), {
+    method: 'GET',
+    credentials: 'include', // Cookie 포함
+    headers: {
+      'Content-Type': 'application/json',
+    },
+  });
+
+  if (!response.ok) {
+    throw new Error(`Failed to fetch recent searches: ${response.status}`);
+  }
+
+  return response.json();
+};
+
 // 인기 공고 API 호출 함수
 export const fetchHotJobPostings = async (): Promise<HotJobPostingResponse[]> => {
   const response = await fetch(API_ENDPOINTS.JOB_POSTING.HOT, {
@@ -495,6 +604,61 @@ export const updateAdminMapping = async (
   return response.json();
 };
 
+// 관리자 Job Complete 데이터 조회 API 호출 함수
+export const fetchAdminJobCompleteData = async (
+  jobId: string | number,
+): Promise<AdminJobCompleteResponse> => {
+  const response = await fetch(API_ENDPOINTS.ADMIN_JOB.COMPLETE_DATA(jobId), {
+    method: 'GET',
+    credentials: 'include', // Cookie 포함
+    headers: {
+      'Content-Type': 'application/json',
+    },
+  });
+
+  if (!response.ok) {
+    throw new Error(`Failed to fetch admin job complete data: ${response.status}`);
+  }
+
+  return response.json();
+};
+
+// Job 재요약 요청 API 호출 함수
+export const requestJobReprocessing = async (
+  jobId: string | number,
+): Promise<AdminJobReprocessingResponse> => {
+  const response = await fetch(API_ENDPOINTS.ADMIN_JOB.REPROCESSING(jobId), {
+    method: 'POST',
+    credentials: 'include', // Cookie 포함
+    headers: {
+      'Content-Type': 'application/json',
+    },
+  });
+
+  if (!response.ok) {
+    throw new Error(`Failed to request job reprocessing: ${response.status}`);
+  }
+
+  return response.json();
+};
+
+// Job 승인 API 호출 함수
+export const approveJob = async (jobId: string | number): Promise<AdminJobApproveResponse> => {
+  const response = await fetch(API_ENDPOINTS.ADMIN_JOB.APPROVE(jobId), {
+    method: 'POST',
+    credentials: 'include', // Cookie 포함
+    headers: {
+      'Content-Type': 'application/json',
+    },
+  });
+
+  if (!response.ok) {
+    throw new Error(`Failed to approve job: ${response.status}`);
+  }
+
+  return response.json();
+};
+
 // 관리자: 개별 채용공고 작업 상태 조회
 export interface AdminJobStatusResponse {
   job_id: number;
@@ -548,18 +712,3 @@ export interface AdminJobCompleteDataResponse {
   >;
   generated_at: string;
 }
-
-// 관리자용 완료 데이터 조회
-export const fetchAdminJobCompleteData = async (
-  jobId: number,
-): Promise<AdminJobCompleteDataResponse> => {
-  const response = await fetch(`${ADMIN_API_BASE_URL}/api/admin/jobs/${jobId}/complete-data`, {
-    method: 'GET',
-    credentials: 'include',
-    headers: { 'Content-Type': 'application/json' },
-  });
-  if (!response.ok) {
-    throw new Error(`Failed to fetch admin complete data: ${response.status}`);
-  }
-  return response.json();
-};

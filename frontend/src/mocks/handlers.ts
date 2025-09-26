@@ -5,6 +5,11 @@ import { getAllJobPostings } from './data/jobPostingsForDetailPage';
 import { getFilteredJobPostings, createAutocompleteResponse } from './data/autocomplete';
 import { searchJobPostings } from './data/jobPostings';
 import { mockCompanyMappings, mockMappingUpdateResponse } from './data/adminMapping';
+import {
+  mockAdminJobCompleteData,
+  mockJobReprocessingResponse,
+  mockJobApproveResponse,
+} from './data/adminJobComplete';
 import type { NewsResponse, AdminMappingUpdateRequest } from '@/lib/api';
 
 export const handlers = [
@@ -205,6 +210,40 @@ export const handlers = [
           }),
         );
       }, delay);
+    });
+  }),
+
+  // 최근 검색어 API 목 핸들러
+  http.get('/api/job-postings/search/recent', ({ request }) => {
+    const url = new URL(request.url);
+    const limit = parseInt(url.searchParams.get('limit') || '10', 10);
+
+    console.log(`🎭 MSW: 최근 검색어 API 호출됨 - limit: ${limit}`);
+
+    // 최근 검색어 목 데이터
+    const recentSearches = [
+      '백엔드 개발자',
+      '프론트엔드',
+      '스타트업',
+      '삼성전자',
+      '풀스택 개발자',
+      'React 개발자',
+      'Node.js',
+      'Python 개발자',
+      'AI 엔지니어',
+      '데이터 분석가',
+    ];
+
+    // limit만큼 잘라서 반환
+    const limitedSearches = recentSearches.slice(0, limit);
+
+    console.log(`✅ MSW: ${limitedSearches.length}개의 최근 검색어 반환`);
+
+    return HttpResponse.json(limitedSearches, {
+      status: 200,
+      headers: {
+        'Content-Type': 'application/json',
+      },
     });
   }),
 
@@ -489,67 +528,25 @@ export const handlers = [
     });
   }),
 
-  // 관리자용 완료 데이터 조회 API 핸들러
+  // Admin Job Complete 데이터 조회 API 목 핸들러
   http.get('/api/admin/jobs/:jobId/complete-data', ({ params }) => {
-    const { jobId } = params;
-    const idNum = parseInt(jobId as string, 10) || 0;
+    const jobId = params.jobId as string;
 
-    const response = {
-      job_id: idNum,
-      status: 'completed' as const,
-      company_info: {
-        company_name: idNum % 2 === 0 ? '삼성전자' : '네이버',
-        company_scale: '대기업',
-      },
-      summary_reports: {
-        business_overview: '글로벌 기술 기업으로 다양한 산업에서 혁신을 이끌고 있습니다.',
-        products_services: '반도체, 스마트폰, 클라우드, AI 등 핵심 제품/서비스를 보유.',
-        revenue_orders: '2024년 매출은 전년 대비 성장세를 유지.',
-        contracts_rnd: '주요 연구개발 투자를 확대하고 전략적 파트너십을 체결.',
-        others: 'ESG 경영 강화 및 글로벌 시장 공략 가속.',
-      },
-      news_data: {
-        business_overview: {
-          스마트폰: {
-            hashtag_id: 101,
-            news_items: [
-              {
-                news_id: 1001,
-                title: '신제품 출시 발표',
-                url: 'https://news.example.com/1001',
-                published_date: '2024-01-01T08:00:00',
-                summary: '최신 플래그십 스마트폰을 공개하고 글로벌 출시를 예고했다.',
-                company_name: '삼성전자',
-                status: 'completed' as const,
-              },
-            ],
-          },
-          반도체: {
-            hashtag_id: 102,
-            news_items: [
-              {
-                news_id: 1002,
-                title: '차세대 공정 개발 성과',
-                url: 'https://news.example.com/1002',
-                published_date: '2024-01-01T09:00:00',
-                summary: '고성능/저전력 공정 기술을 공개하며 시장 리더십을 강화.',
-                company_name: '삼성전자',
-                status: 'completed' as const,
-              },
-            ],
-          },
-        },
-        products_services: {
-          AI: {
-            hashtag_id: 103,
-            news_items: [],
-          },
-        },
-      },
-      generated_at: '2024-01-01T15:00:00',
-    };
+    console.log(`🎭 MSW: Admin Job Complete API 호출됨 - Job ID: ${jobId}`);
 
-    return HttpResponse.json(response, {
+    const jobData = mockAdminJobCompleteData[jobId];
+
+    if (!jobData) {
+      console.log(`❌ MSW: Job ID ${jobId}에 해당하는 데이터가 없습니다.`);
+      return new HttpResponse(null, {
+        status: 404,
+        statusText: 'Job data not found',
+      });
+    }
+
+    console.log(`✅ MSW: ${jobData.company_info.company_name} Job 데이터 반환`);
+
+    return HttpResponse.json(jobData, {
       status: 200,
       headers: {
         'Content-Type': 'application/json',
@@ -557,27 +554,57 @@ export const handlers = [
     });
   }),
 
-  // Admin Job Status API 목 핸들러
-  http.get('/api/admin/jobs/:jobId', ({ params }) => {
-    const jobId = parseInt(params.jobId as string, 10);
+  // Admin Job 재요약 요청 API 목 핸들러
+  http.post('/api/admin/jobs/:jobId/reprocessing', async ({ params }) => {
+    const jobId = params.jobId as string;
 
-    // 간단한 라운드로빈 상태 부여 (jobId에 따라 상태가 달라짐)
-    const statuses: Array<'completed' | 'reprocessing' | 'finished'> = [
-      'completed',
-      'reprocessing',
-      'finished',
-    ];
-    const status = statuses[jobId % statuses.length];
+    console.log(`🎭 MSW: Admin Job Reprocessing API 호출됨 - Job ID: ${jobId}`);
 
-    return HttpResponse.json(
-      {
-        job_id: jobId,
-        status,
+    // 실제 처리 시뮬레이션을 위한 지연
+    await new Promise((resolve) => setTimeout(resolve, 1000));
+
+    // jobId에 맞게 응답 커스터마이즈
+    const customResponse = {
+      ...mockJobReprocessingResponse,
+      message: `Job ${jobId} has been marked for reprocessing`,
+      cleanup_stats: {
+        ...mockJobReprocessingResponse.cleanup_stats,
+        job_id: parseInt(jobId),
       },
-      {
-        status: 200,
-        headers: { 'Content-Type': 'application/json' },
+    };
+
+    console.log(`✅ MSW: Job ${jobId} 재요약 요청 성공 응답 반환`);
+
+    return HttpResponse.json(customResponse, {
+      status: 200,
+      headers: {
+        'Content-Type': 'application/json',
       },
-    );
+    });
+  }),
+
+  // Admin Job 승인 API 목 핸들러
+  http.post('/api/admin/jobs/:jobId/approve', async ({ params }) => {
+    const jobId = params.jobId as string;
+
+    console.log(`🎭 MSW: Admin Job Approve API 호출됨 - Job ID: ${jobId}`);
+
+    // 실제 처리 시뮬레이션을 위한 지연
+    await new Promise((resolve) => setTimeout(resolve, 1500));
+
+    // jobId에 맞게 응답 커스터마이즈
+    const customResponse = {
+      ...mockJobApproveResponse,
+      job_id: parseInt(jobId),
+    };
+
+    console.log(`✅ MSW: Job ${jobId} 승인 성공 응답 반환`);
+
+    return HttpResponse.json(customResponse, {
+      status: 200,
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    });
   }),
 ];

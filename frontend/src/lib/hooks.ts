@@ -8,8 +8,12 @@ import {
   fetchJobPosting,
   fetchAutocomplete,
   fetchSearchJobPostings,
+  fetchRecentSearches,
   fetchAdminMappingData,
   updateAdminMapping,
+  fetchAdminJobCompleteData,
+  requestJobReprocessing,
+  approveJob,
   type SummaryResponse,
   type NewsResponse,
   type JobPostingResponse,
@@ -18,6 +22,9 @@ import {
   type AdminMappingResponse,
   type AdminMappingUpdateRequest,
   type AdminMappingUpdateResponse,
+  type AdminJobCompleteResponse,
+  type AdminJobReprocessingResponse,
+  type AdminJobApproveResponse,
 } from './api';
 
 // Summary Detail을 가져오는 커스텀 훅
@@ -117,6 +124,17 @@ export const useAutocomplete = (searchQuery: string) => {
   });
 };
 
+// 최근 검색어를 가져오는 커스텀 훅
+export const useRecentSearches = (limit: number = 5) => {
+  return useQuery<string[], Error>({
+    queryKey: ['recentSearches', limit],
+    queryFn: () => fetchRecentSearches(limit),
+    staleTime: 5 * 60 * 1000, // 5분
+    gcTime: 10 * 60 * 1000, // 10분
+    retry: 0, // 실패 시 재시도 안함
+  });
+};
+
 // 검색을 위한 커스텀 훅
 export const useSearchJobPostings = (search: string, page?: number, size?: number) => {
   return useQuery<SearchJobPostingResponse, Error>({
@@ -155,6 +173,51 @@ export const useAdminMappingUpdate = (companyId: number, year: number, month: nu
     },
     onError: (error) => {
       console.error('Admin mapping update failed:', error);
+    },
+  });
+};
+
+// 관리자 Job Complete 데이터를 가져오는 커스텀 훅
+export const useAdminJobCompleteData = (jobId: string | number | undefined) => {
+  return useQuery<AdminJobCompleteResponse, Error>({
+    queryKey: ['adminJobComplete', jobId],
+    queryFn: () => {
+      if (!jobId) throw new Error('Job ID is required');
+      return fetchAdminJobCompleteData(jobId);
+    },
+    enabled: !!jobId,
+    staleTime: 5 * 60 * 1000, // 5분
+    gcTime: 10 * 60 * 1000, // 10분
+    retry: 1,
+  });
+};
+
+// Job 재요약 요청을 위한 커스텀 훅
+export const useJobReprocessingMutation = (jobId: string | number) => {
+  return useMutation<AdminJobReprocessingResponse, Error>({
+    mutationFn: () => requestJobReprocessing(jobId),
+    onSuccess: (data) => {
+      console.log('Job reprocessing requested:', data);
+      // 성공 시 관련 쿼리 캐시 무효화
+      queryClient.invalidateQueries({ queryKey: ['adminJobComplete', jobId] });
+    },
+    onError: (error) => {
+      console.error('Job reprocessing failed:', error);
+    },
+  });
+};
+
+// Job 승인을 위한 커스텀 훅
+export const useJobApproveMutation = (jobId: string | number) => {
+  return useMutation<AdminJobApproveResponse, Error>({
+    mutationFn: () => approveJob(jobId),
+    onSuccess: (data) => {
+      console.log('Job approved:', data);
+      // 성공 시 관련 쿼리 캐시 무효화
+      queryClient.invalidateQueries({ queryKey: ['adminJobComplete', jobId] });
+    },
+    onError: (error) => {
+      console.error('Job approval failed:', error);
     },
   });
 };

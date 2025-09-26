@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useParams, useSearch } from '@tanstack/react-router';
+import { Link, useParams, useSearch } from '@tanstack/react-router';
 import { useAdminMappingData, useAdminMappingUpdate } from '../lib/hooks';
 import { Typography } from '../components/common/atoms/Typography';
 import { CompanyInfoCard } from '../components/admin/organisms/CompanyInfoCard';
@@ -8,6 +8,7 @@ import { MappingEditForm } from '../components/admin/organisms/MappingEditForm';
 import { MappingResultCard } from '../components/admin/organisms/MappingResultCard';
 import { type AdminMappingUpdateRequest } from '../lib/api';
 import { type MappingResultStatus } from '../types/mapping.types';
+import { ChevronsLeft } from 'lucide-react';
 
 export const AdminMappingPage: React.FC = () => {
   // TanStack Router의 useParams와 useSearch 사용
@@ -82,6 +83,11 @@ export const AdminMappingPage: React.FC = () => {
             기업 DART 매핑 관리
           </Typography>
         </div>
+
+        <Link to="/admin" className="inline-flex items-center gap-1.5 text-sm mb-3 mt-5">
+          <ChevronsLeft className="h-4 w-4 text-daboja-default" />
+          <span>관리자 페이지로 돌아가기</span>
+        </Link>
 
         <CompanyInfoCard
           company={pageData.company}
