@@ -35,6 +35,7 @@ services:
       - ollama-data:/root/.ollama
     environment:
       - OLLAMA_HOST=0.0.0.0:11434   # 바인드 주소 (접속용 URL은 각 앱의 OLLAMA_BASE_URL 사용)
+      - /home/ubuntu/ollama_model:/models:ro
     healthcheck:
       # curl 없이 ollama CLI로 확인
       test: ["CMD", "sh", "-lc", "ollama list >/dev/null 2>&1"]
