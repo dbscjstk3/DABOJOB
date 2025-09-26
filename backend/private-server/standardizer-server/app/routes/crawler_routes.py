@@ -136,10 +136,15 @@ async def start_saramin_crawl(
     - max_pages: 크롤링할 최대 페이지 수 (1-500)
     """
     try:
+        import logging
+        logger = logging.getLogger(__name__)
+
         # 크롤링 작업 ID 생성
         crawl_id = f"saramin_crawl_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
+        logger.info(f"🆔 크롤링 작업 ID 생성: {crawl_id}")
 
         # Redis에 크롤링 상태 저장
+        logger.info(f"💾 Redis에 크롤링 상태 저장 중...")
         await redis_helper.set_status(f"crawl:{crawl_id}", {
             "status": "running",
             "max_pages": max_pages,
@@ -150,17 +155,26 @@ async def start_saramin_crawl(
         # 백그라운드에서 크롤링 실행
         def run_crawler():
             import asyncio
+            import logging
             loop = asyncio.new_event_loop()
             asyncio.set_event_loop(loop)
+
+            # 백그라운드 스레드에서도 로그가 보이도록 설정
+            logger = logging.getLogger(__name__)
+            logger.info(f"🚀 백그라운드에서 크롤링 시작: {crawl_id}")
 
             try:
                 # 새로운 DB 세션 생성 (백그라운드 스레드용)
                 from ..database import SessionLocal
                 db_session = SessionLocal()
 
+                logger.info(f"📊 DB 세션 생성 완료")
+
                 # 크롤링 실행
                 crawler = SaraminCrawler(db_session=db_session)
+                logger.info(f"🕷️ SaraminCrawler 생성 완료, 크롤링 시작...")
                 result = crawler.crawl(max_pages=max_pages, crawl_id=crawl_id)
+                logger.info(f"✅ 크롤링 완료: {result.get('status')}")
 
                 # Redis 상태 업데이트
                 loop.run_until_complete(redis_helper.set_status(f"crawl:{crawl_id}", {
@@ -180,18 +194,26 @@ async def start_saramin_crawl(
                         "submitted_at": datetime.now().isoformat()
                     }
                     loop.run_until_complete(redis_helper.add_job("mapping_stream", mapping_job_data))
-                    print(f"✅ Auto-mapping job queued after Saramin crawling: auto_mapping_{crawl_id}")
+                    logger.info(f"✅ Auto-mapping job queued after Saramin crawling: auto_mapping_{crawl_id}")
 
                 db_session.close()
+                logger.info(f"🔒 DB 세션 정리 완료")
 
             except Exception as e:
+                logger.error(f"❌ 크롤링 실패: {str(e)}")
+                logger.error(f"📋 오류 상세: {type(e).__name__}: {str(e)}")
+                import traceback
+                logger.error(f"🔍 스택 트레이스:\n{traceback.format_exc()}")
+
                 loop.run_until_complete(redis_helper.set_status(f"crawl:{crawl_id}", {
                     "status": "failed",
                     "error": str(e),
                     "completed_at": datetime.now().isoformat()
                 }))
             finally:
+                logger.info(f"🧹 정리 중...")
                 loop.close()
+                logger.info(f"✅ 백그라운드 크롤링 작업 종료: {crawl_id}")
 
         # ThreadPoolExecutor로 백그라운드 실행
         executor.submit(run_crawler)
