@@ -14,7 +14,7 @@ import type { NewsResponse, AdminMappingUpdateRequest } from '@/lib/api';
 
 export const handlers = [
   // Summary Detail API 목 핸들러
-  http.get('/api/summaries/:summaryId', ({ params }) => {
+  http.get('/api/summaries/companies/:summaryId', ({ params }) => {
     const summaryId = params.summaryId as string;
 
     console.log(`🎭 MSW: Summary Detail API 호출됨 - ID: ${summaryId}`);

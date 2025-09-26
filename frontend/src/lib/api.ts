@@ -21,7 +21,7 @@ export interface SummaryResponse {
   productsService: string;
   salesContracts: string;
   rndActivities: string;
-  otherNotes: string;
+  otherNotes: string | null; // null을 허용하도록 수정
   chapterHashtags: {
     BUSINESS_OVERVIEW: string[];
     PRODUCTS_SERVICE: string[];
