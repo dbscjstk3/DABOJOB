@@ -15,6 +15,7 @@ public interface JobPostingSearchRepository extends ElasticsearchRepository<JobP
 
     @Query("""
     {
+      "min_score": 2.0,
       "bool": {
         "must": [
           {
