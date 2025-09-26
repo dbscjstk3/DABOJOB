@@ -51,6 +51,8 @@ export interface CellBoxProps
   onOpenModal?: (day: number) => void;
   /** 관리자용 회사 클릭 핸들러 */
   onAdminCalendarCompanyClick?: (company: AdminCalendarCompany) => void;
+  /** 숨김 상태 */
+  isHidden?: boolean;
 }
 
 /**
@@ -70,8 +72,14 @@ export const CellBox: React.FC<CellBoxProps> = ({
   onToggleExpanded: _onToggleExpanded,
   onOpenModal,
   onAdminCalendarCompanyClick,
+  isHidden = false,
   ...props
 }) => {
+  // 빈 칸은 border만 유지하고 내용 숨김
+  if (isHidden) {
+    return <div className="border-t border-daboja-default h-20 md:h-72" {...props} />;
+  }
+
   return (
     <div
       tabIndex={0}
