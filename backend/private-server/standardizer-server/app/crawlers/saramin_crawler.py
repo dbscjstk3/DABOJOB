@@ -27,194 +27,314 @@ import json as json_lib
 def parse_job_item(job_item_element):
     """
     개별 채용공고 아이템을 파싱하여 구조화된 데이터로 변환
+    - 실제 HTML 구조에 맞게 개선된 파싱 로직
     """
     if not job_item_element:
         return None
 
     job_data = {}
 
-    # box_item 찾기 (list_item 안에 있을 수 있음)
-    box_item = job_item_element.find('div', class_='box_item')
-    if not box_item:
-        box_item = job_item_element  # 이미 box_item일 경우
+    # 디버깅을 위한 요소 ID 저장
+    element_id = job_item_element.get('id', 'unknown')
+    job_data['debug_element_id'] = element_id
 
-    # 1. 회사 정보 파싱
-    company_section = box_item.find('div', class_='col company_nm')
-    if company_section:
-        # 회사명 (여러 방법으로 시도)
-        company_link = company_section.find('a', class_='str_tit')
-        if not company_link:
-            # 다른 선택자로 시도
-            company_link = company_section.find('a')
+    try:
+        # box_item 찾기 (list_item 안에 있을 수 있음)
+        box_item = job_item_element.find('div', class_='box_item')
+        if not box_item:
+            box_item = job_item_element  # 이미 box_item일 경우
 
-        company_name = None
-        company_url = None
+        # 1. 회사 정보 파싱 (개선된 로직)
+        company_section = box_item.find('div', class_='col company_nm')
+        if company_section:
+            # 회사명 추출 (더 강건한 방식)
+            company_link = company_section.find('a', class_='str_tit')
+            if not company_link:
+                company_link = company_section.find('a')
 
-        if company_link:
-            company_name = company_link.get_text(strip=True)
-            company_url = company_link.get('href')
-        else:
-            # 링크가 없으면 텍스트만 추출 시도
-            company_text = company_section.get_text(strip=True)
-            if company_text:
-                # 첫 번째 줄만 회사명으로 사용
-                company_name = company_text.split('\n')[0].strip()
+            company_name = None
+            company_url = None
 
-        job_data['company_name'] = company_name
-        job_data['company_url'] = company_url
+            if company_link:
+                company_name = company_link.get_text(strip=True)
+                company_url = company_link.get('href')
 
-        # 계열사 정보
-        main_corp = company_section.find('span', class_='main_corp')
-        job_data['company_group'] = main_corp.get_text(strip=True) if main_corp else None
+                # 빈 텍스트 처리
+                if not company_name or company_name == '':
+                    # title 속성에서 회사명 추출 시도
+                    company_name = company_link.get('title', '').strip()
 
-        # 기업 규모
-        stock_info = company_section.find('span', class_='info_stock')
-        job_data['company_size'] = stock_info.get_text(strip=True) if stock_info else None
+            if not company_name:
+                # 링크가 없거나 텍스트가 비어있으면 전체 텍스트에서 추출
+                all_text = company_section.get_text(separator=' ', strip=True)
+                if all_text:
+                    # 첫 번째 의미있는 단어를 회사명으로 사용
+                    lines = [line.strip() for line in all_text.split('\n') if line.strip()]
+                    if lines:
+                        company_name = lines[0]
 
-        # company_name이 비어있으면 company_group를 사용 (임시 해결책)
-        if not job_data['company_name'] and job_data['company_group']:
-            job_data['company_name'] = job_data['company_group']
-            job_data['company_group'] = None  # 중복 방지
+            job_data['company_name'] = company_name
+            job_data['company_url'] = company_url
 
-    # 2. 채용공고 정보 파싱
-    notification_section = box_item.find('div', class_='col notification_info')
-    if notification_section:
-        # 공고 제목
-        job_title_link = notification_section.find('a', class_='str_tit')
-        if not job_title_link:
-            # 다른 구조에서 찾기 (.job_tit a 구조)
-            job_tit_section = notification_section.find('div', class_='job_tit')
-            if job_tit_section:
-                job_title_link = job_tit_section.find('a')
+            # 계열사 정보
+            main_corp = company_section.find('span', class_='main_corp')
+            if main_corp:
+                group_name = main_corp.get_text(strip=True)
+                if group_name:
+                    job_data['company_group'] = group_name
 
-        if job_title_link:
-            job_data['job_title'] = job_title_link.get_text(strip=True)
-            job_data['job_url'] = job_title_link.get('href')
+            # 기업 규모
+            stock_info = company_section.find('span', class_='info_stock')
+            if stock_info:
+                size_info = stock_info.get_text(strip=True)
+                if size_info:
+                    job_data['company_size'] = size_info
 
-            # rec_idx 추출 (여러 방법으로 시도)
-            rec_idx = job_title_link.get('rec_idx')
-            if not rec_idx:
-                # href에서 rec_idx 추출
-                href = job_title_link.get('href', '')
-                rec_match = re.search(r'rec_idx=(\d+)', href)
-                if rec_match:
-                    rec_idx = rec_match.group(1)
-            job_data['job_id'] = rec_idx
+        # 2. 채용공고 정보 파싱 (개선된 로직)
+        notification_section = box_item.find('div', class_='col notification_info')
+        if notification_section:
+            # 공고 제목 및 URL (더 정확한 선택자)
+            job_title_link = None
 
-        # 직무 분야
-        job_sectors = notification_section.find('span', class_='job_sector')
-        if job_sectors:
-            sectors = [span.get_text(strip=True) for span in job_sectors.find_all('span')]
-            # "외" 제거
-            sectors = [s for s in sectors if s != '외']
-            job_data['job_sectors'] = sectors
+            # 첫 번째 방법: 직접 찾기
+            job_title_link = notification_section.find('a', class_='str_tit')
 
-        # 특별 태그 (HOT, NEW 등)
-        job_badge = notification_section.find('div', class_='job_badge')
-        if job_badge:
+            # 두 번째 방법: job_tit 안에서 찾기
+            if not job_title_link:
+                job_tit_section = notification_section.find('div', class_='job_tit')
+                if job_tit_section:
+                    job_title_link = job_tit_section.find('a')
+
+            # 세 번째 방법: 모든 a 태그 중 href가 있는 것 찾기
+            if not job_title_link:
+                all_links = notification_section.find_all('a')
+                for link in all_links:
+                    if link.get('href') and ('jobs' in link.get('href', '') or 'rec_idx' in link.get('href', '')):
+                        job_title_link = link
+                        break
+
+            if job_title_link:
+                # 제목 추출
+                title_text = job_title_link.get_text(strip=True)
+                if title_text:
+                    job_data['job_title'] = title_text
+
+                # URL 추출
+                job_url = job_title_link.get('href')
+                if job_url:
+                    job_data['job_url'] = job_url
+
+                    # rec_idx 추출 (더 강건한 방식)
+                    rec_idx = None
+                    # 1. 직접 속성에서
+                    rec_idx = job_title_link.get('rec_idx')
+                    # 2. href에서 rec_idx 파라미터
+                    if not rec_idx:
+                        rec_match = re.search(r'rec_idx=(\d+)', job_url)
+                        if rec_match:
+                            rec_idx = rec_match.group(1)
+                    # 3. id 속성에서 (rec_link_숫자 형태)
+                    if not rec_idx:
+                        link_id = job_title_link.get('id', '')
+                        id_match = re.search(r'rec_link_(\d+)', link_id)
+                        if id_match:
+                            rec_idx = id_match.group(1)
+
+                    job_data['job_id'] = rec_idx
+
+            # 직무 분야 (개선된 파싱)
+            job_sectors_section = notification_section.find('div', class_='job_meta')
+            if job_sectors_section:
+                job_sectors_span = job_sectors_section.find('span', class_='job_sector')
+                if job_sectors_span:
+                    # 모든 span 태그에서 텍스트 추출
+                    sectors = []
+                    sector_spans = job_sectors_span.find_all('span')
+                    for span in sector_spans:
+                        sector_text = span.get_text(strip=True)
+                        if sector_text and sector_text != '외':
+                            sectors.append(sector_text)
+
+                    if sectors:
+                        job_data['job_sectors'] = sectors
+
+            # NEW, HOT 등 뱃지 확인
             badges = []
-            hot_badge = job_badge.find('span', class_='hot')
-            if hot_badge:
+            if job_title_link and 'new' in job_title_link.get('class', []):
+                badges.append('NEW')
+
+            # HOT 뱃지 별도 확인
+            hot_elements = notification_section.find_all(class_=re.compile(r'hot', re.I))
+            if hot_elements:
                 badges.append('HOT')
-            job_data['badges'] = badges
 
-    # 3. 채용 조건 파싱
-    recruit_section = box_item.find('div', class_='col recruit_info')
-    if recruit_section:
-        recruit_items = recruit_section.find_all('li')
+            if badges:
+                job_data['badges'] = badges
 
-        for item in recruit_items:
-            # 근무지
-            work_place = item.find('p', class_='work_place')
-            if work_place:
-                job_data['work_location'] = work_place.get_text(strip=True)
+        # 3. 채용 조건 파싱 (개선된 로직)
+        recruit_section = box_item.find('div', class_='col recruit_info')
+        if recruit_section:
+            recruit_items = recruit_section.find('ul')
+            if recruit_items:
+                li_elements = recruit_items.find_all('li')
 
-            # 경력 및 고용형태
-            career = item.find('p', class_='career')
-            if career:
-                career_text = career.get_text(strip=True)
-                job_data['career_requirement'] = career_text
+                for li in li_elements:
+                    # 근무지
+                    work_place = li.find('p', class_='work_place')
+                    if work_place:
+                        location_text = work_place.get_text(strip=True)
+                        if location_text:
+                            job_data['work_location'] = location_text
 
-                # 경력과 고용형태 분리
-                if '·' in career_text:
-                    parts = career_text.split('·')
-                    job_data['career'] = parts[0].strip()
-                    job_data['employment_type'] = parts[1].strip()
+                    # 경력 및 고용형태
+                    career = li.find('p', class_='career')
+                    if career:
+                        career_text = career.get_text(strip=True)
+                        if career_text:
+                            job_data['career_requirement'] = career_text
 
-            # 학력
-            education = item.find('p', class_='education')
-            if education:
-                job_data['education_requirement'] = education.get_text(strip=True)
+                            # 경력과 고용형태 분리 (· 기준)
+                            if '·' in career_text:
+                                parts = [part.strip() for part in career_text.split('·')]
+                                if len(parts) >= 2:
+                                    job_data['career'] = parts[0]
+                                    job_data['employment_type'] = parts[1]
 
-            # 급여
-            salary = item.find('p', class_='salary')
-            if salary:
-                job_data['salary'] = salary.get_text(strip=True)
+                    # 학력
+                    education = li.find('p', class_='education')
+                    if education:
+                        edu_text = education.get_text(strip=True)
+                        if edu_text:
+                            job_data['education_requirement'] = edu_text
 
-    # 4. 지원 정보 파싱
-    support_section = box_item.find('div', class_='col support_info')
-    if support_section:
-        # 지원 버튼 정보
-        apply_button = support_section.find('button', class_='sri_btn_md')
-        if apply_button:
-            job_data['apply_type'] = '즉시지원'
-        else:
-            homepage_apply = support_section.find('a', class_='sri_btn_sm')
-            if homepage_apply:
-                job_data['apply_type'] = '홈페이지지원'
+                    # 급여
+                    salary = li.find('p', class_='salary')
+                    if salary:
+                        salary_text = salary.get_text(strip=True)
+                        if salary_text:
+                            job_data['salary'] = salary_text
 
-        # 자소서 문항 버튼
-        cover_letter_btn = support_section.find('span', class_='coverLetterLayerBtn')
-        if cover_letter_btn:
-            job_data['has_cover_letter'] = True
-            job_data['cover_letter_id'] = cover_letter_btn.get('data-id')
-        else:
-            job_data['has_cover_letter'] = False
+        # 4. 지원 정보 파싱 (개선된 로직)
+        support_section = box_item.find('div', class_='col support_info')
+        if support_section:
+            # 지원 버튼 타입 확인
+            apply_button = support_section.find('button', class_='sri_btn_md')
+            if apply_button:
+                job_data['apply_type'] = '즉시지원'
+            else:
+                homepage_apply = support_section.find('a', class_='sri_btn_sm')
+                if homepage_apply:
+                    job_data['apply_type'] = '홈페이지지원'
 
-        support_detail = support_section.find('p', class_='support_detail')
-        if support_detail:
-            # 마감일
-            date_span = support_detail.find('span', class_='date')
-            if date_span:
-                job_data['deadline'] = date_span.get_text(strip=True)
+            # 자소서 문항 확인
+            cover_letter_btn = support_section.find('span', class_='coverLetterLayerBtn')
+            if cover_letter_btn:
+                job_data['has_cover_letter'] = True
+                cover_letter_id = cover_letter_btn.get('data-id')
+                if cover_letter_id:
+                    job_data['cover_letter_id'] = cover_letter_id
+            else:
+                job_data['has_cover_letter'] = False
 
-            # 등록 시간
-            deadlines_span = support_detail.find('span', class_='deadlines')
-            if deadlines_span:
-                job_data['registration_time'] = deadlines_span.get_text(strip=True)
+            # 지원 상세 정보 (마감일, 등록시간)
+            support_detail = support_section.find('p', class_='support_detail')
+            if support_detail:
+                # 마감일 정보
+                date_span = support_detail.find('span', class_='date')
+                if date_span:
+                    deadline_text = date_span.get_text(strip=True)
+                    if deadline_text:
+                        job_data['deadline'] = deadline_text
 
-    return job_data
+                # 등록 시간 정보
+                deadlines_span = support_detail.find('span', class_='deadlines')
+                if deadlines_span:
+                    reg_time_text = deadlines_span.get_text(strip=True)
+                    if reg_time_text:
+                        job_data['registration_time'] = reg_time_text
+
+        return job_data
+
+    except Exception as e:
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.error(f"Job item parsing failed for {element_id}: {str(e)}")
+        return None
 
 
 def parse_multiple_jobs(html_content):
     """
     여러 개의 채용공고가 포함된 HTML을 파싱
-    list_body 구조와 추천 공고 등 다양한 형태 지원
+    - 실제 HTML 구조에 맞게 개선된 선택자 사용
+    - 광고성 콘텐츠와 실제 채용공고 구분
     """
     soup = BeautifulSoup(html_content, 'html.parser')
     jobs = []
 
-    # 메인 채용공고 리스트 찾기
-    list_body = soup.find('div', class_='list_body')
-    if list_body:
-        # list_item 찾기
-        job_items = list_body.find_all('div', class_='list_item')
+    try:
+        # 1. 메인 채용공고 섹션 찾기 (더 구체적인 경로)
+        recruiting_section = soup.find('section', class_='list_recruiting')
+        if recruiting_section:
+            # list_body 찾기
+            list_body = recruiting_section.find('div', class_='list_body')
+            if list_body:
+                # ID 패턴을 이용한 정확한 채용공고 아이템 선택
+                # rec-숫자 형태의 ID를 가진 list_item만 선택
+                job_items = list_body.find_all('div', class_='list_item', id=re.compile(r'^rec-\d+$'))
 
-        for item in job_items:
-            # 추천 공고나 광고 섹션 건너뛰기
-            if item.find('div', class_='list_curation_wrap') or item.find('div', class_='theme_jobs_container'):
-                continue
+                for item in job_items:
+                    # 광고성 콘텐츠 제외 (더 포괄적인 체크)
+                    if (item.find('div', class_='list_curation_wrap') or
+                        item.find('div', class_='theme_jobs_container') or
+                        item.find('div', class_='list_recommend') or
+                        item.find('div', class_='newcomer_sub_bottom')):
+                        continue
 
-            job_data = parse_job_item(item)
-            if job_data and job_data.get('job_title'):  # 유효한 채용공고만 추가
-                jobs.append(job_data)
-    else:
-        # 단일 box_item 또는 다른 구조 처리
-        job_items = soup.find_all('div', class_='box_item')
-        for item in job_items:
-            job_data = parse_job_item(item)
-            if job_data and job_data.get('job_title'):
-                jobs.append(job_data)
+                    # box_item이 있는지 확인
+                    if not item.find('div', class_='box_item'):
+                        continue
+
+                    job_data = parse_job_item(item)
+                    if job_data and job_data.get('job_title') and job_data.get('company_name'):
+                        jobs.append(job_data)
+
+        # 2. 대안 방법: common_recruilt_list에서 직접 찾기
+        if not jobs:
+            common_list = soup.find('div', class_='common_recruilt_list')
+            if common_list:
+                # list_item들을 직접 찾되, ID가 rec-로 시작하는 것만
+                job_items = common_list.find_all('div', class_='list_item', id=re.compile(r'^rec-\d+$'))
+
+                for item in job_items:
+                    # 광고성 콘텐츠 제외
+                    if (item.find('div', class_='list_curation_wrap') or
+                        item.find('div', class_='theme_jobs_container')):
+                        continue
+
+                    job_data = parse_job_item(item)
+                    if job_data and job_data.get('job_title') and job_data.get('company_name'):
+                        jobs.append(job_data)
+
+        # 3. 최후 수단: 모든 box_item 직접 검색
+        if not jobs:
+            all_box_items = soup.find_all('div', class_='box_item')
+            for box_item in all_box_items:
+                # 부모가 list_item이고 ID가 rec-로 시작하는 경우만
+                parent = box_item.parent
+                if (parent and
+                    parent.get('class') and
+                    'list_item' in parent.get('class') and
+                    parent.get('id') and
+                    parent.get('id').startswith('rec-')):
+
+                    job_data = parse_job_item(parent)
+                    if job_data and job_data.get('job_title') and job_data.get('company_name'):
+                        jobs.append(job_data)
+
+    except Exception as e:
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.error(f"Multiple jobs parsing failed: {str(e)}")
 
     return jobs
 
@@ -463,24 +583,61 @@ class SaraminCrawler(BaseCrawler):
             self.logger.warning("페이지 로딩 대기 시간 초과")
 
     def _wait_for_job_listings(self) -> bool:
-        """채용공고 리스트 로딩 대기"""
-        selectors = [
-            (By.CLASS_NAME, "box_item"),
-            (By.CLASS_NAME, "list_item"),
-            (By.CSS_SELECTOR, "div.list_body"),
-            (By.CSS_SELECTOR, "[class*='recruit']"),
+        """
+        채용공고 리스트 로딩 대기 (개선된 로직)
+        - 실제 HTML 구조에 맞는 선택자 사용
+        - 요소의 존재 뿐만 아니라 가시성도 확인
+        """
+        # 우선순위별로 선택자 정의
+        primary_selectors = [
+            (By.CSS_SELECTOR, "section.list_recruiting .list_body .list_item[id^='rec-']"),
+            (By.CSS_SELECTOR, ".common_recruilt_list .list_item[id^='rec-']"),
         ]
 
-        for by, selector in selectors:
+        secondary_selectors = [
+            (By.CSS_SELECTOR, "section.list_recruiting"),
+            (By.CSS_SELECTOR, "div.list_body"),
+            (By.CLASS_NAME, "box_item"),
+        ]
+
+        # 1차: 실제 채용공고 아이템이 있는지 확인 (우선순위)
+        for by, selector in primary_selectors:
             try:
-                WebDriverWait(self.driver, 10).until(
+                WebDriverWait(self.driver, 15).until(
                     EC.presence_of_element_located((by, selector))
                 )
-                self.logger.info(f"채용공고 요소 발견: {selector}")
+                # 추가로 요소가 실제로 보이는지 확인
+                WebDriverWait(self.driver, 5).until(
+                    EC.visibility_of_element_located((by, selector))
+                )
+                self.logger.info(f"채용공고 아이템 발견: {selector}")
                 return True
             except TimeoutException:
                 continue
 
+        # 2차: 기본적인 구조 요소들이 있는지 확인
+        for by, selector in secondary_selectors:
+            try:
+                WebDriverWait(self.driver, 10).until(
+                    EC.presence_of_element_located((by, selector))
+                )
+                self.logger.info(f"기본 구조 요소 발견: {selector}")
+
+                # 추가 대기 후 실제 채용공고가 로드되었는지 재확인
+                time.sleep(3)
+                soup = self.get_page_soup()
+                if soup:
+                    # rec-로 시작하는 ID를 가진 요소가 있는지 확인
+                    job_items = soup.find_all('div', class_='list_item', id=re.compile(r'^rec-\d+$'))
+                    if job_items:
+                        self.logger.info(f"채용공고 {len(job_items)}개 발견")
+                        return True
+
+                return True  # 기본 구조는 있으니 시도
+            except TimeoutException:
+                continue
+
+        self.logger.warning("채용공고 리스트를 찾을 수 없음")
         return False
 
     def _navigate_to_next_page(self, page: int) -> bool:
@@ -517,23 +674,76 @@ class SaraminCrawler(BaseCrawler):
             return False
 
     def _crawl_page_jobs_improved(self) -> List[Dict[str, Any]]:
-        """개선된 파싱을 사용한 페이지 크롤링"""
+        """
+        개선된 파싱을 사용한 페이지 크롤링
+        - 강화된 에러 처리 및 로깅
+        - 디버깅 정보 수집
+        """
         try:
-            # BeautifulSoup으로 파싱
+            # 페이지 소스 획득
             soup = self.get_page_soup()
+            if not soup:
+                self.logger.error("페이지 소스를 가져올 수 없음")
+                return []
+
+            # HTML 파싱
             jobs = parse_multiple_jobs(str(soup))
+            self.logger.info(f"원시 파싱 결과: {len(jobs)}개 채용공고")
+
+            if not jobs:
+                # 디버깅을 위한 추가 정보 수집
+                page_title = soup.find('title')
+                title_text = page_title.get_text() if page_title else "제목 없음"
+
+                # 주요 요소들이 있는지 확인
+                recruiting_section = soup.find('section', class_='list_recruiting')
+                list_body = soup.find('div', class_='list_body')
+                list_items = soup.find_all('div', class_='list_item')
+
+                self.logger.warning(f"채용공고를 찾을 수 없음 - 페이지: {title_text}")
+                self.logger.warning(f"디버그 정보 - recruiting_section: {'있음' if recruiting_section else '없음'}")
+                self.logger.warning(f"디버그 정보 - list_body: {'있음' if list_body else '없음'}")
+                self.logger.warning(f"디버그 정보 - list_items: {len(list_items)}개")
 
             # 데이터 매핑
             mapped_jobs = []
-            for job_data in jobs:
-                mapped_data = self._map_job_data(job_data)
-                if mapped_data and mapped_data.get('saramin_job_title'):
-                    mapped_jobs.append(mapped_data)
+            mapping_errors = 0
+
+            for idx, job_data in enumerate(jobs):
+                try:
+                    mapped_data = self._map_job_data(job_data)
+                    if mapped_data and mapped_data.get('saramin_job_title') and mapped_data.get('company_name'):
+                        mapped_jobs.append(mapped_data)
+                    else:
+                        # 매핑 실패 원인 로깅
+                        missing_fields = []
+                        if not mapped_data:
+                            missing_fields.append("전체 매핑 실패")
+                        else:
+                            if not mapped_data.get('saramin_job_title'):
+                                missing_fields.append("job_title")
+                            if not mapped_data.get('company_name'):
+                                missing_fields.append("company_name")
+
+                        debug_id = job_data.get('debug_element_id', f'item_{idx}')
+                        self.logger.warning(f"매핑 실패 [{debug_id}]: {', '.join(missing_fields)} 누락")
+                        mapping_errors += 1
+
+                except Exception as e:
+                    mapping_errors += 1
+                    debug_id = job_data.get('debug_element_id', f'item_{idx}')
+                    self.logger.error(f"개별 아이템 매핑 실패 [{debug_id}]: {str(e)}")
+
+            success_rate = (len(mapped_jobs) / len(jobs) * 100) if jobs else 0
+            self.logger.info(f"페이지 파싱 완료: {len(mapped_jobs)}/{len(jobs)} 성공 ({success_rate:.1f}%)")
+
+            if mapping_errors > 0:
+                self.logger.warning(f"매핑 오류 {mapping_errors}건 발생")
 
             return mapped_jobs
 
         except Exception as e:
-            self.logger.error(f"페이지 파싱 실패: {e}")
+            self.logger.error(f"페이지 크롤링 전체 실패: {str(e)}", exc_info=True)
             return []
 
     def _parse_recommendations(self) -> Dict[str, Any]:
@@ -584,38 +794,81 @@ class SaraminCrawler(BaseCrawler):
         return match.group(1) if match else None
 
     def _parse_deadline_date(self, deadline_text: str) -> Optional[datetime]:
-        """마감일 텍스트를 datetime으로 변환"""
+        """
+        마감일 텍스트를 datetime으로 변환
+        - D-숫자, 오늘마감, 내일마감, ~월.일(요일) 등 다양한 형태 지원
+        """
         try:
             if not deadline_text:
                 return None
 
-            if '상시' in deadline_text:
+            deadline_text = deadline_text.strip()
+
+            # 상시채용 또는 채용시마감
+            if any(keyword in deadline_text for keyword in ['상시', '채용시마감', '채용시', '수시']):
                 return None
 
-            # ~10.10(금) 또는 ~09.29(월) 형태에서 월.일 추출
+            # D-숫자 형태 (D-4, D-21 등) - 가장 일반적인 형태
+            d_match = re.search(r'D-(\d+)', deadline_text)
+            if d_match:
+                days_left = int(d_match.group(1))
+                return datetime.now() + timedelta(days=days_left)
+
+            # 오늘마감
+            if '오늘마감' in deadline_text or '오늘' in deadline_text:
+                return datetime.now().replace(hour=23, minute=59, second=59)
+
+            # 내일마감
+            if '내일마감' in deadline_text or '내일' in deadline_text:
+                tomorrow = datetime.now() + timedelta(days=1)
+                return tomorrow.replace(hour=23, minute=59, second=59)
+
+            # ~10.10(금) 또는 ~09.29(월) 형태
             if '~' in deadline_text:
                 date_part = deadline_text.split('~')[-1].strip()
 
-                # 정규식으로 월.일 패턴 추출 (요일 정보 무시)
-                import re
+                # 월.일 패턴 추출 (요일 정보 무시)
                 match = re.search(r'(\d{1,2})\.(\d{1,2})', date_part)
                 if match:
                     month = int(match.group(1))
                     day = int(match.group(2))
                     year = datetime.now().year
+                    current_date = datetime.now()
 
                     # 유효한 날짜인지 확인
                     if 1 <= month <= 12 and 1 <= day <= 31:
                         try:
-                            return datetime(year, month, day)
+                            target_date = datetime(year, month, day, 23, 59, 59)
+
+                            # 현재 날짜보다 이전이면 내년으로 설정
+                            if target_date < current_date:
+                                target_date = datetime(year + 1, month, day, 23, 59, 59)
+
+                            return target_date
                         except ValueError:
                             # 잘못된 날짜 조합 (예: 2월 30일)
                             self.logger.warning(f"잘못된 날짜: {year}-{month}-{day}")
                             return None
 
+            # 숫자일 패턴 (1일 후, 2일 후 등)
+            days_match = re.search(r'(\d+)일', deadline_text)
+            if days_match:
+                days_left = int(days_match.group(1))
+                if days_left <= 365:  # 합리적인 범위 내에서만
+                    return datetime.now() + timedelta(days=days_left)
+
+            # 마감 임박 키워드들
+            if any(keyword in deadline_text for keyword in ['마감임박', '곧마감', '마감직전']):
+                # 마감임박은 1일 후로 설정
+                return datetime.now() + timedelta(days=1)
+
+            # 기타 알 수 없는 형태는 None 반환
+            self.logger.info(f"알 수 없는 마감일 형태: {deadline_text}")
+            return None
+
         except Exception as e:
-            self.logger.warning(f"마감일 파싱 실패: {deadline_text} - {e}")
-        return None
+            self.logger.warning(f"마감일 파싱 실패: {deadline_text} - {str(e)}")
+            return None
 
     def _parse_posting_date(self, reg_info: str) -> Optional[datetime]:
         """등록 정보에서 게시일 추출"""
