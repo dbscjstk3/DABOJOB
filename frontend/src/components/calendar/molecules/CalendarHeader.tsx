@@ -32,7 +32,6 @@ const PopularDropdown: React.FC = () => {
           try {
             const response = await fetch(`/api/job-postings/${hotJob.jobPostingId}`, {
               method: 'GET',
-              credentials: 'include',
               headers: {
                 'Content-Type': 'application/json',
               },
