@@ -7,8 +7,6 @@ export interface FilterSectionProps {
   onEmploymentTypeChange: (values: string[]) => void;
   jobCategoryFilter: string[];
   onJobCategoryChange: (values: string[]) => void;
-  companyTypeFilter: string[];
-  onCompanyTypeChange: (values: string[]) => void;
   className?: string;
 }
 
@@ -37,20 +35,11 @@ const jobCategoryOptions: FilterOption[] = [
   { value: '에너지/산업', label: '에너지/산업' },
 ];
 
-// 기업형태 옵션
-const companyTypeOptions: FilterOption[] = [
-  { value: '대기업', label: '대기업' },
-  { value: '중견기업', label: '중견기업' },
-  { value: '중소기업', label: '중소기업' },
-];
-
 export const FilterSection: React.FC<FilterSectionProps> = ({
   employmentTypeFilter,
   onEmploymentTypeChange,
   jobCategoryFilter,
   onJobCategoryChange,
-  companyTypeFilter,
-  onCompanyTypeChange,
   className,
 }) => {
   return (
@@ -75,15 +64,6 @@ export const FilterSection: React.FC<FilterSectionProps> = ({
               onSelectionChange={onJobCategoryChange}
               placeholder="IT/서비스"
               className="w-32 min-w-32 sm:w-36 sm:min-w-36 lg:w-40 lg:min-w-40"
-            />
-
-            <FilterDropdown
-              label="기업형태"
-              options={companyTypeOptions}
-              selectedValues={companyTypeFilter}
-              onSelectionChange={onCompanyTypeChange}
-              placeholder="대기업"
-              className="w-30 min-w-30 sm:w-34 sm:min-w-34 lg:w-38 lg:min-w-38"
             />
           </div>
         </div>

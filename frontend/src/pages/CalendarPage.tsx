@@ -7,7 +7,6 @@ export default function CalendarPage() {
   // 필터 상태
   const [employmentTypeFilter, setEmploymentTypeFilter] = useState<string[]>([]);
   const [jobCategoryFilter, setJobCategoryFilter] = useState<string[]>([]);
-  const [companyTypeFilter, setCompanyTypeFilter] = useState<string[]>([]);
 
   return (
     <Calendar
@@ -17,8 +16,6 @@ export default function CalendarPage() {
       onEmploymentTypeChange={setEmploymentTypeFilter}
       jobCategoryFilter={jobCategoryFilter}
       onJobCategoryChange={setJobCategoryFilter}
-      companyTypeFilter={companyTypeFilter}
-      onCompanyTypeChange={setCompanyTypeFilter}
     />
   );
 }

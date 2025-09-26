@@ -40,7 +40,6 @@ export interface JobPostingResponse {
   jobPostingId: number;
   companyId: number;
   companyName: string;
-  companyType: string;
   title: string;
   url: string;
   jobSectorName: string;

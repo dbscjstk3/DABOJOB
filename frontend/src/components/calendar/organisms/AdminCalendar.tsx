@@ -15,8 +15,6 @@ export interface AdminCalendarProps {
   onEmploymentTypeChange: (values: string[]) => void;
   jobCategoryFilter: string[];
   onJobCategoryChange: (values: string[]) => void;
-  companyTypeFilter: string[];
-  onCompanyTypeChange: (values: string[]) => void;
   className?: string;
 }
 
@@ -27,8 +25,6 @@ export const AdminCalendar: React.FC<AdminCalendarProps> = ({
   onEmploymentTypeChange,
   jobCategoryFilter,
   onJobCategoryChange,
-  companyTypeFilter,
-  onCompanyTypeChange,
   className,
 }) => {
   // 더보기(확장) 상태: 날짜 번호 Set
@@ -185,8 +181,6 @@ export const AdminCalendar: React.FC<AdminCalendarProps> = ({
         onEmploymentTypeChange={onEmploymentTypeChange}
         jobCategoryFilter={jobCategoryFilter}
         onJobCategoryChange={onJobCategoryChange}
-        companyTypeFilter={companyTypeFilter}
-        onCompanyTypeChange={onCompanyTypeChange}
       />
 
       <div className="p-6 w-full">
