@@ -10,13 +10,29 @@ import LoginPage from './pages/LoginPage';
 import CalendarPage from './pages/CalendarPage';
 import CalendarDetailPage from './pages/CalendarDetailPage';
 import SearchDetailPage from './pages/SearchDetailPage';
-import AdminCompleteDataPage from './pages/AdminCompleteDataPage';
 import NotFoundPage from './pages/NotFoundPage';
 import { AdminMappingPage } from './pages/AdminMappingPage';
 import AdminCompletedPage from './pages/AdminCompletedPage';
 import { useAuthStore } from './stores/useAuthStore';
 import { RootLayout } from './components/common/organisms/RootLayout';
 import AdminCalendarPage from './pages/AdminCalendarPage';
+import { useModalStore } from './stores/useModalStore';
+
+// Admin 라우트용 공통 인증 체크 함수
+const checkAdminAuth = async () => {
+  // 사용자 정보가 없으면 먼저 가져오기
+  const { user, fetchUser } = useAuthStore.getState();
+  if (!user) {
+    await fetchUser();
+  }
+
+  // 다시 한번 확인
+  const currentUser = useAuthStore.getState().user;
+  const role = currentUser?.role;
+  if (!(role === 'admin' || role === 'ROLE_ADMIN')) {
+    throw redirect({ to: '/' });
+  }
+};
 
 const rootRoute = createRootRoute({
   component: RootLayout,
@@ -33,16 +49,16 @@ const calendarListRoute = createRoute({
 const calendarDetailRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/calendar/$id',
-  // beforeLoad: ({ location }) => {
-  //   const authed = useAuthStore.getState().isAuthed;
-  //   if (!authed) {
-  //     // 모달 열고 홈으로 리다이렉트
-  //     useModalStore
-  //       .getState()
-  //       .openLoginModal(location.href, '캘린더 상세 정보를 확인하려면 로그인 해주세요');
-  //     throw redirect({ to: '/' });
-  //   }
-  // },
+  beforeLoad: ({ location }) => {
+    const authed = useAuthStore.getState().isAuthed;
+    if (!authed) {
+      // 모달 열고 홈으로 리다이렉트
+      useModalStore
+        .getState()
+        .openLoginModal(location.href, '캘린더 상세 정보를 확인하려면 로그인 해주세요');
+      throw redirect({ to: '/' });
+    }
+  },
   component: CalendarDetailPage,
   validateSearch: (search: Record<string, unknown>) => {
     return {
@@ -75,20 +91,7 @@ const searchDetailRoute = createRoute({
 const adminCalendarRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/admin',
-  beforeLoad: async () => {
-    // 사용자 정보가 없으면 먼저 가져오기
-    const { user, fetchUser } = useAuthStore.getState();
-    if (!user) {
-      await fetchUser();
-    }
-
-    // 다시 한번 확인
-    const currentUser = useAuthStore.getState().user;
-    const role = currentUser?.role;
-    if (!(role === 'admin' || role === 'ROLE_ADMIN')) {
-      throw redirect({ to: '/' });
-    }
-  },
+  beforeLoad: checkAdminAuth,
   component: AdminCalendarPage,
 });
 
@@ -96,26 +99,14 @@ const adminCalendarRoute = createRoute({
 const adminMappingRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/admin/mapping/$companyId',
-  beforeLoad: async () => {
-    // 사용자 정보가 없으면 먼저 가져오기
-    const { user, fetchUser } = useAuthStore.getState();
-    if (!user) {
-      await fetchUser();
-    }
-
-    // 다시 한번 확인
-    const currentUser = useAuthStore.getState().user;
-    const role = currentUser?.role;
-    if (!(role === 'admin' || role === 'ROLE_ADMIN')) {
-      throw redirect({ to: '/' });
-    }
-  },
+  beforeLoad: checkAdminAuth,
   component: AdminMappingPage,
 });
 
 const adminJobCompletedRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/admin/jobs/$jobId/complete',
+  beforeLoad: checkAdminAuth,
   component: AdminCompletedPage,
 });
 
@@ -177,29 +168,9 @@ const routeTree = rootRoute.addChildren([
   searchDetailRoute,
   adminCalendarRoute,
   adminMappingRoute,
-  createRoute({
-    getParentRoute: () => rootRoute,
-    path: '/admin/jobs/$jobId/complete',
-    beforeLoad: async () => {
-      // 사용자 정보가 없으면 먼저 가져오기
-      const { user, fetchUser } = useAuthStore.getState();
-      if (!user) {
-        await fetchUser();
-      }
-
-      // 다시 한번 확인
-      const currentUser = useAuthStore.getState().user;
-      const role = currentUser?.role;
-      if (!(role === 'admin' || role === 'ROLE_ADMIN')) {
-        throw redirect({ to: '/' });
-      }
-    },
-    component: AdminCompleteDataPage,
-  }),
+  adminJobCompletedRoute,
   loginRoute,
   authCallbackRoute,
-  adminMappingRoute,
-  adminJobCompletedRoute,
 ]);
 
 export const router = createRouter({ routeTree });
