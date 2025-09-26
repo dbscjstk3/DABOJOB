@@ -54,6 +54,7 @@ export interface JobPostingResponse {
 export interface HotJobPostingResponse {
   jobPostingId: string;
   title: string;
+  companyName: string;
 }
 
 // 관리자용 캘린더 채용공고 API 응답 타입 정의
@@ -420,7 +421,6 @@ export const fetchJobPostingsByDateRange = async (
 export const fetchHotJobPostings = async (): Promise<HotJobPostingResponse[]> => {
   const response = await fetch(API_ENDPOINTS.JOB_POSTING.HOT, {
     method: 'GET',
-    credentials: 'include', // Cookie 포함
     headers: {
       'Content-Type': 'application/json',
     },
