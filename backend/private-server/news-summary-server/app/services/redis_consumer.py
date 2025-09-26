@@ -85,6 +85,14 @@ class RedisConsumer:
             처리 성공 여부
         """
         try:
+            # 메시지 타입 확인
+            message_type = message.get('type', '')
+
+            # hashtag_extraction_complete 메시지 처리
+            if message_type == 'hashtag_extraction_complete':
+                logger.info(f"Received hashtag extraction completion notification: {message}")
+                return True  # 알림 메시지이므로 성공으로 처리
+
             # 해시태그 메시지 처리
             mapping_id = message.get('mapping_id')
             chapter = message.get('category')  # Summary 서버에서 'category'로 전송
