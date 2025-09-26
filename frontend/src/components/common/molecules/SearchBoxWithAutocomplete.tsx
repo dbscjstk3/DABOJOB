@@ -155,14 +155,14 @@ export default function SearchBoxWithAutocomplete({
       {/* 자동완성 드롭다운 */}
       <AutocompleteDropdown
         items={items}
-        recentSearches={recentSearches}
-        isOpen={isOpen && (items.length > 0 || recentSearches.length > 0)}
+        recentSearches={query.trim() === '' ? recentSearches : undefined}
+        isOpen={isOpen && (items.length > 0 || (query.trim() === '' && recentSearches.length > 0))}
         onClose={() => setIsOpen(false)}
         onItemClick={handleItemClick}
         onRecentSearchClick={handleRecentSearchClick}
         // containerRef={containerRef}
         className={
-          isOpen && (items.length > 0 || recentSearches.length > 0)
+          isOpen && (items.length > 0 || (query.trim() === '' && recentSearches.length > 0))
             ? 'rounded-t-none rounded-b-lg'
             : ''
         }
