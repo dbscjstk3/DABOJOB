@@ -301,7 +301,7 @@ async def force_process_pending(max_age_seconds: int = 300) -> Dict[str, Any]:
         if redis_consumer is None:
             raise HTTPException(status_code=503, detail="Redis consumer not initialized")
 
-        processed_count = redis_consumer.force_process_pending(max_age_seconds)
+        processed_count = await redis_consumer.force_process_pending(max_age_seconds)
 
         return {
             "processed_count": processed_count,
