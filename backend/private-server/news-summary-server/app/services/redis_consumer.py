@@ -148,6 +148,13 @@ class RedisConsumer:
                     logger.error(f"Could not find job_id for mapping_id {mapping_id}")
                     return False
 
+                # job_processing 레코드 자동 생성/업데이트 (모든 경우에 대해)
+                try:
+                    await self._ensure_job_processing_record(mapping_id, job_id)
+                except Exception as e:
+                    logger.error(f"Failed to ensure job_processing record for mapping_id {mapping_id}, job_id {job_id}: {e}")
+                    return False
+
                 # 재요약 여부 확인 및 처리
                 is_reprocessing = await database.is_reprocessing_job(job_id)
                 if is_reprocessing:
@@ -165,11 +172,7 @@ class RedisConsumer:
                         self.client.delete(counter_key)
                         logger.info(f"Reset Redis counter for reprocessing mapping_id {mapping_id}")
                 else:
-                    # 새로운 job인 경우 job_processing 레코드 생성
-                    try:
-                        await database.create_job_processing(mapping_id, job_id)
-                    except Exception as e:
-                        logger.warning(f"Could not create job_processing record for mapping_id {mapping_id}: {e}")
+                    logger.info(f"Normal processing for job_id {job_id}, mapping_id {mapping_id}")
 
                 # mapping_id로 company_name 조회
                 company_name = await self._get_company_name(mapping_id)
@@ -270,6 +273,31 @@ class RedisConsumer:
         except Exception as e:
             logger.error(f"Error getting company name for mapping_id {mapping_id}: {e}")
             return None
+
+    async def _ensure_job_processing_record(self, mapping_id: int, job_id: int) -> None:
+        """
+        job_processing 레코드가 존재하는지 확인하고 없으면 생성
+        Redis stream으로 메시지를 받을 때마다 자동으로 호출됨
+
+        Args:
+            mapping_id: 매핑 ID
+            job_id: 작업 ID
+        """
+        try:
+            # 1. 기존 레코드 존재 여부 확인
+            existing_status = await database.get_job_processing_status(job_id)
+
+            if existing_status is None:
+                # 2. 레코드가 없으면 생성 (status='processing')
+                await database.create_job_processing(mapping_id, job_id)
+                logger.info(f"✅ Created new job_processing record: job_id={job_id}, mapping_id={mapping_id}, status='processing'")
+            else:
+                # 3. 기존 레코드가 있으면 확인만 로그
+                logger.debug(f"📋 Existing job_processing record: job_id={job_id}, mapping_id={mapping_id}, status='{existing_status}'")
+
+        except Exception as e:
+            logger.error(f"❌ Error ensuring job_processing record for mapping_id {mapping_id}, job_id {job_id}: {e}")
+            raise
 
     async def _get_job_id_from_mapping(self, mapping_id: int) -> Optional[int]:
         """

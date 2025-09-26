@@ -355,74 +355,76 @@ async def start_job_reprocessing(job_id: int, force: bool = False) -> Dict[str, 
         # 2. 재처리 시작 및 데이터 정리
         cleanup_stats = await database.start_job_reprocessing(job_id)
 
-        # 3. Redis stream에서 해당 job_id 관련 메시지들 정리
-        stream_cleanup_stats = {"removed_messages": 0, "acked_pending": 0}
+        # 3. Redis stream 정리 작업을 백그라운드에서 처리 (논블로킹)
+        stream_cleanup_stats = {"status": "scheduled", "note": "Cleanup scheduled in background"}
         try:
             from ..main import redis_consumer
             if redis_consumer and redis_consumer.client:
-                # job_id 패턴들 (다양한 형태 대응)
-                job_patterns = [
-                    str(job_id),
-                    f"summary_{job_id}",
-                    f"mapping_{job_id}"
-                ]
+                # 백그라운드에서 정리 작업 수행
+                import threading
 
-                # 3-1. stream:news에서 해당 job_id 메시지 찾기 및 제거
-                # 최근 1000개 메시지를 확인 (너무 많이 확인하지 않도록 제한)
-                try:
-                    messages = redis_consumer.client.xrange("stream:news", count=1000)
-                    messages_to_delete = []
+                def background_stream_cleanup():
+                    try:
+                        cleanup_stats = {"removed_messages": 0, "acked_pending": 0}
 
-                    for message_id, data in messages:
-                        message_job_id = data.get('job_id', '')
-                        # job_id가 매치되는 메시지 식별
-                        if any(pattern in message_job_id for pattern in job_patterns):
-                            messages_to_delete.append(message_id)
+                        # job_id 패턴들
+                        job_patterns = [str(job_id), f"summary_{job_id}", f"mapping_{job_id}"]
 
-                    # 식별된 메시지들 삭제
-                    if messages_to_delete:
-                        deleted_count = redis_consumer.client.xdel("stream:news", *messages_to_delete)
-                        stream_cleanup_stats["removed_messages"] = deleted_count
-                        logger.info(f"Removed {deleted_count} messages from stream:news for job {job_id}")
-
-                except Exception as e:
-                    logger.warning(f"Failed to clean stream messages for job {job_id}: {e}")
-
-                # 3-2. pending 메시지에서 해당 job_id 찾아서 ACK
-                try:
-                    pending_messages = redis_consumer.client.xpending_range(
-                        "stream:news",
-                        "summary-group",
-                        min='-',
-                        max='+',
-                        count=100
-                    )
-
-                    pending_to_ack = []
-                    for pending_msg in pending_messages:
-                        message_id = pending_msg['message_id']
+                        # stream 메시지 정리
                         try:
-                            # 메시지 내용 확인
-                            message_data = redis_consumer.client.xrange("stream:news", message_id, message_id)
-                            if message_data:
-                                _, data = message_data[0]
+                            messages = redis_consumer.client.xrange("stream:news", count=1000)
+                            messages_to_delete = []
+
+                            for message_id, data in messages:
                                 message_job_id = data.get('job_id', '')
                                 if any(pattern in message_job_id for pattern in job_patterns):
-                                    pending_to_ack.append(message_id)
-                        except:
-                            pass
+                                    messages_to_delete.append(message_id)
 
-                    # pending 메시지 ACK
-                    if pending_to_ack:
-                        acked_count = redis_consumer.client.xack("stream:news", "summary-group", *pending_to_ack)
-                        stream_cleanup_stats["acked_pending"] = acked_count
-                        logger.info(f"ACKed {acked_count} pending messages for job {job_id}")
+                            if messages_to_delete:
+                                deleted_count = redis_consumer.client.xdel("stream:news", *messages_to_delete)
+                                cleanup_stats["removed_messages"] = deleted_count
+                                logger.info(f"Background: Removed {deleted_count} messages for job {job_id}")
+                        except Exception as e:
+                            logger.warning(f"Background stream cleanup failed for job {job_id}: {e}")
 
-                except Exception as e:
-                    logger.warning(f"Failed to clean pending messages for job {job_id}: {e}")
+                        # pending 메시지 ACK
+                        try:
+                            pending_messages = redis_consumer.client.xpending_range(
+                                "stream:news", "summary-group", min='-', max='+', count=100
+                            )
+
+                            pending_to_ack = []
+                            for pending_msg in pending_messages:
+                                message_id = pending_msg['message_id']
+                                try:
+                                    message_data = redis_consumer.client.xrange("stream:news", message_id, message_id)
+                                    if message_data:
+                                        _, data = message_data[0]
+                                        message_job_id = data.get('job_id', '')
+                                        if any(pattern in message_job_id for pattern in job_patterns):
+                                            pending_to_ack.append(message_id)
+                                except:
+                                    pass
+
+                            if pending_to_ack:
+                                acked_count = redis_consumer.client.xack("stream:news", "summary-group", *pending_to_ack)
+                                cleanup_stats["acked_pending"] = acked_count
+                                logger.info(f"Background: ACKed {acked_count} pending messages for job {job_id}")
+                        except Exception as e:
+                            logger.warning(f"Background pending cleanup failed for job {job_id}: {e}")
+
+                        logger.info(f"Background stream cleanup completed for job {job_id}: {cleanup_stats}")
+                    except Exception as e:
+                        logger.error(f"Background stream cleanup error for job {job_id}: {e}")
+
+                # 백그라운드 스레드 시작
+                cleanup_thread = threading.Thread(target=background_stream_cleanup, daemon=True)
+                cleanup_thread.start()
+                stream_cleanup_stats["thread_started"] = True
 
         except Exception as e:
-            logger.warning(f"Failed to access Redis for stream cleanup: {e}")
+            logger.warning(f"Failed to start background stream cleanup: {e}")
+            stream_cleanup_stats["error"] = str(e)
 
         logger.info(f"Job {job_id} reprocessing started successfully")
 
