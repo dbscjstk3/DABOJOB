@@ -44,7 +44,7 @@ public class SummaryService {
             throw new IllegalArgumentException("Invalid ID format");
         }
     }
-
+    @Transactional(readOnly = true)
     public SummaryResponse getFirstSummaryByCompanyId(String companyId) {
         try {
             Long parsedCompanyId = Long.parseLong(companyId);
