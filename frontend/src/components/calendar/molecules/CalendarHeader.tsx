@@ -64,11 +64,12 @@ const PopularDropdown: React.FC = () => {
 
   // 인기 공고 클릭 핸들러
   const handleHotJobPostingClick = (jobPosting: HotJobPostingResponse) => {
+    const searchQuery = `${jobPosting.companyName} ${jobPosting.title}`.trim();
     navigate({
       to: '/search',
       search: {
-        companyName: jobPosting.companyName,
-        jobTitle: jobPosting.title,
+        q: searchQuery,
+        page: 1,
       },
     });
     setIsOpen(false);

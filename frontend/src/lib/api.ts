@@ -141,7 +141,7 @@ export type SearchJobPostingResponse = AutocompleteResponse;
 // Admin Job Complete API 타입 정의
 export interface AdminJobCompleteResponse {
   job_id: number;
-  status: string;
+  status: 'completed' | 'processing' | 'finished';
   company_info: {
     company_name: string;
     company_scale: string;
@@ -297,7 +297,7 @@ export const API_ENDPOINTS = {
     LOGOUT: `${import.meta.env.VITE_API_BASE_URL}/api/auth/logout`,
   },
   SUMMARY: {
-    DETAIL: (summaryId: string) => `${API_BASE_URL}/api/summaries/${summaryId}`,
+    DETAIL: (summaryId: string) => `${API_BASE_URL}/api/summaries/companies/${summaryId}`,
   },
   NEWS: {
     BY_SUMMARY: (summaryId: string) => `${API_BASE_URL}/api/summaries/${summaryId}/news`,
@@ -676,39 +676,3 @@ export const fetchAdminJobStatus = async (jobId: number): Promise<AdminJobStatus
   }
   return response.json();
 };
-
-// 관리자용 완료 데이터 타입
-export interface AdminJobCompleteDataResponse {
-  job_id: number;
-  status: 'completed';
-  company_info: {
-    company_name: string;
-    company_scale: string;
-  };
-  summary_reports: {
-    business_overview: string;
-    products_services: string;
-    revenue_orders: string;
-    contracts_rnd: string;
-    others: string;
-  };
-  news_data: Record<
-    string,
-    Record<
-      string,
-      {
-        hashtag_id: number;
-        news_items: Array<{
-          news_id: number;
-          title: string;
-          url: string;
-          published_date: string;
-          summary: string;
-          company_name: string;
-          status: 'completed' | 'processing' | 'finished';
-        }>;
-      }
-    >
-  >;
-  generated_at: string;
-}
