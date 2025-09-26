@@ -6,9 +6,11 @@ from ..crawlers.saramin_crawler import SaraminCrawler
 from ..models.crawler_models import JobPosting, Company, CrawlingLog, JobSector, Region
 from ..database import get_db
 import asyncio
+import logging
 from concurrent.futures import ThreadPoolExecutor
 from ..utils.redis_helper import redis_helper
 
+logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/crawler", tags=["Crawler"])
 
 executor = ThreadPoolExecutor(max_workers=2)
