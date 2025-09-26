@@ -26,13 +26,24 @@ function escapeHTML(s: string) {
 }
 
 function buildHighlightHTML(summary: string, highlight: string | null) {
-  const safe = escapeHTML(summary);
-  if (!highlight) return safe;
+  if (!highlight) return escapeHTML(summary);
 
-  const escWord = highlight.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  // 1. 원본 텍스트에서 먼저 하이라이트 처리
+  const escWord = highlight.replace(/[.*+?^${}()|[\]\\&]/g, '\\$&');
   const regex = new RegExp(`(${escWord})`, 'gi');
 
-  return safe.replace(regex, '<mark class="bg-yellow-200 rounded px-0.5">$1</mark>');
+  // 2. 하이라이트 마커로 임시 치환 (HTML 이스케이프 전)
+  const tempMarker = `__HIGHLIGHT_START__$1__HIGHLIGHT_END__`;
+  const withMarkers = summary.replace(regex, tempMarker);
+
+  // 3. HTML 이스케이프
+  const safe = escapeHTML(withMarkers);
+
+  // 4. 임시 마커를 실제 mark 태그로 교체
+  return safe.replace(
+    /__HIGHLIGHT_START__(.*?)__HIGHLIGHT_END__/g,
+    '<mark class="bg-yellow-200 rounded px-0.5">$1</mark>',
+  );
 }
 
 export default function ReportSection({
