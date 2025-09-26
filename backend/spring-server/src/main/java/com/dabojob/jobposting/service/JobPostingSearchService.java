@@ -26,7 +26,7 @@ public class JobPostingSearchService {
     private final JobPostingSearchRepository jobPostingSearchRepository;
     private final SearchConfig searchConfig;
 
-    // 기존 메서드들 아래에 추가
+
     public Page<JobPostingResponse> autocompleteTitles(String prefix, int size) {
         try {
             log.info("Title autocomplete with prefix: '{}'", prefix);

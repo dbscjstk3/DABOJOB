@@ -56,9 +56,7 @@ public class CustomOAuth2UserService extends DefaultOAuth2UserService {
         );
     }
 
-    /**
-     * OAuth 제공자별 사용자 정보 추출
-     */
+    // OAuth 제공자별 사용자 정보 추출
     private OAuthUserInfo getOAuthUserInfo(String registrationId, Map<String, Object> attributes) {
         switch (registrationId.toLowerCase()) {
             case "google":
@@ -70,10 +68,7 @@ public class CustomOAuth2UserService extends DefaultOAuth2UserService {
         }
     }
 
-    /**
-     * 사용자 정보 저장 또는 업데이트
-     */
-
+    // 사용자 정보 저장 또는 업데이트
     private User saveOrUpdate(OAuthUserInfo userInfo) {
         // 1. 먼저 이메일로 기존 사용자 찾기
         Optional<User> existingUserByEmail = userRepository.findByEmail(userInfo.getEmail());
@@ -107,10 +102,7 @@ public class CustomOAuth2UserService extends DefaultOAuth2UserService {
         return userRepository.save(newUser);
     }
 
-    /**
-     * 사용자 권한 결정
-     * 환경변수나 설정을 통해 관리자 계정 지정 가능
-     */
+    // 사용자 권한 결정 - 환경변수나 설정을 통해 관리자 계정 지정 가능
     private UserRole determineUserRole(OAuthUserInfo userInfo) {
          String adminEmails = "jayeunpark0704@gmail.com"; //임시로 상수 설정
 

@@ -4,7 +4,6 @@ import com.dabojob.global.exception.RedisServiceException;
 import com.dabojob.jobposting.dto.HotJobPostingResponse;
 import com.dabojob.jobposting.entity.JobPosting;
 import com.dabojob.jobposting.repository.JobPostingRepository;
-import jakarta.persistence.EntityNotFoundException;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -34,7 +33,6 @@ public class ViewCountService {
     private static final String JOB_TITLES_KEY = "job_titles:%s"; // job_titles:{jobPostingId}
     private static final String JOB_COMPANIES_KEY = "job_companies:%s"; // job_companies:{jobPostingId}
 
-    // TTL 설정
     private static final Duration VIEW_COUNT_TTL = Duration.ofDays(7); // 7일
     private static final Duration USER_VIEW_TTL = Duration.ofHours(1); // 1시간
     private static final Duration JOB_INFO_TTL = Duration.ofDays(7); // 7일
@@ -75,10 +73,8 @@ public class ViewCountService {
                 return;
             }
 
-            // 사용자 조회 기록 설정
             stringRedisTemplate.opsForValue().set(userViewKey, "1", USER_VIEW_TTL);
 
-            // 조회수 증가
             Long newCount = stringRedisTemplate.opsForValue().increment(viewCountKey);
             if (newCount == 1) {
                 stringRedisTemplate.expire(viewCountKey, VIEW_COUNT_TTL);
@@ -127,14 +123,12 @@ public class ViewCountService {
         }
     }
 
-    // 인기 채용공고 목록 조회 (ID와 제목, 회사명을 객체로 반환)
     public List<HotJobPostingResponse> getHotJobPostings(int limit) {
         try {
             if (limit <= 0) {
                 throw new IllegalArgumentException("Limit must be positive");
             }
 
-            // Sorted Set에서 점수가 높은 순으로 jobPostingId 조회
             Set<String> hotJobIds = stringRedisTemplate.opsForZSet().reverseRange(HOT_JOBS_KEY, 0, limit - 1);
 
             if (hotJobIds == null || hotJobIds.isEmpty()) {
@@ -225,7 +219,6 @@ public class ViewCountService {
             String titleKey = String.format(JOB_TITLES_KEY, jobIdStr);
             String companyKey = String.format(JOB_COMPANIES_KEY, jobIdStr);
 
-            // 조회수, Hot jobs, 제목, 회사명 삭제
             stringRedisTemplate.delete(viewCountKey);
             stringRedisTemplate.delete(titleKey);
             stringRedisTemplate.delete(companyKey);

@@ -29,8 +29,8 @@ public class NewsService {
                     .map(NewsResponse::of)
                     .toList();
         } catch(NumberFormatException e){
-            log.error("Invalid summary ID format: {}", summaryId, e); // 상세한 로그
-            throw new IllegalArgumentException("Invalid ID format"); // 간단한 메시지
+            log.error("Invalid summary ID format: {}", summaryId, e);
+            throw new IllegalArgumentException("Invalid ID format");
         }
 
     }
