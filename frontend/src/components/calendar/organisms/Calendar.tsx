@@ -167,6 +167,9 @@ export const Calendar: React.FC<CalendarProps> = ({
         {/* 달력 헤더 */}
         <CalendarHeader viewDate={viewDate} onViewDateChange={onViewDateChange} />
 
+        {/* 헤더와 달력 사이 간격 */}
+        <div className="mb-14"></div>
+
         {/* 로딩 상태 */}
         {isLoading && (
           <div className="flex justify-center items-center h-64">
