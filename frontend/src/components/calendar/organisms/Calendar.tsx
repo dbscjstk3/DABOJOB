@@ -120,8 +120,10 @@ export const Calendar: React.FC<CalendarProps> = ({
     const dayPostings = jobPostingsByDate[dateKey] || [];
 
     const filtered = dayPostings.filter((recruit) => {
+      // 백엔드가 한글('신입','경력','시니어')로만 응답한다고 가정하고 그대로 비교
+      const recruitCareer = (recruit.careerInfo as unknown as string) || '';
       const employmentTypeMatch =
-        employmentTypeFilter.length === 0 || employmentTypeFilter.includes(recruit.careerInfo);
+        employmentTypeFilter.length === 0 || employmentTypeFilter.includes(recruitCareer);
       const jobCategoryMatch =
         jobCategoryFilter.length === 0 || jobCategoryFilter.includes(recruit.jobSectorCategory);
       return employmentTypeMatch && jobCategoryMatch;

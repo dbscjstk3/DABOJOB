@@ -10,11 +10,11 @@ export interface FilterSectionProps {
   className?: string;
 }
 
-// 채용 형태 옵션
+// 채용 형태 옵션 (백엔드 응답과 동일한 한글 값으로 통일)
 const employmentTypeOptions: FilterOption[] = [
-  { value: 'junior', label: '신입' },
-  { value: 'experienced', label: '경력' },
-  { value: 'senior', label: '시니어' },
+  { value: '신입', label: '신입' },
+  { value: '경력', label: '경력' },
+  { value: '시니어', label: '시니어' },
 ];
 
 // 직무 카테고리 옵션
