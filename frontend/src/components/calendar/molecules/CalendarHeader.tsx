@@ -83,10 +83,11 @@ const PopularDropdown: React.FC = () => {
       <button
         type="button"
         onClick={() => setIsOpen(!isOpen)}
-        className="flex items-center gap-2 md:gap-3 text-sm md:text-base text-gray-600 hover:text-gray-800 transition-colors px-2 py-1 mr-8 md:px-3 md:py-2 rounded-lg hover:bg-gray-50"
+        className="flex items-center gap-2 md:gap-1 text-sm md:text-base border border-daboja-default text-gray-600 hover:text-gray-800 transition-colors px-2 py-1 mr-8 md:px-5 md:py-5 rounded-lg hover:bg-gray-50"
       >
-        <span className="font-semibold text-xs md:text-base">실시간 인기</span>
-        <span className="text-gray-500 text-xs md:text-sm hidden sm:inline transition-opacity duration-500 w-72 text-center">
+        <img src="/src/assets/img/search.png" alt="검색" className="w-8 h-8 md:w-10 md:h-10" />
+        <span className="font-bold text-xs md:text-base">실시간 인기</span>
+        <span className="text-gray-500 text-xs md:text-base hidden sm:inline transition-opacity duration-500 w-72 text-center">
           {loading
             ? '로딩중...'
             : (() => {
@@ -104,7 +105,7 @@ const PopularDropdown: React.FC = () => {
       </button>
 
       {isOpen && (
-        <div className="absolute top-full right-0 mt-2 bg-white border border-gray-200 rounded-lg shadow-lg z-50 w-[28rem] md:w-[32rem] max-h-60 overflow-y-auto">
+        <div className="absolute top-full right-6 mt-1 bg-white border border-gray-200 rounded-lg shadow-lg z-50 w-[28rem] md:w-[30rem] max-h-60 overflow-y-auto">
           <div className="py-1 md:py-2">
             {loading ? (
               <div className="px-3 py-2 md:px-4 md:py-3 text-xs md:text-sm text-gray-500 text-center">
