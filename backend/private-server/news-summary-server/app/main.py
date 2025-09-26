@@ -238,7 +238,6 @@ async def shutdown_event_handler():
         redis_consumer.cleanup()
         logger.info("Redis consumer shutdown completed")
 
-
     if executor:
         executor.shutdown(wait=True)
         logger.info("Executor shutdown completed")
