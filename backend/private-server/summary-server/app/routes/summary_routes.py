@@ -16,7 +16,7 @@ from ..utils import qwen_summarize_long
 
 logger = logging.getLogger(__name__)
 
-router = APIRouter(prefix="/summary", tags=["summary"])
+router = APIRouter(prefix="/api/summary", tags=["summary"])
 
 # 서비스 인스턴스
 file_manager = FileManager()
