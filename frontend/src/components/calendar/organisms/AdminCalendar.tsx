@@ -55,8 +55,8 @@ export const AdminCalendar: React.FC<AdminCalendarProps> = ({
 
       try {
         console.log('🔍 관리자용 API 호출 중...');
-        const year = viewDate.getFullYear();
-        const month = viewDate.getMonth() + 1; // API는 1-based month를 사용
+        const year = viewDate.getFullYear().toString();
+        const month = (viewDate.getMonth() + 1).toString(); // API는 1-based month를 사용
         const response = await fetchAdminJobPostings(year, month);
         console.log('🔍 관리자용 API 응답:', response);
         setAdminCompanies(response.companies);

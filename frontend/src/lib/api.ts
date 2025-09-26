@@ -85,8 +85,8 @@ export interface AdminCalendarCompany {
 }
 
 export interface AdminJobPostingsResponse {
-  year: number;
-  month: number;
+  year: string;
+  month: string;
   total_companies: number;
   companies: AdminCalendarCompany[];
 }
@@ -322,7 +322,7 @@ export const API_ENDPOINTS = {
     CALENDAR: (startDate: string, endDate: string) =>
       `${API_BASE_URL}/api/job-postings/calendar?startDate=${startDate}&endDate=${endDate}`,
     HOT: `${API_BASE_URL}/api/job-postings/hot`,
-    ADMIN: (year: number, month: number) =>
+    ADMIN: (year: string, month: string) =>
       `${ADMIN_API_BASE_URL}/api/admin/calendar?year=${year}&month=${month}`,
   },
   ADMIN: {
@@ -544,8 +544,8 @@ export const fetchHotJobPostings = async (): Promise<HotJobPostingResponse[]> =>
 
 // 관리자 캘린더 채용공고 조회 API 호출 함수
 export const fetchAdminJobPostings = async (
-  year: number,
-  month: number,
+  year: string,
+  month: string,
 ): Promise<AdminJobPostingsResponse> => {
   const response = await fetch(API_ENDPOINTS.JOB_POSTING.ADMIN(year, month), {
     method: 'GET',
