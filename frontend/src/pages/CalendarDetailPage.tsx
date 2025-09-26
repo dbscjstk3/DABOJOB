@@ -110,15 +110,20 @@ export default function CalendarDetailPage() {
             ],
             tags: data.chapterHashtags.RND_ACTIVITIES || [],
           },
-          {
-            title: '기타 사항',
-            items: [
-              {
-                summary: data.otherNotes,
-              },
-            ],
-            tags: data.chapterHashtags.OTHER_NOTES || [],
-          },
+          // OTHER_NOTES가 null이 아닐 때만 기타 사항 섹션 추가
+          ...(data.otherNotes !== null && data.otherNotes !== undefined
+            ? [
+                {
+                  title: '기타 사항',
+                  items: [
+                    {
+                      summary: data.otherNotes,
+                    },
+                  ],
+                  tags: data.chapterHashtags.OTHER_NOTES || [],
+                },
+              ]
+            : []),
         ],
       }
     : { title: '', sections: [] };
