@@ -1,6 +1,5 @@
 package com.dabojob.jobposting.dto;
 
-import com.dabojob.global.utils.DateTimeUtil;
 import com.dabojob.jobposting.entity.JobPosting;
 import java.time.LocalDate;
 import lombok.AllArgsConstructor;
@@ -37,7 +36,7 @@ public class JobPostingResponse {
                 .jobSectorId(jobPosting.getJobSector().getId())
                 .jobSectorName(jobPosting.getJobSector().getName())
                 .jobSectorCategory(jobPosting.getJobSector().getCategory())
-                .careerInfo(jobPosting.getCareerInfo().toString())
+                .careerInfo(jobPosting.getCareerInfo().name())
                 .postingDate(jobPosting.getPostingDate())
                 .deadlineDate(jobPosting.getDeadlineDate())
                 .build();
