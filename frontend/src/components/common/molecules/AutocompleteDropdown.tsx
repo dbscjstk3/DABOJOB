@@ -12,6 +12,7 @@ interface AutocompleteDropdownProps {
   onClose: () => void;
   onItemClick?: (item: AutocompleteJobPosting) => void;
   onRecentSearchClick?: (search: string) => void;
+  containerRef?: React.RefObject<HTMLDivElement>;
   className?: string;
 }
 
@@ -218,22 +219,6 @@ export default function AutocompleteDropdown({
           ))}
         </div>
       </div>
-
-      {/* 호버 카드 (미리보기) */}
-      {/* {hoveredItem && (
-        <div className="absolute left-[calc(100%+12px)] top-0 w-[400px] z-50 pointer-events-none">
-          <SearchResultCard
-            status={getJobStatus(hoveredItem.deadlineDate)}
-            companyName={hoveredItem.companyName}
-            title={hoveredItem.title}
-            experienceLevel={hoveredItem.careerInfo}
-            period={formatDeadline(hoveredItem.deadlineDate)}
-            jobCategory={`${hoveredItem.jobSectorCategory} · ${hoveredItem.jobSectorName}`}
-            url={hoveredItem.url}
-            className="shadow-xl"
-          />
-        </div>
-      )} */}
     </div>
   );
 }

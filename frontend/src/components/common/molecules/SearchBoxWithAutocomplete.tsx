@@ -20,6 +20,7 @@ export default function SearchBoxWithAutocomplete({
   const navigate = useNavigate();
   const location = useLocation();
   const inputRef = useRef<HTMLInputElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
   const [query, setQuery] = useState('');
   const [isOpen, setIsOpen] = useState(false);
 
@@ -89,18 +90,12 @@ export default function SearchBoxWithAutocomplete({
     }
   }, [location.pathname]);
 
-  // 자동완성 아이템이나 최근 검색어가 있을 때 드롭다운 표시
+  // 자동완성 아이템이 있을 때만 드롭다운 표시
   useEffect(() => {
     if (query.trim().length > 0 && items.length > 0) {
       setIsOpen(true);
-    } else if (
-      query.trim().length === 0 &&
-      recentSearches.length > 0 &&
-      document.activeElement === inputRef.current
-    ) {
-      setIsOpen(true);
     }
-  }, [items, query, recentSearches]);
+  }, [items, query]);
 
   // 자동완성 아이템 선택 처리
   const handleItemClick = (item: AutocompleteJobPosting) => {
@@ -128,7 +123,7 @@ export default function SearchBoxWithAutocomplete({
   };
 
   return (
-    <div className={cn('relative w-full', className)}>
+    <div className={cn('relative w-full', className)} ref={containerRef}>
       <form onSubmit={handleSubmit} className="w-full">
         <div className="relative">
           <input
@@ -140,7 +135,9 @@ export default function SearchBoxWithAutocomplete({
             placeholder={placeholder}
             className={cn(
               'w-full h-10 pl-4 pr-10 text-sm border border-slate-300 focus:outline-none focus:ring-1 focus:ring-daboja-default focus:border-transparent transition-all',
-              isOpen && items.length > 0 ? 'rounded-t-lg' : 'rounded-full',
+              isOpen && (items.length > 0 || recentSearches.length > 0)
+                ? 'rounded-t-lg'
+                : 'rounded-full',
             )}
           />
 
@@ -163,6 +160,7 @@ export default function SearchBoxWithAutocomplete({
         onClose={() => setIsOpen(false)}
         onItemClick={handleItemClick}
         onRecentSearchClick={handleRecentSearchClick}
+        // containerRef={containerRef}
         className={
           isOpen && (items.length > 0 || recentSearches.length > 0)
             ? 'rounded-t-none rounded-b-lg'
