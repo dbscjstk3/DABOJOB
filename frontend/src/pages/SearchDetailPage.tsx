@@ -49,7 +49,7 @@ export default function SearchDetailPage() {
   const handlePageChange = (newPage: number) => {
     navigate({
       search: (prev: SearchParams) => ({
-        ...prev,
+        q: prev.q || '', // q는 항상 필수값으로 유지
         page: newPage, // UI는 1부터 시작
       }),
     });
