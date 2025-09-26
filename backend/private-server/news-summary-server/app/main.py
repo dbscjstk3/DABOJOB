@@ -4,6 +4,7 @@ import asyncio
 import time
 from typing import Optional
 from fastapi import FastAPI, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 import ollama
 from concurrent.futures import ThreadPoolExecutor
@@ -27,6 +28,15 @@ uvicorn_logger = logging.getLogger("uvicorn.access")
 uvicorn_logger.addFilter(HealthCheckFilter())
 
 app = FastAPI(title="news-summary-server")
+
+# CORS 설정 추가
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["https://j13a402.p.ssafy.io"],  # 프론트엔드 도메인
+    allow_credentials=True,
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    allow_headers=["*"],
+)
 
 # 라우터 등록
 app.include_router(admin_router)
