@@ -60,6 +60,7 @@ public class FileProcessingService {
     private final NewsRepository newsRepository;
 
     private final ObjectMapper objectMapper = new ObjectMapper();
+//    private final
 
     public void processJobSectorFile(JsonNode jsonData, String fileName) {
         try {
@@ -222,6 +223,10 @@ public class FileProcessingService {
         }
 
         for (NewsItemDto newsItem : newsDto.getItems()) {
+
+            if (newsItem.getSummary()==null ||
+                    newsItem.getSummary().equals("관련 뉴스입니다.")||
+                    newsItem.getSummary().equals("요약 생성에 실패했습니다.")) continue;
             // 해시태그 찾기 또는 생성
             Hashtag hashtag = findOrCreateHashtag(newsItem.getHashtag());
 
