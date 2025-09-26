@@ -25,7 +25,7 @@ class S3Service:
         "products_services": ("2", "주요 제품 및 서비스"),
         "revenue_orders": ("3", "매출 및 수주 상황"),
         "contracts_rnd": ("4", "주요 계약 및 연구 개발 활동"),
-        "others": ("5", "기타 참고사항"),
+        "other_references": ("5", "기타 참고사항"),
     }
     
     def __init__(self):
@@ -230,7 +230,7 @@ class S3Service:
             from ..database import database
 
             query = """
-            SELECT DISTINCT js.sector_id, js.sector_name, js.sector_category
+            SELECT DISTINCT js.sector_id, js.sector_name
             FROM job_sectors js
             JOIN job_posting_sectors jps ON js.sector_id = jps.sector_id
             WHERE jps.job_id = %s
@@ -246,7 +246,7 @@ class S3Service:
                     "job_id": job_id,
                     "sector_id": row[0],
                     "sector_name": row[1],
-                    "sector_category": row[2]
+                    "sector_category": ""
                 }
 
             # 결과 없을 때 기본 값
@@ -309,7 +309,7 @@ class S3Service:
             "products_services_summary.txt",
             "revenue_orders_summary.txt",
             "contracts_rnd_summary.txt",
-            "others_summary.txt",
+            "other_references_summary.txt",  # others -> other_references로 변경
         ]
 
         for filename in summary_files:

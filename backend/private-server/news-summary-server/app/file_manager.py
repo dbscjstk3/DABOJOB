@@ -38,7 +38,7 @@ class FileManager:
             "products_services": "products_services_summary.txt",
             "revenue_orders": "revenue_orders_summary.txt",
             "contracts_rnd": "contracts_rnd_summary.txt",
-            "others": "others_summary.txt"
+            "other_references": "other_references_summary.txt"  # others -> other_references로 변경
         }
         return chapter_mapping.get(chapter, f"{chapter}_summary.txt")
     
@@ -106,6 +106,22 @@ class FileManager:
 
         if not file_path.exists():
             logger.error(f"Summary file not found: {file_path}")
+
+            # 디버깅: 실제 디렉터리 내용 확인
+            if self.summaries_dir.exists():
+                try:
+                    actual_files = [f.name for f in self.summaries_dir.iterdir() if f.is_file()]
+                    logger.info(f"Actual files in {self.summaries_dir}: {actual_files}")
+
+                    # 비슷한 파일명 찾기
+                    target_filename = file_path.name
+                    similar_files = [f for f in actual_files if chapter.replace('_', '') in f.replace('_', '')]
+                    logger.info(f"Similar files for {chapter}: {similar_files}")
+                except Exception as e:
+                    logger.error(f"Error listing directory {self.summaries_dir}: {e}")
+            else:
+                logger.error(f"Summaries directory does not exist: {self.summaries_dir}")
+
             return None
 
         try:
@@ -144,7 +160,7 @@ class FileManager:
             'products_service': summaries.get('products_services', ''),     # 2. 주요 제품 및 서비스
             'sales_contracts': summaries.get('revenue_orders', ''),         # 4. 매출 및 수주 상황
             'rnd_activities': summaries.get('contracts_rnd', ''),           # 6. 주요 계약 및 연구 개발 활동
-            'other_notes': summaries.get('others', '')                      # 7. 기타 참고사항
+            'other_notes': summaries.get('other_references', '')           # 7. 기타 참고사항
         }
         
         # 빈 데이터 체크
@@ -193,5 +209,5 @@ CHAPTER_NAMES = {
     2: "products",      # 주요 제품 및 서비스
     3: "revenue",       # 매출 및 수주 상황
     4: "contracts",     # 주요계약 및 연구개발
-    5: "other_references"  # 기타 참고사항 (standardizer, summary와 일치)
+    5: "other_references"  # 기타 참고사항
 }
