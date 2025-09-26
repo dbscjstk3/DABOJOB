@@ -154,7 +154,7 @@ async def get_job_complete_data(job_id: int) -> Dict[str, Any]:
                     "products_services": result[1] or "요약 없음",
                     "revenue_orders": result[2] or "요약 없음",
                     "contracts_rnd": result[3] or "요약 없음",
-                    "others": result[4] or "요약 없음"
+                    "other_references": result[4] or "요약 없음"
                 }
             else:
                 # 요약 데이터가 없는 경우 기본값
@@ -163,7 +163,7 @@ async def get_job_complete_data(job_id: int) -> Dict[str, Any]:
                     "products_services": "요약 데이터 없음",
                     "revenue_orders": "요약 데이터 없음",
                     "contracts_rnd": "요약 데이터 없음",
-                    "others": "요약 데이터 없음"
+                    "other_references": "요약 데이터 없음"
                 }
 
         # 3. 뉴스 데이터 조회 (해시태그별로 그룹화)
@@ -467,7 +467,7 @@ async def validate_mapping_files(mapping_id: int) -> Dict[str, Any]:
         }
 
         # 2. 요약 파일별 상태 확인
-        chapters = ["business_overview", "products_services", "revenue_orders", "contracts_rnd", "others"]
+        chapters = ["business_overview", "products_services", "revenue_orders", "contracts_rnd", "other_references"]
         file_status = {}
         total_files = 0
         valid_files = 0
