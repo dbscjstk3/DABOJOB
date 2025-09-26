@@ -254,6 +254,11 @@ public class FileProcessingService {
         }
 
         // 중복 허용 - 동일한 이름이면 기존 것 사용, 없으면 새로 생성
+        if(hashtagName.startsWith("#")){
+            hashtagName = hashtagName.substring(1);
+        }
+        String finalHashtagName = hashtagName.trim();
+
         Optional<Hashtag> existing = hashtagRepository.findByName(hashtagName);
         if (existing.isPresent()) {
             return existing.get();
@@ -268,7 +273,7 @@ public class FileProcessingService {
         } catch (DataIntegrityViolationException e) {
             // 다른 스레드가 이미 생성했으니 다시 조회
             return hashtagRepository.findByName(hashtagName)
-                    .orElseThrow(() -> new RuntimeException("Hashtag not found after creation: " + hashtagName));
+                    .orElseThrow(() -> new RuntimeException("Hashtag not found after creation: " + finalHashtagName));
         }
     }
 
