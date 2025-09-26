@@ -284,7 +284,7 @@ export const handlers = [
   }),
 
   // Admin 캘린더용 기업/공고 목록 목 핸들러
-  http.get('/api/admin/job-postings/calendar', ({ request }) => {
+  http.get('/api/admin/calendar', ({ request }) => {
     const url = new URL(request.url);
     const year = parseInt(url.searchParams.get('year') || '1970', 10);
     const month = parseInt(url.searchParams.get('month') || '1', 10);
