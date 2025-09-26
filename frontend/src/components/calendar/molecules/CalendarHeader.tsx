@@ -26,9 +26,13 @@ const PopularDropdown: React.FC = () => {
         setHotJobPostings(hotJobPostings);
 
         // 백엔드에서 이미 companyName과 title을 제공하므로 추가 API 호출 불필요
-        console.log('🔍 인기 공고 데이터 (companyName 포함):', hotJobPostings);
+        if (import.meta.env.DEV) {
+          console.log('🔍 인기 공고 데이터 (companyName 포함):', hotJobPostings);
+        }
       } catch (error) {
-        console.error('Failed to fetch hot job postings:', error);
+        if (import.meta.env.DEV) {
+          console.error('Failed to fetch hot job postings:', error);
+        }
         // 에러 시 기본 데이터 사용
         setHotJobPostings([]);
       } finally {

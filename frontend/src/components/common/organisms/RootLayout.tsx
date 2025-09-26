@@ -16,29 +16,41 @@ export function RootLayout() {
 
   // 앱 시작 시 사용자 정보 가져오기 (한 번만 실행)
   useEffect(() => {
-    console.log('🏁 RootLayout: 앱 시작 시 사용자 정보 가져오기');
-    console.log('🌐 현재 경로:', location.pathname);
+    if (import.meta.env.DEV) {
+      console.log('🏁 RootLayout: 앱 시작 시 사용자 정보 가져오기');
+      console.log('🌐 현재 경로:', location.pathname);
+    }
     fetchUser();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []); // fetchUser를 의존성에서 제거하여 무한 루프 방지
 
   // 로그인 후 리다이렉트 처리
   useEffect(() => {
-    console.log('🔄 RootLayout: 인증 상태 변화 감지');
-    console.log('📊 현재 상태:', { isAuthed, user: user?.name || 'null' });
+    if (import.meta.env.DEV) {
+      console.log('🔄 RootLayout: 인증 상태 변화 감지');
+      console.log('📊 현재 상태:', { isAuthed, user: user?.name || 'null' });
+    }
 
     const redirectTo = sessionStorage.getItem('post_login_redirect');
-    console.log('💾 저장된 리다이렉트 URL:', redirectTo);
+    if (import.meta.env.DEV) {
+      console.log('💾 저장된 리다이렉트 URL:', redirectTo);
+    }
 
     if (redirectTo && isAuthed) {
-      console.log('✅ 로그인 완료, 리다이렉트 실행');
-      console.log('🎯 리다이렉트 대상:', redirectTo);
+      if (import.meta.env.DEV) {
+        console.log('✅ 로그인 완료, 리다이렉트 실행');
+        console.log('🎯 리다이렉트 대상:', redirectTo);
+      }
       sessionStorage.removeItem('post_login_redirect');
       navigate({ to: redirectTo });
     } else if (isAuthed) {
-      console.log('✅ 로그인 상태 확인됨');
+      if (import.meta.env.DEV) {
+        console.log('✅ 로그인 상태 확인됨');
+      }
     } else {
-      console.log('🔒 로그인되지 않은 상태');
+      if (import.meta.env.DEV) {
+        console.log('🔒 로그인되지 않은 상태');
+      }
     }
   }, [isAuthed, navigate, user]);
 
@@ -66,7 +78,9 @@ export function RootLayout() {
   };
 
   const handleSelectSuggestion = (item: SearchItem) => {
-    console.log('선택된 항목:', item);
+    if (import.meta.env.DEV) {
+      console.log('선택된 항목:', item);
+    }
     // 선택된 항목의 라벨에서 회사명 추출 (예: "개발자 - 삼성전자" → "삼성전자")
     const companyName = item.label.split(' - ').pop();
     if (companyName) {
@@ -81,7 +95,9 @@ export function RootLayout() {
   };
 
   const handleSubmitSearch = (query: string) => {
-    console.log('검색 제출:', query);
+    if (import.meta.env.DEV) {
+      console.log('검색 제출:', query);
+    }
     // 검색 결과 페이지로 이동
     if (query.trim()) {
       navigate({
@@ -101,16 +117,22 @@ export function RootLayout() {
 
   const handleLogout = async () => {
     try {
-      console.log('로그아웃 요청 전송:', API_ENDPOINTS.AUTH.LOGOUT);
+      if (import.meta.env.DEV) {
+        console.log('로그아웃 요청 전송:', API_ENDPOINTS.AUTH.LOGOUT);
+      }
       const res = await fetch(API_ENDPOINTS.AUTH.LOGOUT, {
         method: 'POST',
         credentials: 'include',
       });
       if (!res.ok) {
-        console.warn('로그아웃 요청 실패', res.status, res.statusText);
+        if (import.meta.env.DEV) {
+          console.warn('로그아웃 요청 실패', res.status, res.statusText);
+        }
       }
     } catch (e) {
-      console.error('로그아웃 요청 오류', e);
+      if (import.meta.env.DEV) {
+        console.error('로그아웃 요청 오류', e);
+      }
     } finally {
       logout();
       navigate({ to: '/' });

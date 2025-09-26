@@ -17,20 +17,26 @@ export const handlers = [
   http.get('/api/summaries/companies/:summaryId', ({ params }) => {
     const summaryId = params.summaryId as string;
 
-    console.log(`🎭 MSW: Summary Detail API 호출됨 - ID: ${summaryId}`);
+    if (import.meta.env.DEV) {
+      console.log(`🎭 MSW: Summary Detail API 호출됨 - ID: ${summaryId}`);
+    }
 
     // summaryId에 해당하는 목 데이터 반환
     const summaryData = mockSummaryData[summaryId];
 
     if (!summaryData) {
-      console.log(`❌ MSW: Summary ID ${summaryId}에 해당하는 데이터가 없습니다.`);
+      if (import.meta.env.DEV) {
+        console.log(`❌ MSW: Summary ID ${summaryId}에 해당하는 데이터가 없습니다.`);
+      }
       return new HttpResponse(null, {
         status: 404,
         statusText: 'Summary not found',
       });
     }
 
-    console.log(`✅ MSW: ${summaryData.companyName} 데이터 반환`);
+    if (import.meta.env.DEV) {
+      console.log(`✅ MSW: ${summaryData.companyName} 데이터 반환`);
+    }
 
     // 실제 API처럼 약간의 지연 시뮬레이션 (선택사항)
     return HttpResponse.json(summaryData, {
@@ -45,16 +51,22 @@ export const handlers = [
   http.get('/api/summaries/:summaryId/news', ({ params }) => {
     const summaryId = params.summaryId as string;
 
-    console.log(`🎭 MSW: News API 호출됨 - Summary ID: ${summaryId}`);
+    if (import.meta.env.DEV) {
+      console.log(`🎭 MSW: News API 호출됨 - Summary ID: ${summaryId}`);
+    }
 
     const newsData = mockNewsData[summaryId];
 
     if (!newsData) {
-      console.log(`❌ MSW: Summary ID ${summaryId}에 해당하는 뉴스 데이터가 없습니다.`);
+      if (import.meta.env.DEV) {
+        console.log(`❌ MSW: Summary ID ${summaryId}에 해당하는 뉴스 데이터가 없습니다.`);
+      }
       return HttpResponse.json([]);
     }
 
-    console.log(`✅ MSW: ${newsData.length}개 뉴스 데이터 반환`);
+    if (import.meta.env.DEV) {
+      console.log(`✅ MSW: ${newsData.length}개 뉴스 데이터 반환`);
+    }
 
     return HttpResponse.json(newsData, {
       status: 200,
@@ -70,9 +82,11 @@ export const handlers = [
     const encodedHashtagName = params.hashtagName as string;
     const hashtagName = decodeURIComponent(encodedHashtagName);
 
-    console.log(
-      `🎭 MSW: 해시태그별 News API 호출됨 - Summary ID: ${summaryId}, Hashtag: ${hashtagName}`,
-    );
+    if (import.meta.env.DEV) {
+      console.log(
+        `🎭 MSW: 해시태그별 News API 호출됨 - Summary ID: ${summaryId}, Hashtag: ${hashtagName}`,
+      );
+    }
 
     // 간단한 목 데이터 - 실제 백엔드가 알아서 필터링해주니까 여기서는 단순하게 처리
     const hashtagNewsMap: Record<string, NewsResponse[]> = {
@@ -123,10 +137,12 @@ export const handlers = [
 
     const filteredNews = hashtagNewsMap[hashtagName] || [];
 
-    if (filteredNews.length === 0) {
-      console.log(`⚠️ MSW: 해시태그 '${hashtagName}'에 대한 뉴스가 없습니다. 빈 배열 반환`);
-    } else {
-      console.log(`✅ MSW: 해시태그 '${hashtagName}'에 대한 ${filteredNews.length}개 뉴스 반환`);
+    if (import.meta.env.DEV) {
+      if (filteredNews.length === 0) {
+        console.log(`⚠️ MSW: 해시태그 '${hashtagName}'에 대한 뉴스가 없습니다. 빈 배열 반환`);
+      } else {
+        console.log(`✅ MSW: 해시태그 '${hashtagName}'에 대한 ${filteredNews.length}개 뉴스 반환`);
+      }
     }
 
     return HttpResponse.json(filteredNews, {
@@ -181,11 +197,15 @@ export const handlers = [
     const url = new URL(request.url);
     const prefix = url.searchParams.get('prefix') || '';
 
-    console.log(`🎭 MSW: 자동완성 API 호출됨 - prefix: "${prefix}"`);
+    if (import.meta.env.DEV) {
+      console.log(`🎭 MSW: 자동완성 API 호출됨 - prefix: "${prefix}"`);
+    }
 
     // 빈 prefix면 빈 결과 반환
     if (!prefix || prefix.trim().length === 0) {
-      console.log('⚠️ MSW: prefix가 비어있음. 빈 결과 반환');
+      if (import.meta.env.DEV) {
+        console.log('⚠️ MSW: prefix가 비어있음. 빈 결과 반환');
+      }
       const emptyResponse = createAutocompleteResponse([]);
       return HttpResponse.json(emptyResponse);
     }
@@ -194,7 +214,9 @@ export const handlers = [
     const filteredJobs = getFilteredJobPostings(prefix);
     const response = createAutocompleteResponse(filteredJobs);
 
-    console.log(`✅ MSW: "${prefix}"로 검색한 결과 ${filteredJobs.length}개 채용공고 반환`);
+    if (import.meta.env.DEV) {
+      console.log(`✅ MSW: "${prefix}"로 검색한 결과 ${filteredJobs.length}개 채용공고 반환`);
+    }
 
     // 실제 API처럼 약간의 지연 추가 (100-300ms)
     const delay = Math.random() * 200 + 100;
@@ -218,7 +240,9 @@ export const handlers = [
     const url = new URL(request.url);
     const limit = parseInt(url.searchParams.get('limit') || '10', 10);
 
-    console.log(`🎭 MSW: 최근 검색어 API 호출됨 - limit: ${limit}`);
+    if (import.meta.env.DEV) {
+      console.log(`🎭 MSW: 최근 검색어 API 호출됨 - limit: ${limit}`);
+    }
 
     // 최근 검색어 목 데이터
     const recentSearches = [
@@ -237,7 +261,9 @@ export const handlers = [
     // limit만큼 잘라서 반환
     const limitedSearches = recentSearches.slice(0, limit);
 
-    console.log(`✅ MSW: ${limitedSearches.length}개의 최근 검색어 반환`);
+    if (import.meta.env.DEV) {
+      console.log(`✅ MSW: ${limitedSearches.length}개의 최근 검색어 반환`);
+    }
 
     return HttpResponse.json(limitedSearches, {
       status: 200,
@@ -254,11 +280,15 @@ export const handlers = [
     const page = parseInt(url.searchParams.get('page') || '0', 10);
     const size = parseInt(url.searchParams.get('size') || '20', 10);
 
-    console.log(`🎭 MSW: 검색 API 호출됨 - search: "${search}", page: ${page}, size: ${size}`);
+    if (import.meta.env.DEV) {
+      console.log(`🎭 MSW: 검색 API 호출됨 - search: "${search}", page: ${page}, size: ${size}`);
+    }
 
     // 검색어가 필수 파라미터
     if (!search) {
-      console.log('❌ MSW: search 파라미터가 없습니다.');
+      if (import.meta.env.DEV) {
+        console.log('❌ MSW: search 파라미터가 없습니다.');
+      }
       return new HttpResponse(null, {
         status: 400,
         statusText: 'Search parameter is required',
@@ -268,9 +298,11 @@ export const handlers = [
     // 검색 실행
     const searchResult = searchJobPostings(search, page, size);
 
-    console.log(
-      `✅ MSW: "${search}" 검색 결과 - 총 ${searchResult.totalElements}개 중 ${searchResult.numberOfElements}개 반환 (페이지: ${page + 1}/${searchResult.totalPages})`,
-    );
+    if (import.meta.env.DEV) {
+      console.log(
+        `✅ MSW: "${search}" 검색 결과 - 총 ${searchResult.totalElements}개 중 ${searchResult.numberOfElements}개 반환 (페이지: ${page + 1}/${searchResult.totalPages})`,
+      );
+    }
 
     // 실제 API처럼 약간의 지연 추가
     const delay = Math.random() * 200 + 100;
@@ -291,7 +323,9 @@ export const handlers = [
 
   // 인기 공고 API 목 핸들러
   http.get('/api/job-postings/hot', () => {
-    console.log('🎭 MSW: 인기 공고 API 호출됨');
+    if (import.meta.env.DEV) {
+      console.log('🎭 MSW: 인기 공고 API 호출됨');
+    }
 
     // 실시간 인기 공고 데이터
     const hotJobPostings = [
@@ -312,10 +346,12 @@ export const handlers = [
       },
     ];
 
-    console.log(
-      `✅ MSW: 인기 공고 ${hotJobPostings.length}개 반환:`,
-      hotJobPostings.map((job) => `${job.jobPostingId}: ${job.title}`).join(', '),
-    );
+    if (import.meta.env.DEV) {
+      console.log(
+        `✅ MSW: 인기 공고 ${hotJobPostings.length}개 반환:`,
+        hotJobPostings.map((job) => `${job.jobPostingId}: ${job.title}`).join(', '),
+      );
+    }
 
     return HttpResponse.json(hotJobPostings, {
       status: 200,
@@ -331,7 +367,9 @@ export const handlers = [
     const year = parseInt(url.searchParams.get('year') || '1970', 10);
     const month = parseInt(url.searchParams.get('month') || '1', 10);
 
-    console.log(`🎭 MSW: Admin 캘린더 API 호출됨 - Year: ${year}, Month: ${month}`);
+    if (import.meta.env.DEV) {
+      console.log(`🎭 MSW: Admin 캘린더 API 호출됨 - Year: ${year}, Month: ${month}`);
+    }
 
     const toDate = (d: number) =>
       `${year}-${String(month).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
@@ -432,7 +470,9 @@ export const handlers = [
   http.get('/api/job-postings/:jobPostingId', ({ params }) => {
     const jobPostingId = params.jobPostingId as string;
 
-    console.log(`🎭 MSW: JobPosting API 호출됨 - ID: ${jobPostingId}`);
+    if (import.meta.env.DEV) {
+      console.log(`🎭 MSW: JobPosting API 호출됨 - ID: ${jobPostingId}`);
+    }
 
     // jobPostings.ts에서 데이터 가져오기
     const allJobPostings = getAllJobPostings();
@@ -441,14 +481,18 @@ export const handlers = [
     );
 
     if (!jobPostingData) {
-      console.log(`❌ MSW: Job Posting ID ${jobPostingId}를 찾을 수 없습니다.`);
+      if (import.meta.env.DEV) {
+        console.log(`❌ MSW: Job Posting ID ${jobPostingId}를 찾을 수 없습니다.`);
+      }
       return new HttpResponse(null, {
         status: 404,
         statusText: 'Job Posting not found',
       });
     }
 
-    console.log(`✅ MSW: ${jobPostingData.companyName} - ${jobPostingData.title} 데이터 반환`);
+    if (import.meta.env.DEV) {
+      console.log(`✅ MSW: ${jobPostingData.companyName} - ${jobPostingData.title} 데이터 반환`);
+    }
 
     return HttpResponse.json(jobPostingData, {
       status: 200,
@@ -465,14 +509,18 @@ export const handlers = [
     const year = url.searchParams.get('year');
     const month = url.searchParams.get('month');
 
-    console.log(
-      `🎭 MSW: Admin Mapping API 호출됨 - Company ID: ${companyId}, Year: ${year}, Month: ${month}`,
-    );
+    if (import.meta.env.DEV) {
+      console.log(
+        `🎭 MSW: Admin Mapping API 호출됨 - Company ID: ${companyId}, Year: ${year}, Month: ${month}`,
+      );
+    }
 
     const mappingData = mockCompanyMappings[companyId];
 
     if (!mappingData) {
-      console.log(`❌ MSW: Company ID ${companyId}에 해당하는 매핑 데이터가 없습니다.`);
+      if (import.meta.env.DEV) {
+        console.log(`❌ MSW: Company ID ${companyId}에 해당하는 매핑 데이터가 없습니다.`);
+      }
       return new HttpResponse(null, {
         status: 404,
         statusText: 'Company mapping not found',
@@ -485,7 +533,9 @@ export const handlers = [
       mappingData.period.month = parseInt(month);
     }
 
-    console.log(`✅ MSW: ${mappingData.company.company_name} 매핑 데이터 반환`);
+    if (import.meta.env.DEV) {
+      console.log(`✅ MSW: ${mappingData.company.company_name} 매핑 데이터 반환`);
+    }
 
     return HttpResponse.json(mappingData, {
       status: 200,
@@ -501,7 +551,9 @@ export const handlers = [
     const companyId = params.companyId as string;
     const body = (await request.json()) as AdminMappingUpdateRequest;
 
-    console.log(`🎭 MSW: Admin Mapping Update API 호출됨 - Company ID: ${companyId}`, body);
+    if (import.meta.env.DEV) {
+      console.log(`🎭 MSW: Admin Mapping Update API 호출됨 - Company ID: ${companyId}`, body);
+    }
 
     // 10분 후를 시뮬레이션하기 위해 약간의 지연 추가 (실제로는 10분 기다리지 않고 2초만)
     await new Promise((resolve) => setTimeout(resolve, 2000));
@@ -518,7 +570,9 @@ export const handlers = [
       },
     };
 
-    console.log(`✅ MSW: 매핑 업데이트 성공 응답 반환`);
+    if (import.meta.env.DEV) {
+      console.log(`✅ MSW: 매핑 업데이트 성공 응답 반환`);
+    }
 
     return HttpResponse.json(customResponse, {
       status: 200,
@@ -532,19 +586,25 @@ export const handlers = [
   http.get('/api/admin/jobs/:jobId/complete-data', ({ params }) => {
     const jobId = params.jobId as string;
 
-    console.log(`🎭 MSW: Admin Job Complete API 호출됨 - Job ID: ${jobId}`);
+    if (import.meta.env.DEV) {
+      console.log(`🎭 MSW: Admin Job Complete API 호출됨 - Job ID: ${jobId}`);
+    }
 
     const jobData = mockAdminJobCompleteData[jobId];
 
     if (!jobData) {
-      console.log(`❌ MSW: Job ID ${jobId}에 해당하는 데이터가 없습니다.`);
+      if (import.meta.env.DEV) {
+        console.log(`❌ MSW: Job ID ${jobId}에 해당하는 데이터가 없습니다.`);
+      }
       return new HttpResponse(null, {
         status: 404,
         statusText: 'Job data not found',
       });
     }
 
-    console.log(`✅ MSW: ${jobData.company_info.company_name} Job 데이터 반환`);
+    if (import.meta.env.DEV) {
+      console.log(`✅ MSW: ${jobData.company_info.company_name} Job 데이터 반환`);
+    }
 
     return HttpResponse.json(jobData, {
       status: 200,
@@ -558,7 +618,9 @@ export const handlers = [
   http.post('/api/admin/jobs/:jobId/reprocessing', async ({ params }) => {
     const jobId = params.jobId as string;
 
-    console.log(`🎭 MSW: Admin Job Reprocessing API 호출됨 - Job ID: ${jobId}`);
+    if (import.meta.env.DEV) {
+      console.log(`🎭 MSW: Admin Job Reprocessing API 호출됨 - Job ID: ${jobId}`);
+    }
 
     // 실제 처리 시뮬레이션을 위한 지연
     await new Promise((resolve) => setTimeout(resolve, 1000));
@@ -573,7 +635,9 @@ export const handlers = [
       },
     };
 
-    console.log(`✅ MSW: Job ${jobId} 재요약 요청 성공 응답 반환`);
+    if (import.meta.env.DEV) {
+      console.log(`✅ MSW: Job ${jobId} 재요약 요청 성공 응답 반환`);
+    }
 
     return HttpResponse.json(customResponse, {
       status: 200,
@@ -587,7 +651,9 @@ export const handlers = [
   http.post('/api/admin/jobs/:jobId/approve', async ({ params }) => {
     const jobId = params.jobId as string;
 
-    console.log(`🎭 MSW: Admin Job Approve API 호출됨 - Job ID: ${jobId}`);
+    if (import.meta.env.DEV) {
+      console.log(`🎭 MSW: Admin Job Approve API 호출됨 - Job ID: ${jobId}`);
+    }
 
     // 실제 처리 시뮬레이션을 위한 지연
     await new Promise((resolve) => setTimeout(resolve, 1500));
@@ -598,7 +664,9 @@ export const handlers = [
       job_id: parseInt(jobId),
     };
 
-    console.log(`✅ MSW: Job ${jobId} 승인 성공 응답 반환`);
+    if (import.meta.env.DEV) {
+      console.log(`✅ MSW: Job ${jobId} 승인 성공 응답 반환`);
+    }
 
     return HttpResponse.json(customResponse, {
       status: 200,

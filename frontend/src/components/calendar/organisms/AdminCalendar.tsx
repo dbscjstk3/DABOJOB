@@ -40,12 +40,14 @@ export const AdminCalendar: React.FC<AdminCalendarProps> = ({
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // 디버깅용 로그
-  console.log('🔍 AdminCalendar Debug:', {
-    currentViewDate: viewDate,
-    currentYear: viewDate.getFullYear(),
-    currentMonth: viewDate.getMonth() + 1, // 1-based month
-  });
+  // 디버깅용 로그 (DEV에서만)
+  if (import.meta.env.DEV) {
+    console.log('🔍 AdminCalendar Debug:', {
+      currentViewDate: viewDate,
+      currentYear: viewDate.getFullYear(),
+      currentMonth: viewDate.getMonth() + 1, // 1-based month
+    });
+  }
 
   // 관리자용 API 호출
   useEffect(() => {
@@ -54,14 +56,20 @@ export const AdminCalendar: React.FC<AdminCalendarProps> = ({
       setError(null);
 
       try {
-        console.log('🔍 관리자용 API 호출 중...');
+        if (import.meta.env.DEV) {
+          console.log('🔍 관리자용 API 호출 중...');
+        }
         const year = viewDate.getFullYear().toString();
         const month = (viewDate.getMonth() + 1).toString(); // API는 1-based month를 사용
         const response = await fetchAdminJobPostings(year, month);
-        console.log('🔍 관리자용 API 응답:', response);
+        if (import.meta.env.DEV) {
+          console.log('🔍 관리자용 API 응답:', response);
+        }
         setAdminCompanies(response.companies);
       } catch (err) {
-        console.error('📅 AdminCalendar: API 호출 실패', err);
+        if (import.meta.env.DEV) {
+          console.error('📅 AdminCalendar: API 호출 실패', err);
+        }
         setError(err instanceof Error ? err.message : '데이터를 불러오는데 실패했습니다.');
       } finally {
         setIsLoading(false);
@@ -75,14 +83,18 @@ export const AdminCalendar: React.FC<AdminCalendarProps> = ({
   const adminCompaniesByDate = useMemo(() => {
     const grouped: Record<string, AdminCalendarCompany[]> = {};
 
-    console.log('🔍 관리자용 회사 데이터 그룹화:', adminCompanies);
+    if (import.meta.env.DEV) {
+      console.log('🔍 관리자용 회사 데이터 그룹화:', adminCompanies);
+    }
 
     adminCompanies.forEach((company) => {
       // 첫 공고일과 마지막 공고일 모두 처리
       const firstPostingDate = company.first_posting_date;
       const lastPostingDate = company.last_posting_date;
 
-      console.log(`🔍 회사 ${company.company_name}: ${firstPostingDate} ~ ${lastPostingDate}`);
+      if (import.meta.env.DEV) {
+        console.log(`🔍 회사 ${company.company_name}: ${firstPostingDate} ~ ${lastPostingDate}`);
+      }
 
       // 첫 공고일
       if (!grouped[firstPostingDate]) {
@@ -99,7 +111,9 @@ export const AdminCalendar: React.FC<AdminCalendarProps> = ({
       }
     });
 
-    console.log('🔍 그룹화된 관리자용 회사 데이터:', grouped);
+    if (import.meta.env.DEV) {
+      console.log('🔍 그룹화된 관리자용 회사 데이터:', grouped);
+    }
     return grouped;
   }, [adminCompanies]);
 
@@ -114,7 +128,9 @@ export const AdminCalendar: React.FC<AdminCalendarProps> = ({
     const month = viewDate.getMonth();
     const dateKey = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
     const companies = adminCompaniesByDate[dateKey] || [];
-    console.log(`🔍 ${dateKey} 관리자용 회사 데이터:`, companies);
+    if (import.meta.env.DEV) {
+      console.log(`🔍 ${dateKey} 관리자용 회사 데이터:`, companies);
+    }
     return companies;
   };
 
@@ -169,7 +185,9 @@ export const AdminCalendar: React.FC<AdminCalendarProps> = ({
         break;
 
       default:
-        console.warn('Unknown mapping status:', company.mapping_status);
+        if (import.meta.env.DEV) {
+          console.warn('Unknown mapping status:', company.mapping_status);
+        }
     }
   };
 
