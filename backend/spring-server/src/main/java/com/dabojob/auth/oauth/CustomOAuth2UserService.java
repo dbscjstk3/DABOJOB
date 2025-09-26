@@ -112,20 +112,15 @@ public class CustomOAuth2UserService extends DefaultOAuth2UserService {
      * 환경변수나 설정을 통해 관리자 계정 지정 가능
      */
     private UserRole determineUserRole(OAuthUserInfo userInfo) {
-        // TODO: 환경변수에서 관리자 이메일 목록을 읽어와서 권한 부여
-        // String adminEmails = System.getenv("ADMIN_EMAILS"); // "admin1@example.com,admin2@example.com"
+         String adminEmails = "jayeunpark0704@gmail.com"; //임시로 상수 설정
 
-        // 기본적으로는 일반 사용자 권한
-        return UserRole.USER;
 
-        // 관리자 권한 부여 예시:
-        /*
-        if (adminEmails != null && adminEmails.contains(userInfo.getEmail())) {
+        if (adminEmails.equals(userInfo.getEmail())) {
             log.info("관리자 권한 부여: {}", userInfo.getEmail());
             return UserRole.ADMIN;
         }
         return UserRole.USER;
-        */
+
     }
 }
 

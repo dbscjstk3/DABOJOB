@@ -490,14 +490,14 @@ class BackgroundWorker:
         """
         # FileManager에서 카테고리별 파일로 저장
         self.file_manager.append_to_category_file(
-            job_id=f"mapping_{mapping_id}",  # mapping_id 기반 디렉토리 사용
+            job_id=str(mapping_id),  # mapping_id 기반 디렉토리 사용
             category=category,
             title=company_name,
             content=content
         )
 
         # 파일 경로 반환
-        job_path = self.file_manager.get_job_path(f"mapping_{mapping_id}")
+        job_path = self.file_manager.get_job_path(str(mapping_id))
         standardized_path = job_path / "standardized"
 
         category_files = {

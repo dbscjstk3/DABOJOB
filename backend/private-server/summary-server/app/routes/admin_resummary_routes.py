@@ -5,24 +5,32 @@ POST /admin/resummary/trigger/{mapping_id} 하나만
 import logging
 from fastapi import APIRouter, HTTPException, BackgroundTasks
 from pydantic import BaseModel
+from typing import Optional
 from ..services.resummary_service import ResummaryService
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/admin/resummary", tags=["Admin Resummary"])
 
 class ResummaryTriggerRequest(BaseModel):
-    """재요약 요청"""
-    reason: str
-    requested_by: str
+    """재요약 요청 (선택사항)"""
+    reason: Optional[str] = "Manual resummary request"
+    requested_by: Optional[str] = "Admin"
 
 @router.post("/trigger/{mapping_id}")
 async def trigger_resummary(
     mapping_id: int,
-    request: ResummaryTriggerRequest,
-    background_tasks: BackgroundTasks
+    background_tasks: BackgroundTasks,
+    request: Optional[ResummaryTriggerRequest] = None
 ):
     """재요약 수동 요청 - 핵심 기능만"""
     try:
+        logger.info(f"Resummary triggered for mapping_id: {mapping_id}")
+
+        # request가 없으면 기본값 사용
+        if request is None:
+            request = ResummaryTriggerRequest()
+            logger.info(f"Using default request params for mapping_id: {mapping_id}")
+
         # 백그라운드에서 재요약 처리
         async def process_resummary():
             try:
@@ -38,14 +46,17 @@ async def trigger_resummary(
 
         # 백그라운드 태스크 추가
         background_tasks.add_task(process_resummary)
+        logger.info(f"Background task added for resummary of mapping_id: {mapping_id}")
 
         # 즉시 응답 반환
-        return {
+        response = {
             "success": True,
             "status": "queued",
             "mapping_id": mapping_id,
             "message": f"Re-summarization queued for mapping {mapping_id}"
         }
+        logger.info(f"Returning response for mapping_id {mapping_id}: {response}")
+        return response
 
     except Exception as e:
         logger.error(f"Failed to trigger resummary: {e}")

@@ -20,7 +20,7 @@ class FileManager:
     
     def get_job_path(self, job_id: str) -> Path:
         """job_id에 해당하는 디렉토리 경로 반환"""
-        return self.base_data_path / "jobs" / str(job_id)
+        return self.base_data_path / "mapping" / str(job_id)
     
     def create_job_directory(self, job_id: str) -> Path:
         """
@@ -276,7 +276,7 @@ class FileManager:
         Returns:
             list: job_id 목록
         """
-        jobs_path = self.base_data_path / "jobs"
+        jobs_path = self.base_data_path / "mapping"
         if not jobs_path.exists():
             return []
         
