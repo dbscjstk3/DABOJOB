@@ -633,3 +633,33 @@ async def complete_mapping_to_s3(mapping_id: int) -> Dict[str, Any]:
                 logger.error(f"🔄 Rollback error: {rollback_error}")
 
         raise HTTPException(status_code=500, detail=f"Failed to complete flow: {str(e)}")
+
+@router.get("/data/s3-preview/{job_id}")
+async def get_s3_preview_data(job_id: int) -> Dict[str, Any]:
+    """
+    S3 업로드와 동일한 데이터를 JSON으로 미리보기
+    (s3_service.upload_job_completion_data와 완전히 동일한 로직)
+    """
+    try:
+        from ..services.s3_service import s3_service
+
+        # S3 업로드 시와 동일한 데이터 수집
+        companies_data = await s3_service._get_companies_data(job_id)
+        job_postings_data = await s3_service._get_job_postings_data(job_id)
+        job_sectors_data = await s3_service._get_job_sectors_data(job_id)
+        dart_data = await s3_service._get_dart_data(job_id)
+
+        # S3 업로드 시와 동일한 형태로 반환
+        return {
+            "job_id": job_id,
+            "companies": companies_data,
+            "job_postings": job_postings_data,
+            "job_sectors": job_sectors_data,
+            "Dart": dart_data,
+            "preview_timestamp": datetime.now().isoformat(),
+            "note": "This is the exact same data that would be uploaded to S3"
+        }
+
+    except Exception as e:
+        logger.error(f"Error getting S3 preview data for job_id {job_id}: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to get S3 preview data: {str(e)}")
