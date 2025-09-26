@@ -33,6 +33,9 @@ export const CalendarGrid: React.FC<CalendarGridProps> = ({
   // 달력 셀 데이터 생성
   const calendarCells = generateCalendarCells(year, month);
 
+  // 필요한 주 수 계산
+  const weeksNeeded = Math.ceil(calendarCells.length / 7);
+
   return (
     <div className={cn('w-full', className)}>
       {/* 요일 헤더 */}
@@ -62,8 +65,13 @@ export const CalendarGrid: React.FC<CalendarGridProps> = ({
         })}
       </div>
 
-      {/* 달력 그리드 */}
-      <div className="grid grid-cols-7 gap-2">
+      {/* 달력 그리드 - 동적 높이 */}
+      <div
+        className="grid grid-cols-7 gap-2"
+        style={{
+          gridTemplateRows: `repeat(${weeksNeeded}, 1fr)`,
+        }}
+      >
         {calendarCells.map((cell, index) => (
           <CellBox
             key={index}
@@ -85,6 +93,7 @@ export const CalendarGrid: React.FC<CalendarGridProps> = ({
             }}
             onOpenModal={onOpenModal}
             onAdminCalendarCompanyClick={onAdminCalendarCompanyClick}
+            isHidden={cell.day === null}
           />
         ))}
       </div>

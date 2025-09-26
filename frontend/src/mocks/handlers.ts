@@ -269,7 +269,7 @@ export const handlers = [
       {
         jobPostingId: '3',
         title: '데이터 엔지니어',
-        companyName: 'SK하이닉스',
+        companyName: '에이치디현대쉘베이스오일',
       },
     ];
 

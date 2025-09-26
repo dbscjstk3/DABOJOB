@@ -50,9 +50,13 @@ export function generateCalendarCells(year: number, month: number): CalendarCell
     });
   }
 
-  // 다음 달의 빈 셀들 (마지막 주의 뒷부분)
-  const totalCells = 42; // 7주 x 6일
+  // 필요한 주 수 계산 (최소 4주, 최대 6주)
+  const totalDays = calendarCells.length;
+  const weeksNeeded = Math.ceil(totalDays / 7);
+  const totalCells = weeksNeeded * 7;
   const remainingCells = totalCells - calendarCells.length;
+
+  // 다음 달의 빈 셀들 (마지막 주의 뒷부분)
   for (let i = 0; i < remainingCells; i++) {
     calendarCells.push({
       day: null,
