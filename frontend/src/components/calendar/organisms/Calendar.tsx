@@ -14,8 +14,6 @@ export interface CalendarProps {
   onEmploymentTypeChange: (values: string[]) => void;
   jobCategoryFilter: string[];
   onJobCategoryChange: (values: string[]) => void;
-  companyTypeFilter: string[];
-  onCompanyTypeChange: (values: string[]) => void;
   className?: string;
 }
 
@@ -26,8 +24,6 @@ export const Calendar: React.FC<CalendarProps> = ({
   onEmploymentTypeChange,
   jobCategoryFilter,
   onJobCategoryChange,
-  companyTypeFilter,
-  onCompanyTypeChange,
   className,
 }) => {
   // 더보기(확장) 상태: 날짜 번호 Set
@@ -115,7 +111,6 @@ export const Calendar: React.FC<CalendarProps> = ({
     return grouped;
   }, [jobPostings]);
 
-
   // 필터링된 공고 데이터 (일반 사용자용)
   const getFilteredRecruits = (day: number): JobPostingResponse[] => {
     const year = viewDate.getFullYear();
@@ -129,14 +124,11 @@ export const Calendar: React.FC<CalendarProps> = ({
         employmentTypeFilter.length === 0 || employmentTypeFilter.includes(recruit.careerInfo);
       const jobCategoryMatch =
         jobCategoryFilter.length === 0 || jobCategoryFilter.includes(recruit.jobSectorCategory);
-      const companyTypeMatch =
-        companyTypeFilter.length === 0 || companyTypeFilter.includes(recruit.companyType);
-      return employmentTypeMatch && jobCategoryMatch && companyTypeMatch;
+      return employmentTypeMatch && jobCategoryMatch;
     });
 
     return filtered;
   };
-
 
   // 모달 열기 함수
   const handleOpenModal = (day: number) => {
@@ -161,7 +153,6 @@ export const Calendar: React.FC<CalendarProps> = ({
     }
   };
 
-
   return (
     <div className={cn('w-full', className)}>
       {/* 필터 섹션 */}
@@ -170,8 +161,6 @@ export const Calendar: React.FC<CalendarProps> = ({
         onEmploymentTypeChange={onEmploymentTypeChange}
         jobCategoryFilter={jobCategoryFilter}
         onJobCategoryChange={onJobCategoryChange}
-        companyTypeFilter={companyTypeFilter}
-        onCompanyTypeChange={onCompanyTypeChange}
       />
 
       <div className="p-6 w-full">

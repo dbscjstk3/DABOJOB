@@ -8,7 +8,6 @@ export default function AdminCalendarPage() {
   // 필터 상태 관리
   const [employmentTypeFilter, setEmploymentTypeFilter] = useState<string[]>([]);
   const [jobCategoryFilter, setJobCategoryFilter] = useState<string[]>([]);
-  const [companyTypeFilter, setCompanyTypeFilter] = useState<string[]>([]);
 
   return (
     <AdminCalendar
@@ -18,8 +17,6 @@ export default function AdminCalendarPage() {
       onEmploymentTypeChange={setEmploymentTypeFilter}
       jobCategoryFilter={jobCategoryFilter}
       onJobCategoryChange={setJobCategoryFilter}
-      companyTypeFilter={companyTypeFilter}
-      onCompanyTypeChange={setCompanyTypeFilter}
     />
   );
 }

@@ -88,19 +88,6 @@ export const RecruitModal: React.FC<RecruitModalProps> = ({
     });
   };
 
-  const getCompanyTypeClass = (companyType: string) => {
-    switch (companyType) {
-      case '대기업':
-        return 'bg-purple-100 text-purple-800';
-      case '중견기업':
-        return 'bg-amber-100 text-amber-800';
-      case '중소기업':
-        return 'bg-emerald-100 text-emerald-800';
-      default:
-        return 'bg-gray-100 text-gray-800';
-    }
-  };
-
   // 시작 공고와 종료 공고를 분리
   // 공고를 공고일/마감일로 분류
   const postingRecruits = recruits.filter((recruit) => {
@@ -223,11 +210,6 @@ export const RecruitModal: React.FC<RecruitModalProps> = ({
                       <RecruitBadge type="start" company="" />
                     </div>
                     <div className="flex flex-wrap gap-2 mb-2">
-                      <span
-                        className={`px-2 py-1 text-xs rounded ${getCompanyTypeClass(recruit.companyType)}`}
-                      >
-                        {recruit.companyType}
-                      </span>
                       <span className="px-2 py-1 text-xs bg-blue-100 text-blue-800 rounded">
                         {recruit.careerInfo === 'junior'
                           ? '신입'
@@ -289,11 +271,6 @@ export const RecruitModal: React.FC<RecruitModalProps> = ({
                       <RecruitBadge type="end" company="" />
                     </div>
                     <div className="flex flex-wrap gap-2 mb-2">
-                      <span
-                        className={`px-2 py-1 text-xs rounded ${getCompanyTypeClass(recruit.companyType)}`}
-                      >
-                        {recruit.companyType}
-                      </span>
                       <span className="px-2 py-1 text-xs bg-red-100 text-red-800 rounded">
                         {recruit.careerInfo === 'junior'
                           ? '신입'
@@ -357,11 +334,6 @@ export const RecruitModal: React.FC<RecruitModalProps> = ({
                         <RecruitBadge type="start" company="" />
                       </div>
                       <div className="flex flex-wrap gap-2 mb-2">
-                        <span
-                          className={`px-2 py-1 text-xs rounded ${getCompanyTypeClass(recruit.companyType)}`}
-                        >
-                          {recruit.companyType}
-                        </span>
                         <span className="px-2 py-1 text-xs bg-blue-100 text-blue-800 rounded">
                           {recruit.careerInfo === 'junior'
                             ? '신입'
