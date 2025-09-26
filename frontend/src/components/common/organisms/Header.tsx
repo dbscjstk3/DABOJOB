@@ -136,18 +136,14 @@ function UserArea({
       {user ? (
         <>
           <div
-            className="hidden sm:block text-sm text-slate-600 max-w-[140px] truncate"
+            className="hidden md:block text-sm text-slate-600 max-w-[140px] truncate px-2 py-1 rounded-md transition-colors"
             onClick={() => {
               if (isAdmin) {
                 navigate({ to: '/admin' });
               }
             }}
             style={{
-              cursor: 'pointer',
-              padding: '4px 8px',
-              display: 'inline-block',
-              position: 'relative',
-              left: '-30px',
+              cursor: isAdmin ? 'pointer' : 'default',
             }}
           >
             {user.name}님 반가워요!
