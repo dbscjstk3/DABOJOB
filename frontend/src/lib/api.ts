@@ -5,6 +5,10 @@ export const API_BASE_URL =
 
 export const ADMIN_JOB_API_BASE_URL =
   import.meta.env.VITE_USE_MSW === 'true' ? '' : import.meta.env.VITE_ADMIN_JOB_API_BASE_URL;
+
+export const ADMIN_SUMMARY_API_BASE_URL =
+  import.meta.env.VITE_USE_MSW === 'true' ? '' : import.meta.env.VITE_ADMIN_SUMMARY_API_BASE_URL;
+
 // Summary API 응답 타입 정의
 export interface SummaryResponse {
   summaryId: number;
@@ -307,6 +311,11 @@ export const API_ENDPOINTS = {
       if (size !== undefined) url += `&size=${size}`;
       return url;
     },
+    RECENT_SEARCHES: (limit?: number) => {
+      let url = `${API_BASE_URL}/api/job-postings/search/recent`;
+      if (limit !== undefined) url += `?limit=${limit}`;
+      return url;
+    },
     CALENDAR: (startDate: string, endDate: string) =>
       `${API_BASE_URL}/api/job-postings/calendar?startDate=${startDate}&endDate=${endDate}`,
     HOT: `${API_BASE_URL}/api/job-postings/hot`,
@@ -323,7 +332,7 @@ export const API_ENDPOINTS = {
     COMPLETE_DATA: (jobId: string | number) =>
       `${ADMIN_JOB_API_BASE_URL}/api/admin/jobs/${jobId}/complete-data`,
     REPROCESSING: (jobId: string | number) =>
-      `${ADMIN_JOB_API_BASE_URL}/api/admin/jobs/${jobId}/reprocessing`,
+      `${ADMIN_SUMMARY_API_BASE_URL}/api/admin/jobs/${jobId}/reprocessing`,
     APPROVE: (jobId: string | number) =>
       `${ADMIN_JOB_API_BASE_URL}/api/admin/jobs/${jobId}/approve`,
   },
@@ -493,6 +502,23 @@ export const fetchJobPostingsByDateRange = async (
 
   const data = await response.json();
   return data;
+};
+
+// 최근 검색어 API 호출 함수
+export const fetchRecentSearches = async (limit?: number): Promise<string[]> => {
+  const response = await fetch(API_ENDPOINTS.JOB_POSTING.RECENT_SEARCHES(limit), {
+    method: 'GET',
+    credentials: 'include', // Cookie 포함
+    headers: {
+      'Content-Type': 'application/json',
+    },
+  });
+
+  if (!response.ok) {
+    throw new Error(`Failed to fetch recent searches: ${response.status}`);
+  }
+
+  return response.json();
 };
 
 // 인기 공고 API 호출 함수
