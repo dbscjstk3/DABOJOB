@@ -5,7 +5,7 @@ import { Typography } from '../../common/atoms/Typography';
 import { ChevronDown } from 'lucide-react';
 import { cn } from '../../../lib/utils';
 import { fetchHotJobPostings } from '../../../lib/api';
-import type { JobPostingResponse, HotJobPostingResponse } from '../../../lib/api';
+import type { HotJobPostingResponse } from '../../../lib/api';
 
 // 실시간 인기 드롭다운 컴포넌트
 const PopularDropdown: React.FC = () => {
@@ -13,9 +13,6 @@ const PopularDropdown: React.FC = () => {
   const [isOpen, setIsOpen] = useState(false);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [hotJobPostings, setHotJobPostings] = useState<HotJobPostingResponse[]>([]);
-  const [jobPostingDetails, setJobPostingDetails] = useState<Record<string, JobPostingResponse>>(
-    {},
-  );
   const [loading, setLoading] = useState(true);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
@@ -27,39 +24,12 @@ const PopularDropdown: React.FC = () => {
         const hotJobPostings = await fetchHotJobPostings();
         setHotJobPostings(hotJobPostings);
 
-        // 각 jobPostingId에 대해 상세 정보 가져오기
-        const detailsPromises = hotJobPostings.map(async (hotJob) => {
-          try {
-            const response = await fetch(`/api/job-postings/${hotJob.jobPostingId}`, {
-              method: 'GET',
-              headers: {
-                'Content-Type': 'application/json',
-              },
-            });
-            if (response.ok) {
-              const detail = await response.json();
-              return { jobPostingId: hotJob.jobPostingId, detail };
-            }
-            return null;
-          } catch (error) {
-            console.error(`Failed to fetch job posting ${hotJob.jobPostingId}:`, error);
-            return null;
-          }
-        });
-
-        const details = (await Promise.all(detailsPromises)).filter(Boolean);
-        const detailsMap: Record<string, JobPostingResponse> = {};
-        details.forEach((item) => {
-          if (item) {
-            detailsMap[item.jobPostingId] = item.detail;
-          }
-        });
-        setJobPostingDetails(detailsMap);
+        // 백엔드에서 이미 companyName과 title을 제공하므로 추가 API 호출 불필요
+        console.log('🔍 인기 공고 데이터 (companyName 포함):', hotJobPostings);
       } catch (error) {
         console.error('Failed to fetch hot job postings:', error);
         // 에러 시 기본 데이터 사용
         setHotJobPostings([]);
-        setJobPostingDetails({});
       } finally {
         setLoading(false);
       }
@@ -93,14 +63,13 @@ const PopularDropdown: React.FC = () => {
 
   // 인기 공고 클릭 핸들러
   const handleHotJobPostingClick = (jobPosting: HotJobPostingResponse) => {
-    const detail = jobPostingDetails[jobPosting.jobPostingId];
-    if (detail) {
-      navigate({
-        to: '/calendar/$id',
-        params: { id: detail.companyId.toString() },
-        search: { jobPostingId: jobPosting.jobPostingId },
-      });
-    }
+    navigate({
+      to: '/search',
+      search: {
+        companyName: jobPosting.companyName,
+        jobTitle: jobPosting.title,
+      },
+    });
     setIsOpen(false);
   };
 
@@ -123,8 +92,7 @@ const PopularDropdown: React.FC = () => {
             : (() => {
                 const current = getCurrentJobPosting();
                 if (!current) return '인기 공고';
-                const detail = jobPostingDetails[current.jobPostingId];
-                return detail ? detail.companyName : current.title;
+                return current.companyName || current.title;
               })()}
         </span>
         <ChevronDown
@@ -148,7 +116,6 @@ const PopularDropdown: React.FC = () => {
               </div>
             ) : (
               hotJobPostings.map((jobPosting, index) => {
-                const detail = jobPostingDetails[jobPosting.jobPostingId];
                 return (
                   <div
                     key={jobPosting.jobPostingId}
@@ -161,9 +128,9 @@ const PopularDropdown: React.FC = () => {
                       </span>
                       <div className="flex-1 min-w-0">
                         <div className="text-gray-700 text-sm md:text-base font-medium truncate">
-                          {detail ? detail.companyName : jobPosting.title}
+                          {jobPosting.companyName || jobPosting.title}
                         </div>
-                        {detail && (
+                        {jobPosting.companyName && (
                           <div className="text-gray-500 text-xs truncate">{jobPosting.title}</div>
                         )}
                       </div>

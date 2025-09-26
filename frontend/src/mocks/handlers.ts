@@ -259,14 +259,17 @@ export const handlers = [
       {
         jobPostingId: '1',
         title: '백엔드 개발자 (Spring Boot)',
+        companyName: '삼성전자',
       },
       {
         jobPostingId: '2',
         title: '프론트엔드 개발자 (React)',
+        companyName: 'LG전자',
       },
       {
         jobPostingId: '3',
         title: '데이터 엔지니어',
+        companyName: 'SK하이닉스',
       },
     ];
 
