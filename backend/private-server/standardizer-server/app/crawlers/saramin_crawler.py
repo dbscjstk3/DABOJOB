@@ -20,6 +20,8 @@ from ..models.crawler_models import (
 from ..services.company_mapper import CompanyMappingService
 from sqlalchemy.orm import Session
 from sqlalchemy.exc import IntegrityError
+import redis
+import json as json_lib
 
 
 def parse_job_item(job_item_element):
@@ -291,6 +293,18 @@ class SaraminCrawler(BaseCrawler):
 
         # 매핑 캐시 (한 번 확인한 회사는 재확인 방지)
         self.mapping_cache = {}  # {company_name: is_mappable}
+
+        # Redis 클라이언트 초기화
+        try:
+            self.redis_client = redis.from_url(
+                "redis://redis:6379",
+                decode_responses=True
+            )
+            self.redis_client.ping()
+            self.logger.info("Redis 연결 성공: 크롤링 재시작 기능 활성화")
+        except Exception as e:
+            self.redis_client = None
+            self.logger.warning(f"Redis 연결 실패: 크롤링 재시작 기능 비활성화 - {e}")
 
     def crawl(self, max_pages: int = 5) -> Dict[str, Any]:
         """
@@ -908,6 +922,56 @@ class SaraminCrawler(BaseCrawler):
                 self.db_session.commit()
         except Exception as e:
             self.logger.error(f"크롤링 로그 완료 기록 실패: {e}")
+
+    def _save_crawl_state(self, crawl_id: str, state: Dict[str, Any]) -> None:
+        """크롤링 상태를 Redis에 저장"""
+        if not self.redis_client:
+            return
+        try:
+            # 큰 데이터는 제외하고 중요 정보만 저장
+            saved_state = {
+                'last_page': state.get('last_page'),
+                'max_pages': state.get('max_pages'),
+                'log_id': state.get('log_id'),
+                'updated_at': state.get('updated_at'),
+                'job_count': len(state.get('collected_jobs', [])),
+                'collected_job_ids': [job.get('saramin_job_id') for job in state.get('collected_jobs', [])[:1000]]  # 최대 1000개만
+            }
+            self.redis_client.setex(
+                f"crawl_state:{crawl_id}",
+                86400,  # 24시간 TTL
+                json_lib.dumps(saved_state, ensure_ascii=False)
+            )
+            self.logger.debug(f"크롤링 상태 저장: {crawl_id}, 페이지 {state.get('last_page')}")
+        except Exception as e:
+            self.logger.warning(f"크롤링 상태 저장 실패: {e}")
+
+    def _load_crawl_state(self, crawl_id: str) -> Optional[Dict[str, Any]]:
+        """Redis에서 크롤링 상태 로드"""
+        if not self.redis_client:
+            return None
+        try:
+            state_data = self.redis_client.get(f"crawl_state:{crawl_id}")
+            if state_data:
+                state = json_lib.loads(state_data)
+                self.logger.info(f"크롤링 상태 복원: {crawl_id}, 마지막 페이지: {state.get('last_page')}")
+                # 이미 수집된 job_id들로 기존 작업 필터링
+                state['collected_jobs'] = []  # 실제 jobs는 DB에서 복원
+                return state
+            return None
+        except Exception as e:
+            self.logger.warning(f"크롤링 상태 로드 실패: {e}")
+            return None
+
+    def _delete_crawl_state(self, crawl_id: str) -> None:
+        """Redis에서 크롤링 상태 삭제"""
+        if not self.redis_client:
+            return
+        try:
+            self.redis_client.delete(f"crawl_state:{crawl_id}")
+            self.logger.debug(f"크롤링 상태 삭제: {crawl_id}")
+        except Exception as e:
+            self.logger.warning(f"크롤링 상태 삭제 실패: {e}")
 
 
 # 호환성을 위한 래퍼 함수들
