@@ -6,6 +6,63 @@ import {
 
 // Admin Job Complete 목 데이터
 export const mockAdminJobCompleteData: Record<string, AdminJobCompleteResponse> = {
+  '1': {
+    job_id: 1,
+    status: 'completed',
+    company_info: {
+      company_name: '네이버',
+      company_scale: '대기업',
+    },
+    summary_reports: {
+      business_overview:
+        '네이버는 대한민국 최대 포털 사이트 운영회사로, 검색, 이커머스, 핀테크, 콘텐츠 등 다양한 온라인 서비스를 제공합니다.',
+      products_services:
+        '주요 서비스로는 네이버 검색, 네이버 쇼핑, 네이버페이, 라인, 웹툰, 네이버클라우드플랫폼 등이 있습니다.',
+      revenue_orders:
+        '2023년 매출 8조 9천억원을 기록했으며, 광고매출과 커머스 수수료가 주요 수익원입니다.',
+      contracts_rnd:
+        'AI, 클라우드, 로보틱스 등 미래기술 개발에 매출의 약 15%를 연구개발비로 투자하고 있습니다.',
+      others:
+        '글로벌 진출을 위해 동남아, 일본 등에서 다양한 서비스를 운영하며, 개발자 생태계 지원에도 힘쓰고 있습니다.',
+    },
+    news_data: {
+      business_overview: {
+        검색: {
+          hashtag_id: 11,
+          news_items: [
+            {
+              news_id: 1101,
+              title: '네이버, AI 검색 서비스 하이퍼클로바X 정식 출시',
+              url: 'https://news.example.com/1101',
+              published_date: '2024-01-20T09:00:00',
+              summary:
+                '네이버가 자체 개발한 초거대 AI 하이퍼클로바X를 활용한 새로운 검색 서비스를 정식 출시했습니다.',
+              company_name: '네이버',
+              status: 'completed',
+            },
+          ],
+        },
+      },
+      products_services: {
+        웹툰: {
+          hashtag_id: 21,
+          news_items: [
+            {
+              news_id: 2101,
+              title: '네이버웹툰, 글로벌 MAU 9천만명 돌파',
+              url: 'https://news.example.com/2101',
+              published_date: '2024-01-18T14:30:00',
+              summary:
+                '네이버웹툰이 글로벌 월간 활성 사용자 9천만명을 돌파하며 세계 1위 웹툰 플랫폼으로서의 위상을 확고히 했습니다.',
+              company_name: '네이버',
+              status: 'completed',
+            },
+          ],
+        },
+      },
+    },
+    generated_at: '2024-01-25T15:30:00',
+  },
   '123': {
     job_id: 123,
     status: 'completed',
