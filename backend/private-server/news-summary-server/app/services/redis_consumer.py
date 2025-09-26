@@ -142,26 +142,29 @@ class RedisConsumer:
 
                 logger.info(f"Processing hashtags for mapping_id {mapping_id}, chapter {chapter}: {hashtags}")
 
-                # mapping_id로 job_id를 먼저 가져오기
-                job_id = await self._get_job_id_from_mapping(mapping_id)
-                if not job_id:
-                    logger.error(f"Could not find job_id for mapping_id {mapping_id}")
+                # mapping_id로 모든 job_id를 가져오기
+                job_ids = await self._get_job_ids_from_mapping(mapping_id)
+                if not job_ids:
+                    logger.error(f"Could not find any job_id for mapping_id {mapping_id}")
                     return False
 
-                # job_processing 레코드 자동 생성/업데이트 (모든 경우에 대해)
-                try:
-                    await self._ensure_job_processing_record(mapping_id, job_id)
-                except Exception as e:
-                    logger.error(f"Failed to ensure job_processing record for mapping_id {mapping_id}, job_id {job_id}: {e}")
-                    return False
+                # 모든 job_id에 대해 job_processing 레코드 자동 생성/업데이트
+                for job_id in job_ids:
+                    try:
+                        await self._ensure_job_processing_record(mapping_id, job_id)
+                    except Exception as e:
+                        logger.error(f"Failed to ensure job_processing record for mapping_id {mapping_id}, job_id {job_id}: {e}")
+                        return False
 
-                # 재요약 여부 확인 및 처리
-                is_reprocessing = await database.is_reprocessing_job(job_id)
+                # 첫 번째 job_id로 재요약 여부 확인 및 처리 (모든 job이 동일한 company_id를 가지므로)
+                primary_job_id = job_ids[0]
+                is_reprocessing = await database.is_reprocessing_job(primary_job_id)
                 if is_reprocessing:
-                    logger.info(f"Reprocessing detected for job_id {job_id}, chapter {chapter}")
+                    logger.info(f"Reprocessing detected for primary_job_id {primary_job_id}, chapter {chapter}")
 
-                    # 상태를 reprocessing으로 변경
-                    await database.update_job_processing_status(job_id, "reprocessing")
+                    # 모든 job_id에 대해 상태를 reprocessing으로 변경
+                    for job_id in job_ids:
+                        await database.update_job_processing_status(job_id, "reprocessing")
 
                     # 해당 챕터의 기존 데이터 클린업
                     await database.cleanup_job_chapter_data(mapping_id, chapter)
@@ -172,7 +175,7 @@ class RedisConsumer:
                         self.client.delete(counter_key)
                         logger.info(f"Reset Redis counter for reprocessing mapping_id {mapping_id}")
                 else:
-                    logger.info(f"Normal processing for job_id {job_id}, mapping_id {mapping_id}")
+                    logger.info(f"Normal processing for job_ids {job_ids}, mapping_id {mapping_id}")
 
                 # mapping_id로 company_name 조회
                 company_name = await self._get_company_name(mapping_id)
@@ -299,15 +302,15 @@ class RedisConsumer:
             logger.error(f"❌ Error ensuring job_processing record for mapping_id {mapping_id}, job_id {job_id}: {e}")
             raise
 
-    async def _get_job_id_from_mapping(self, mapping_id: int) -> Optional[int]:
+    async def _get_job_ids_from_mapping(self, mapping_id: int) -> List[int]:
         """
-        mapping_id로 job_id를 조회
+        mapping_id로 모든 job_id를 조회
 
         Args:
             mapping_id: 매핑 ID
 
         Returns:
-            job_id (없으면 None)
+            job_id 리스트 (없으면 빈 리스트)
         """
         try:
             async with database.get_connection() as cursor:
@@ -321,19 +324,32 @@ class RedisConsumer:
                 )
                 """
                 await cursor.execute(query, (mapping_id,))
-                result = await cursor.fetchone()
+                results = await cursor.fetchall()
 
-                if result:
-                    job_id = result[0]
-                    logger.debug(f"Found job_id for mapping_id {mapping_id}: {job_id}")
-                    return job_id
+                if results:
+                    job_ids = [result[0] for result in results]
+                    logger.debug(f"Found job_ids for mapping_id {mapping_id}: {job_ids}")
+                    return job_ids
                 else:
-                    logger.warning(f"No job_id found for mapping_id: {mapping_id}")
-                    return None
+                    logger.warning(f"No job_ids found for mapping_id: {mapping_id}")
+                    return []
 
         except Exception as e:
-            logger.error(f"Error getting job_id for mapping_id {mapping_id}: {e}")
-            return None
+            logger.error(f"Error getting job_ids for mapping_id {mapping_id}: {e}")
+            return []
+
+    async def _get_job_id_from_mapping(self, mapping_id: int) -> Optional[int]:
+        """
+        mapping_id로 첫 번째 job_id를 조회 (기존 호환성 유지)
+
+        Args:
+            mapping_id: 매핑 ID
+
+        Returns:
+            job_id (없으면 None)
+        """
+        job_ids = await self._get_job_ids_from_mapping(mapping_id)
+        return job_ids[0] if job_ids else None
 
     async def _get_mapping_id_from_job_id(self, job_id: int) -> Optional[int]:
         """
@@ -426,14 +442,15 @@ class RedisConsumer:
             # 기업 분석 데이터 처리
             await company_processor.process_hashtag_completion(mapping_id, 'all', [])
 
-            # job 상태를 completed로 변경 (관리자 승인 대기)
+            # 모든 job 상태를 completed로 변경 (관리자 승인 대기)
             try:
-                job_id = await self._get_job_id_from_mapping(mapping_id)
-                if job_id:
-                    await database.update_job_processing_status(job_id, "completed")
-                    logger.info(f"Job {job_id} marked as completed, waiting for admin approval for S3 upload")
+                job_ids = await self._get_job_ids_from_mapping(mapping_id)
+                if job_ids:
+                    for job_id in job_ids:
+                        await database.update_job_processing_status(job_id, "completed")
+                    logger.info(f"Jobs {job_ids} marked as completed, waiting for admin approval for S3 upload")
                 else:
-                    logger.error(f"Could not find job_id for mapping_id {mapping_id}")
+                    logger.error(f"Could not find job_ids for mapping_id {mapping_id}")
             except Exception as e:
                 logger.error(f"Failed to update job status for mapping_id {mapping_id}: {e}")
 
