@@ -5,10 +5,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.elasticsearch.annotations.Query;
 import org.springframework.data.elasticsearch.repository.ElasticsearchRepository;
-import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
-
-import java.time.LocalDate;
 
 @Repository
 public interface JobPostingSearchRepository extends ElasticsearchRepository<JobPostingDocument, Long> {
@@ -100,8 +97,5 @@ public interface JobPostingSearchRepository extends ElasticsearchRepository<JobP
     """)
     Page<JobPostingDocument> findTitleAutocomplete(String prefix, Pageable pageable);
 
-    // 간단한 검색들
-    Page<JobPostingDocument> findByCompanyNameContaining(String companyName, Pageable pageable);
-    Page<JobPostingDocument> findByJobSectorName(String sectorName, Pageable pageable);
-    Page<JobPostingDocument> findByCareerInfo(String careerInfo, Pageable pageable);
+
 }
