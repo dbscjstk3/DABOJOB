@@ -193,5 +193,5 @@ CHAPTER_NAMES = {
     2: "products",      # 주요 제품 및 서비스
     3: "revenue",       # 매출 및 수주 상황
     4: "contracts",     # 주요계약 및 연구개발
-    5: "others"         # 기타 참고사항
+    5: "other_references"  # 기타 참고사항 (standardizer, summary와 일치)
 }
