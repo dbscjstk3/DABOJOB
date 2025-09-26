@@ -39,7 +39,7 @@ class SummaryWorker:
             "products_services": {"max_length": 700, "description": "주요 제품 및 서비스"},
             "revenue_orders": {"max_length": 600, "description": "매출 및 수주 현황"},
             "contracts_rnd": {"max_length": 600, "description": "주요 계약 및 연구개발"},
-            "others": {"max_length": 500, "description": "기타 참고사항"}
+            "other_references": {"max_length": 500, "description": "기타 참고사항"}
         }
 
         # job별 카테고리 완료 추적

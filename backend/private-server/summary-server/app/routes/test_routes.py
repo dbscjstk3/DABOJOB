@@ -64,7 +64,7 @@ async def test_full_pipeline(request: TestRequest):
             차세대 QD-OLED 기술 개발을 위해 독일 머크와 소재 공급 계약을 맺었습니다.
             """,
 
-            "others": """
+            "other_references": """
             2050년 탄소중립 달성을 위해 RE100에 가입했습니다.
             삼성디스플레이는 별도 자회사로 분리 운영되며,
             반도체 부문에서는 파운드리 사업 확대를 추진하고 있습니다.
