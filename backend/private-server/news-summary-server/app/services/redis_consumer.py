@@ -314,27 +314,23 @@ class RedisConsumer:
 
         logger.info(f"Job {mapping_id} progress: {current_count}/5")
 
-        # 5개 챕터 모두 완료 시 기업 분석 데이터 처리 및 S3 업로드
+        # 5개 챕터 모두 완료 시 기업 분석 데이터 처리 (S3 업로드는 관리자 승인 후)
         if current_count >= 5:
-            logger.info(f"All chapters completed for mapping_id {mapping_id}, processing company analysis and S3 upload")
+            logger.info(f"All chapters completed for mapping_id {mapping_id}, processing company analysis")
 
             # 기업 분석 데이터 처리
             await company_processor.process_hashtag_completion(mapping_id, 'all', [])
 
-            # mapping_id로 실제 job_id 조회 후 S3에 업로드
+            # job 상태를 completed로 변경 (관리자 승인 대기)
             try:
                 job_id = await self._get_job_id_from_mapping(mapping_id)
                 if job_id:
-                    from .s3_service import s3_service
-                    uploaded_files = await s3_service.upload_job_completion_data(job_id)
-                    if uploaded_files:
-                        logger.info(f"Successfully uploaded {len(uploaded_files)} files to S3 for job {job_id}: {list(uploaded_files.keys())}")
-                    else:
-                        logger.warning(f"No files were uploaded to S3 for job {job_id}")
+                    await database.update_job_processing_status(job_id, "completed")
+                    logger.info(f"Job {job_id} marked as completed, waiting for admin approval for S3 upload")
                 else:
-                    logger.error(f"Could not find job_id for mapping_id {mapping_id}, skipping S3 upload")
+                    logger.error(f"Could not find job_id for mapping_id {mapping_id}")
             except Exception as e:
-                logger.error(f"Failed to upload job completion data to S3 for mapping_id {mapping_id}: {e}")
+                logger.error(f"Failed to update job status for mapping_id {mapping_id}: {e}")
 
             # Counter 삭제 (선택사항)
             self.client.delete(counter_key)
