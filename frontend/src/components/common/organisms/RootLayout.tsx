@@ -126,7 +126,7 @@ export function RootLayout() {
     <div className="min-h-screen flex flex-col">
       {!isLoginPage && (
         <Header
-          user={user ? { name: user.name } : null}
+          user={user ? { name: user.name, role: user.role } : null}
           onLogin={handleLogin}
           onLogout={handleLogout}
           fetchSuggestions={fetchSuggestions}

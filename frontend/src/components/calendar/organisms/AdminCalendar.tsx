@@ -108,7 +108,7 @@ export const AdminCalendar: React.FC<AdminCalendarProps> = ({
   }, [adminCompanies]);
 
   // 일반 사용자용 필터링 함수 (빈 배열 반환 - 관리자는 일반 공고를 보지 않음)
-  const getFilteredRecruits = (): any[] => {
+  const getFilteredRecruits = (): never[] => {
     return [];
   };
 

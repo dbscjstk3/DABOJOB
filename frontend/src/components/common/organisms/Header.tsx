@@ -5,7 +5,7 @@ import { Button } from '../atoms/Button';
 
 import DABOJOB_logo from '@/assets/logo/DABOJOB_logo_loop3.gif';
 
-type User = { name: string };
+type User = { name: string; role?: string };
 
 type HeaderProps = {
   user?: User | null;
@@ -128,13 +128,30 @@ function UserArea({
   onLogin?: () => void;
   onLogout?: () => void;
 }) {
+  const navigate = useNavigate();
+  const isAdmin = user?.role === 'admin' || user?.role === 'ROLE_ADMIN';
+
   return (
     <div className="flex items-center gap-3 shrink-0">
       {user ? (
         <>
-          <span className="hidden sm:block text-sm text-slate-600 max-w-[140px] truncate -ml-1">
+          <div
+            className="hidden sm:block text-sm text-slate-600 max-w-[140px] truncate"
+            onClick={() => {
+              if (isAdmin) {
+                navigate({ to: '/admin' });
+              }
+            }}
+            style={{
+              cursor: 'pointer',
+              padding: '4px 8px',
+              display: 'inline-block',
+              position: 'relative',
+              left: '-30px',
+            }}
+          >
             {user.name}님 반가워요!
-          </span>
+          </div>
           <Button variant="contained" size="sm" onClick={onLogout} aria-label="로그아웃">
             로그아웃
           </Button>
