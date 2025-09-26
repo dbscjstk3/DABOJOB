@@ -20,11 +20,9 @@ public class SearchHistoryService {
     @Qualifier("customStringRedisTemplate")
     private final RedisTemplate<String, String> stringRedisTemplate;
 
-    // Redis 키 패턴
     private static final String USER_SEARCH_HISTORY_KEY = "search_history:%s"; // search_history:{userId}
     private static final String POPULAR_SEARCHES_KEY = "popular_searches"; // 전체 인기 검색어
 
-    // TTL 설정
     private static final Duration USER_HISTORY_TTL = Duration.ofDays(30); // 개인 검색어 30일
     private static final Duration POPULAR_SEARCHES_TTL = Duration.ofDays(7); // 인기 검색어 7일
 
@@ -47,15 +45,12 @@ public class SearchHistoryService {
 
             // 개인 검색어 기록 저장 (Sorted Set - 시간순 정렬)
             stringRedisTemplate.opsForZSet().add(userHistoryKey, trimmedKeyword, score);
-
-            // 개인 검색어 기록 개수 제한 (오래된 것부터 삭제)
             Long count = stringRedisTemplate.opsForZSet().count(userHistoryKey, Double.NEGATIVE_INFINITY, Double.POSITIVE_INFINITY);
             if (count != null && count > MAX_USER_SEARCH_HISTORY) {
                 long removeCount = count - MAX_USER_SEARCH_HISTORY;
                 stringRedisTemplate.opsForZSet().removeRange(userHistoryKey, 0, removeCount - 1);
             }
 
-            // TTL 설정
             stringRedisTemplate.expire(userHistoryKey, USER_HISTORY_TTL);
 
             // 전체 인기 검색어 집계 (검색 빈도로 점수 증가)
@@ -78,8 +73,6 @@ public class SearchHistoryService {
             }
 
             String userHistoryKey = String.format(USER_SEARCH_HISTORY_KEY, userId);
-
-            // 점수가 높은 순으로 조회 (최신순)
             Set<String> searches = stringRedisTemplate.opsForZSet().reverseRange(userHistoryKey, 0, limit - 1);
 
             return  searches != null ? List.copyOf(searches) : Collections.emptyList();
@@ -99,9 +92,7 @@ public class SearchHistoryService {
                 throw new IllegalArgumentException("Limit must be positive");
             }
 
-            // 점수가 높은 순으로 조회 (인기순)
             Set<String> searches = stringRedisTemplate.opsForZSet().reverseRange(POPULAR_SEARCHES_KEY, 0, limit - 1);
-
             return searches != null ? List.copyOf(searches) : Collections.emptyList();
 
         } catch (IllegalArgumentException e) {

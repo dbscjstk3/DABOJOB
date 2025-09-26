@@ -5,12 +5,14 @@ import com.amazonaws.services.s3.model.ListObjectsV2Request;
 import com.amazonaws.services.s3.model.ListObjectsV2Result;
 import com.amazonaws.services.s3.model.S3Object;
 import com.amazonaws.services.s3.model.S3ObjectSummary;
+import com.dabojob.jobposting.repository.JobPostingRepository;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -28,6 +30,7 @@ public class S3DataSyncService {
 
     private final AmazonS3Client amazonS3Client;
     private final FileProcessingService fileProcessingService;
+    private final JobPostingRepository jobPostingRepository;
 
     @Value("${cloud.aws.s3.bucket}")
     private String bucketName;
@@ -37,17 +40,24 @@ public class S3DataSyncService {
 
     public void syncData() {
         try {
-            List<S3ObjectSummary> newFiles = getNewJsonFiles();
+            Map<String, List<S3ObjectSummary>> newFilesMap = getNewJsonFiles();
 
-            if (newFiles.isEmpty()) {
+            if (newFilesMap.isEmpty()) {
                 log.info("No new JSON files found in S3");
                 return;
             }
 
-            log.info("Found {} new JSON files", newFiles.size());
+            log.info("Found {} new JSON files", newFilesMap.size());
 
-            // 파일 타입별 그룹핑 후 순차 처리
-            processFilesByTypeInOrder(newFiles);
+            for(String key : newFilesMap.keySet()) {
+                // 파일 타입별 그룹핑 후 순차 처리
+                List<S3ObjectSummary> newFiles = newFilesMap.get(key);
+                Long jobPostingId = Long.parseLong(key);
+                if (jobPostingRepository.existsById(jobPostingId)) continue;
+
+                processFilesByTypeInOrder(newFiles);
+            }
+
 
             lastSyncTime = LocalDateTime.now();
 
@@ -152,7 +162,7 @@ public class S3DataSyncService {
         }
     }
 
-    private List<S3ObjectSummary> getNewJsonFiles() {
+    private Map<String, List<S3ObjectSummary>> getNewJsonFiles() {
         LocalDateTime now = LocalDateTime.now();
         LocalDateTime yesterday = now.minusDays(1);
 
@@ -168,7 +178,16 @@ public class S3DataSyncService {
         return allFiles.stream()
                 .filter(obj -> obj.getKey().endsWith(".json"))
                 .filter(obj -> obj.getLastModified().after(lastSyncDate))
-                .toList();
+                .collect(Collectors.groupingBy(obj -> extractJobId(obj.getKey())));
+    }
+
+    private String extractJobId(String s3Key) {
+        // reports/2023-09-25/jobId123/file.json -> jobId123
+        String[] parts = s3Key.split("/");
+        if (parts.length >= 4) {
+            return parts[2]; // jobId 부분
+        }
+        return "unknown"; // 예외 처리
     }
 
     private List<S3ObjectSummary> getFilesFromPrefix(String prefix) {

@@ -59,8 +59,9 @@ class NewsService:
                 logger.info(f"News already processed for hashtag: {hashtag} (count: {existing_count})")
                 return existing_count
 
-            # 1. Naver API로 뉴스 검색 (3개로 제한)
-            raw_news_list = await self._search_naver_news(hashtag, company_name, target_articles=3)
+            # 1. Naver API로 뉴스 검색 (테스트용: 1개로 제한)
+            raw_news_list = await self._search_naver_news(hashtag, company_name, target_articles=1)
+            # 기존: target_articles=3 (운영용)
 
             if not raw_news_list:
                 logger.warning(f"No news found for hashtag: {hashtag}")
@@ -97,7 +98,7 @@ class NewsService:
             return 0
 
     async def _search_naver_news(self, hashtag: str, company_name: str = "",
-                               target_articles: int = 3) -> List[Dict[str, Any]]:
+                               target_articles: int = 1) -> List[Dict[str, Any]]:  # 테스트용: 기본값 1개
         """Naver 뉴스 API 검색 (참고 코드 기반)"""
         try:
             hashtag_clean = hashtag.replace('#', '').lower()
@@ -347,19 +348,22 @@ class NewsService:
         return saved_count
     
     async def _process_news_content(self, mapping_id: int, hashtag_id: int, hashtag: str):
-        """뉴스 크롤링 + 요약 처리"""
+        """뉴스 크롤링 + 요약 처리 (순차 처리)"""
         try:
             # status='raw'인 뉴스들 조회
             raw_news = await self._get_raw_news(mapping_id, hashtag_id)
 
-            for news in raw_news:
+            # 순차적으로 하나씩 처리 (동시 처리하지 않음)
+            for i, news in enumerate(raw_news):
                 try:
                     # 이미 처리된 뉴스인지 확인
                     if news.get('status') == 'completed':
                         logger.info(f"News {news['news_id']} already processed, skipping")
                         continue
 
-                    # 크롤링 + 요약
+                    logger.info(f"Processing news {i+1}/{len(raw_news)}: {news['news_id']}")
+
+                    # 크롤링 + 요약 (순차적으로)
                     content = await self._crawl_news_content(news['news_url'])
                     if content:
                         summary = await self._summarize_content(content, hashtag)
@@ -367,9 +371,16 @@ class NewsService:
 
                         # DB 업데이트 (status='completed')
                         await self._update_news_summary(news['news_id'], summary, company_name)
+                        logger.info(f"Completed processing news {news['news_id']}")
+
+                        # 각 뉴스 처리 후 잠깐 대기 (서버 부하 분산)
+                        await asyncio.sleep(0.5)
+                    else:
+                        logger.warning(f"Failed to crawl content for news {news['news_id']}")
 
                 except Exception as e:
                     logger.error(f"Error processing news {news['news_id']}: {e}")
+                    continue  # 에러가 나도 다음 뉴스 처리 계속
 
         except Exception as e:
             logger.error(f"Error in news processing: {e}")

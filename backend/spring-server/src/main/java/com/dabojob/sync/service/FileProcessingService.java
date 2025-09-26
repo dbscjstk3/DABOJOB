@@ -60,6 +60,7 @@ public class FileProcessingService {
     private final NewsRepository newsRepository;
 
     private final ObjectMapper objectMapper = new ObjectMapper();
+//    private final
 
     public void processJobSectorFile(JsonNode jsonData, String fileName) {
         try {
@@ -222,6 +223,10 @@ public class FileProcessingService {
         }
 
         for (NewsItemDto newsItem : newsDto.getItems()) {
+
+            if (newsItem.getSummary()==null ||
+                    newsItem.getSummary().equals("관련 뉴스입니다.")||
+                    newsItem.getSummary().equals("요약 생성에 실패했습니다.")) continue;
             // 해시태그 찾기 또는 생성
             Hashtag hashtag = findOrCreateHashtag(newsItem.getHashtag());
 
@@ -231,7 +236,6 @@ public class FileProcessingService {
 
             if (summaryHashtag != null) {
                 News news = News.builder()
-                        .id(newsItem.getNewsId())
                         .summaryHashtag(summaryHashtag)
                         .title(newsItem.getTitle())
                         .content(newsItem.getSummary())
@@ -250,6 +254,11 @@ public class FileProcessingService {
         }
 
         // 중복 허용 - 동일한 이름이면 기존 것 사용, 없으면 새로 생성
+        if(hashtagName.startsWith("#")){
+            hashtagName = hashtagName.substring(1);
+        }
+        String finalHashtagName = hashtagName.trim();
+
         Optional<Hashtag> existing = hashtagRepository.findByName(hashtagName);
         if (existing.isPresent()) {
             return existing.get();
@@ -264,7 +273,7 @@ public class FileProcessingService {
         } catch (DataIntegrityViolationException e) {
             // 다른 스레드가 이미 생성했으니 다시 조회
             return hashtagRepository.findByName(hashtagName)
-                    .orElseThrow(() -> new RuntimeException("Hashtag not found after creation: " + hashtagName));
+                    .orElseThrow(() -> new RuntimeException("Hashtag not found after creation: " + finalHashtagName));
         }
     }
 
@@ -273,9 +282,13 @@ public class FileProcessingService {
             return null;
         }
 
-        // 기존 것이 있는지 확인 (간단한 방법)
+        // 기존 것이 있는지 확인 (간단한 방법)+-
+        SummaryHashtag summaryHashtag = summaryHashtagRepository.findBySummaryAndChapterTypeAndHashtag(summary,chapterType,hashtag);
+        if (summaryHashtag != null) {
+            return summaryHashtag;
+        }
         // 정확한 조회 메서드가 없다면 새로 생성
-        SummaryHashtag summaryHashtag = SummaryHashtag.builder()
+        summaryHashtag = SummaryHashtag.builder()
                 .summary(summary)
                 .hashtag(hashtag)
                 .chapterType(chapterType)
@@ -357,9 +370,9 @@ public class FileProcessingService {
     private CompanyScale parseCompanyScale(String companyScale) {
         // 임시 처리 - 나중에 쉽게 변경 가능
         if (companyScale == null || companyScale.isEmpty()) {
-            return CompanyScale.ETC;
+            return CompanyScale.MEDIUM;
         }
-        return CompanyScale.ETC;
+        return CompanyScale.BIG;
     }
 
     private LocalDate parseLocalDate(String dateStr) {

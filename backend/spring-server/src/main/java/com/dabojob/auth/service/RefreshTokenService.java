@@ -25,9 +25,7 @@ public class RefreshTokenService {
     private final JwtService jwtService;
     private final UserRepository userRepository;
 
-    /**
-     * 새로운 Refresh Token 생성 및 저장
-     */
+    //새로운 Refresh Token 생성 및 저장
     @Transactional
     public RefreshToken createRefreshToken(Long userId) {
         // 기존 사용자의 모든 토큰 삭제 (한 사용자당 하나의 토큰만 유지)
@@ -48,9 +46,7 @@ public class RefreshTokenService {
     }
 
 
-    /**
-     * 토큰 유효성 검증
-     */
+    //토큰 유효성 검증
     @Transactional(readOnly = true)
     public boolean validateRefreshToken(String token) {
         Optional<RefreshToken> refreshTokenOpt = refreshTokenRepository.findByUserRefreshToken(token);
@@ -73,9 +69,7 @@ public class RefreshTokenService {
         return true;
     }
 
-    /**
-     * Refresh Token을 사용하여 새 Access Token 발급
-     */
+    //Refresh Token을 사용하여 새 Access Token 발급
     @Transactional
     public String refreshAccessToken(String refreshTokenValue) {
         RefreshToken refreshToken = refreshTokenRepository.findByUserRefreshToken(refreshTokenValue)
@@ -93,9 +87,7 @@ public class RefreshTokenService {
         return jwtService.generateAccessToken(userId, user.getRole());
     }
 
-    /**
-     * Refresh Token 갱신 (만료 임박 시)
-     */
+    //Refresh Token 갱신 (만료 임박 시)
     @Transactional
     public RefreshToken renewRefreshToken(String oldTokenValue) {
         RefreshToken oldToken = refreshTokenRepository.findByUserRefreshToken(oldTokenValue)
@@ -116,9 +108,7 @@ public class RefreshTokenService {
         return updatedToken;
     }
 
-    /**
-     * 특정 사용자의 모든 Refresh Token 삭제 (로그아웃)
-     */
+    //특정 사용자의 모든 Refresh Token 삭제 (로그아웃)
     @Transactional
     public void revokeAllTokensByUser(Long userId) {
         int deletedCount = refreshTokenRepository.findByUserId(userId).size();
@@ -126,18 +116,14 @@ public class RefreshTokenService {
         log.info("사용자 토큰 전체 삭제: userId={}, count={}", userId, deletedCount);
     }
 
-    /**
-     * 특정 Refresh Token 삭제
-     */
+    //특정 Refresh Token 삭제
     @Transactional
     public void revokeToken(String token) {
         refreshTokenRepository.deleteByToken(token);
         log.info("Refresh Token 삭제 완료: token={}", token);
     }
 
-    /**
-     * 사용자의 활성 토큰 개수 조회
-     */
+    //사용자의 활성 토큰 개수 조회
     @Transactional(readOnly = true)
     public long countActiveTokensByUser(Long userId) {
         return refreshTokenRepository.countActiveTokensByUserId(userId, LocalDateTime.now());
@@ -145,10 +131,7 @@ public class RefreshTokenService {
 
 
 
-    /**
-     * 만료된 토큰 일괄 정리 (스케줄러)
-     * 매일 새벽 2시에 실행
-     */
+    // 만료된 토큰 일괄 정리 (스케줄러)
     @Scheduled(cron = "0 0 2 * * *")
     public void cleanupExpiredTokens() {
         LocalDateTime now = LocalDateTime.now();

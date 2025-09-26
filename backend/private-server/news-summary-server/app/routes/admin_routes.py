@@ -10,6 +10,7 @@ import logging
 
 from ..database import database
 from ..services.s3_service import s3_service
+from ..file_manager import FileManager
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/admin", tags=["admin"])
@@ -138,7 +139,7 @@ async def get_job_complete_data(job_id: int) -> Dict[str, Any]:
         summary_query = """
         SELECT business_overview, products_service, sales_contracts, rnd_activities, other_notes
         FROM company_analysis_summaries
-        WHERE job_id = %s
+        WHERE mapping_id = (SELECT mapping_id FROM job_processing WHERE job_id = %s)
         LIMIT 1
         """
 
@@ -153,7 +154,7 @@ async def get_job_complete_data(job_id: int) -> Dict[str, Any]:
                     "products_services": result[1] or "요약 없음",
                     "revenue_orders": result[2] or "요약 없음",
                     "contracts_rnd": result[3] or "요약 없음",
-                    "others": result[4] or "요약 없음"
+                    "other_references": result[4] or "요약 없음"
                 }
             else:
                 # 요약 데이터가 없는 경우 기본값
@@ -162,7 +163,7 @@ async def get_job_complete_data(job_id: int) -> Dict[str, Any]:
                     "products_services": "요약 데이터 없음",
                     "revenue_orders": "요약 데이터 없음",
                     "contracts_rnd": "요약 데이터 없음",
-                    "others": "요약 데이터 없음"
+                    "other_references": "요약 데이터 없음"
                 }
 
         # 3. 뉴스 데이터 조회 (해시태그별로 그룹화)
@@ -300,7 +301,7 @@ async def force_process_pending(max_age_seconds: int = 300) -> Dict[str, Any]:
         if redis_consumer is None:
             raise HTTPException(status_code=503, detail="Redis consumer not initialized")
 
-        processed_count = redis_consumer.force_process_pending(max_age_seconds)
+        processed_count = await redis_consumer.force_process_pending(max_age_seconds)
 
         return {
             "processed_count": processed_count,
@@ -442,3 +443,223 @@ async def start_job_reprocessing(job_id: int, force: bool = False) -> Dict[str, 
     except Exception as e:
         logger.error(f"Error starting reprocessing for job {job_id}: {e}")
         raise HTTPException(status_code=500, detail=f"Failed to start reprocessing: {str(e)}")
+
+@router.get("/files/validate/{mapping_id}")
+async def validate_mapping_files(mapping_id: int) -> Dict[str, Any]:
+    """
+    mapping_id의 디렉터리 구조와 txt 파일 저장 상태 검증
+    /app/data/{mapping_id}/summaries/ 경로의 파일 존재 여부 및 내용 확인
+    """
+    try:
+        # FileManager를 통해 파일 시스템 접근
+        file_manager = FileManager(mapping_id)
+
+        # 1. 디렉터리 구조 확인
+        directory_status = {
+            "base_path": str(file_manager.base_path),
+            "base_exists": file_manager.base_path.exists(),
+            "raw_dir": str(file_manager.raw_dir),
+            "raw_exists": file_manager.raw_dir.exists(),
+            "standardized_dir": str(file_manager.standardized_dir),
+            "standardized_exists": file_manager.standardized_dir.exists(),
+            "summaries_dir": str(file_manager.summaries_dir),
+            "summaries_exists": file_manager.summaries_dir.exists()
+        }
+
+        # 2. 요약 파일별 상태 확인
+        chapters = ["business_overview", "products_services", "revenue_orders", "contracts_rnd", "other_references"]
+        file_status = {}
+        total_files = 0
+        valid_files = 0
+
+        for chapter in chapters:
+            filename = file_manager._get_summary_filename(chapter)
+            file_path = file_manager.summaries_dir / filename
+
+            file_info = {
+                "filename": filename,
+                "path": str(file_path),
+                "exists": file_path.exists(),
+                "size_bytes": 0,
+                "content_preview": "",
+                "is_valid": False
+            }
+
+            if file_path.exists():
+                total_files += 1
+                try:
+                    file_info["size_bytes"] = file_path.stat().st_size
+
+                    # 파일 내용 읽기 (처음 200자만)
+                    with open(file_path, 'r', encoding='utf-8') as f:
+                        content = f.read()
+                        file_info["content_preview"] = content[:200] + ("..." if len(content) > 200 else "")
+
+                        # 유효성 검사 (빈 파일이 아니고 최소 길이 확인)
+                        if content.strip() and len(content.strip()) > 10:
+                            file_info["is_valid"] = True
+                            valid_files += 1
+
+                except Exception as e:
+                    file_info["error"] = str(e)
+
+            file_status[chapter] = file_info
+
+        # 3. 전체 파일 목록
+        all_files = file_manager.list_files()
+
+        # 4. DB 데이터와 비교 (company_analysis_summaries 테이블)
+        db_summary_exists = False
+        db_summary_data = None
+
+        try:
+            db_summary_data = await database.get_company_analysis(mapping_id)
+            db_summary_exists = bool(db_summary_data)
+        except Exception as e:
+            logger.warning(f"Failed to get DB summary for mapping_id {mapping_id}: {e}")
+
+        # 5. 종합 평가
+        summary = {
+            "mapping_id": mapping_id,
+            "directory_structure_valid": all([
+                directory_status["base_exists"],
+                directory_status["summaries_exists"]
+            ]),
+            "total_expected_files": len(chapters),
+            "total_files_found": total_files,
+            "valid_files_count": valid_files,
+            "completion_percentage": round((valid_files / len(chapters)) * 100, 2),
+            "db_summary_exists": db_summary_exists,
+            "overall_status": "valid" if valid_files == len(chapters) and db_summary_exists else "incomplete"
+        }
+
+        return {
+            "summary": summary,
+            "directory_status": directory_status,
+            "file_status": file_status,
+            "all_files": all_files,
+            "db_summary_data": db_summary_data,
+            "validation_timestamp": datetime.now().isoformat()
+        }
+
+    except Exception as e:
+        logger.error(f"Error validating files for mapping_id {mapping_id}: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to validate files: {str(e)}")
+
+@router.post("/test/complete-to-s3/{mapping_id}")
+async def complete_mapping_to_s3(mapping_id: int) -> Dict[str, Any]:
+    """
+    테스트용: mapping_id로 요약 데이터 찾기 → DB 저장 → completed → S3 업로드 → finished
+    실패 시 상태 rollback
+    """
+    job_id = None
+    original_status = None
+
+    try:
+        # 1. mapping_id로 job_id와 현재 상태 찾기
+        async with database.get_connection() as cursor:
+            query = """
+            SELECT jp.job_id, jp.status
+            FROM job_processing jp
+            JOIN job_postings j ON jp.job_id = j.job_id
+            JOIN company_dart_mappings cdm ON j.company_id = cdm.company_id
+            WHERE cdm.mapping_id = %s
+            LIMIT 1
+            """
+            await cursor.execute(query, (mapping_id,))
+            result = await cursor.fetchone()
+
+            if not result:
+                raise HTTPException(status_code=404, detail=f"No job found for mapping_id {mapping_id}")
+
+            job_id, original_status = result
+            logger.info(f"Found job_id {job_id} with status '{original_status}' for mapping_id {mapping_id}")
+
+        # 2. FileManager로 실제 요약 데이터 읽기
+        file_manager = FileManager(mapping_id)
+        analysis_data = file_manager.get_company_analysis_data()
+
+        if not analysis_data:
+            raise HTTPException(status_code=404, detail=f"No summary data found for mapping_id {mapping_id}")
+
+        # 3. DB에 요약 데이터 저장
+        await database.save_company_analysis_summaries(mapping_id, analysis_data)
+        logger.info(f"✅ Saved summary data to DB for mapping_id: {mapping_id}")
+
+        # 4. job 상태를 completed로 변경
+        success = await database.update_job_processing_status(job_id, "completed")
+        if not success:
+            raise Exception("Failed to update job status to completed")
+        logger.info(f"✅ Updated job {job_id} status to 'completed'")
+
+        # 5. S3 업로드 실행
+        logger.info(f"🚀 Starting S3 upload for job {job_id}")
+        uploaded_files = await s3_service.upload_job_completion_data(job_id)
+
+        if not uploaded_files:
+            raise Exception("S3 upload failed - no files uploaded")
+        logger.info(f"✅ S3 upload completed: {list(uploaded_files.keys())}")
+
+        # 6. job 상태를 finished로 변경
+        success = await database.update_job_processing_status(job_id, "finished")
+        if not success:
+            logger.warning(f"Failed to update status to finished for job {job_id}")
+        else:
+            logger.info(f"✅ Updated job {job_id} status to 'finished'")
+
+        return {
+            "success": True,
+            "mapping_id": mapping_id,
+            "job_id": job_id,
+            "original_status": original_status,
+            "final_status": "finished",
+            "summary_data_keys": list(analysis_data.keys()),
+            "uploaded_files": uploaded_files,
+            "message": "Successfully completed full flow: summaries → DB → completed → S3 → finished"
+        }
+
+    except Exception as e:
+        logger.error(f"❌ Error in complete flow for mapping_id {mapping_id}: {e}")
+
+        # Rollback: 원래 상태로 되돌리기
+        if job_id and original_status:
+            try:
+                rollback_success = await database.update_job_processing_status(job_id, original_status)
+                if rollback_success:
+                    logger.info(f"🔄 Rolled back job {job_id} status to '{original_status}'")
+                else:
+                    logger.error(f"🔄 Failed to rollback job {job_id} status")
+            except Exception as rollback_error:
+                logger.error(f"🔄 Rollback error: {rollback_error}")
+
+        raise HTTPException(status_code=500, detail=f"Failed to complete flow: {str(e)}")
+
+@router.get("/data/s3-preview/{job_id}")
+async def get_s3_preview_data(job_id: int) -> Dict[str, Any]:
+    """
+    S3 업로드와 동일한 데이터를 JSON으로 미리보기
+    (s3_service.upload_job_completion_data와 완전히 동일한 로직)
+    """
+    try:
+        from ..services.s3_service import s3_service
+
+        # S3 업로드 시와 동일한 데이터 수집
+        companies_data = await s3_service._get_companies_data(job_id)
+        job_postings_data = await s3_service._get_job_postings_data(job_id)
+        job_sectors_data = await s3_service._get_job_sectors_data(job_id)
+        dart_data = await s3_service._get_dart_data(job_id)
+
+        # S3 업로드 시와 동일한 형태로 반환
+        return {
+            "job_id": job_id,
+            "companies": companies_data,
+            "job_postings": job_postings_data,
+            "job_sectors": job_sectors_data,
+            "Dart": dart_data,
+            "preview_timestamp": datetime.now().isoformat(),
+            "note": "This is the exact same data that would be uploaded to S3"
+        }
+
+    except Exception as e:
+        logger.error(f"Error getting S3 preview data for job_id {job_id}: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to get S3 preview data: {str(e)}")
