@@ -56,6 +56,7 @@ public class SecurityConfig {
                         .requestMatchers("/oauth2/**", "/api/auth/login/**").permitAll()
                         .requestMatchers("/api/auth/refresh", "/api/auth/refresh-cookie").permitAll()
                         .requestMatchers("/api/job-postings/calendar", "/api/job-postings/hot").permitAll()
+                        .requestMatchers("/api/summaries/**").permitAll()
 
                         // 인증 필요 엔드포인트
                         .requestMatchers("/api/auth/logout", "/api/auth/token-status", "/api/auth/revoke").authenticated()

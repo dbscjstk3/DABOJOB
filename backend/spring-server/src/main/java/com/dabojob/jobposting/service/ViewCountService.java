@@ -4,7 +4,6 @@ import com.dabojob.global.exception.RedisServiceException;
 import com.dabojob.jobposting.dto.HotJobPostingResponse;
 import com.dabojob.jobposting.entity.JobPosting;
 import com.dabojob.jobposting.repository.JobPostingRepository;
-import jakarta.persistence.EntityNotFoundException;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -34,31 +33,13 @@ public class ViewCountService {
     private static final String JOB_TITLES_KEY = "job_titles:%s"; // job_titles:{jobPostingId}
     private static final String JOB_COMPANIES_KEY = "job_companies:%s"; // job_companies:{jobPostingId}
 
-    // TTL 설정
     private static final Duration VIEW_COUNT_TTL = Duration.ofDays(7); // 7일
     private static final Duration USER_VIEW_TTL = Duration.ofHours(1); // 1시간
     private static final Duration JOB_INFO_TTL = Duration.ofDays(7); // 7일
 
     public void incrementViewCount(String jobPostingId, String userId) {
         try{
-            Long parsedJobPostingId = Long.parseLong(jobPostingId);
-            JobPosting jobPosting = jobPostingRepository.findById(parsedJobPostingId).orElse(null);
-            if (jobPosting == null) {
-                throw new EntityNotFoundException("Job posting not found");
-            }
 
-            String companyName = jobPosting.getCompany().getName();
-            String title = jobPosting.getTitle();
-
-            incrementViewCountWithJobInfo(parsedJobPostingId, userId, title, companyName);
-        } catch (NumberFormatException e) {
-            log.warn("Invalid job posting ID. Job ID: {}", jobPostingId);
-            throw new IllegalArgumentException("Invalid job posting ID");
-        }
-    }
-
-    private void incrementViewCountWithJobInfo(Long jobPostingId, String userId, String title, String companyName) {
-        try {
             if (jobPostingId == null) {
                 log.debug("Null job posting ID provided");
                 return;
@@ -68,32 +49,39 @@ public class ViewCountService {
                 return;
             }
 
-            String jobIdStr = String.valueOf(jobPostingId);
-            String cleanUserId = userId.trim();
+            Long parsedJobPostingId = Long.parseLong(jobPostingId);
+            JobPosting jobPosting = jobPostingRepository.findById(parsedJobPostingId).orElse(null);
 
-            String userViewKey = String.format(USER_VIEW_KEY, cleanUserId, jobIdStr);
-            String viewCountKey = String.format(VIEW_COUNT_KEY, jobIdStr);
-            String titleKey = String.format(JOB_TITLES_KEY, jobIdStr);
-            String companyKey = String.format(JOB_COMPANIES_KEY, jobIdStr);
-
-            Boolean hasViewed = stringRedisTemplate.hasKey(userViewKey);
-
-            if (Boolean.TRUE.equals(hasViewed)) {
-                log.debug("User {} already viewed job {} within 1 hour", cleanUserId, jobIdStr);
+            if (jobPosting == null) {
+                log.debug("Job posting with id {} not found", parsedJobPostingId);
                 return;
             }
 
-            // 사용자 조회 기록 설정
+            String companyName = jobPosting.getCompany().getName();
+            String title = jobPosting.getTitle();
+            String cleanUserId = userId.trim();
+
+            String userViewKey = String.format(USER_VIEW_KEY, cleanUserId, jobPostingId);
+            String viewCountKey = String.format(VIEW_COUNT_KEY, jobPostingId);
+            String titleKey = String.format(JOB_TITLES_KEY, jobPostingId);
+            String companyKey = String.format(JOB_COMPANIES_KEY, jobPostingId);
+
+            Boolean hasViewed = stringRedisTemplate.hasKey(userViewKey);
+
+            if (hasViewed) {
+                log.debug("User {} already viewed job {} within 1 hour", cleanUserId, jobPostingId);
+                return;
+            }
+
             stringRedisTemplate.opsForValue().set(userViewKey, "1", USER_VIEW_TTL);
 
-            // 조회수 증가
             Long newCount = stringRedisTemplate.opsForValue().increment(viewCountKey);
             if (newCount == 1) {
                 stringRedisTemplate.expire(viewCountKey, VIEW_COUNT_TTL);
             }
 
             // Hot jobs에 추가
-            stringRedisTemplate.opsForZSet().incrementScore(HOT_JOBS_KEY, jobIdStr, 1.0);
+            stringRedisTemplate.opsForZSet().incrementScore(HOT_JOBS_KEY, jobPostingId, 1.0);
             stringRedisTemplate.expire(HOT_JOBS_KEY, VIEW_COUNT_TTL);
 
             // 제목과 회사명 저장
@@ -104,11 +92,14 @@ public class ViewCountService {
                 stringRedisTemplate.opsForValue().set(companyKey, companyName.trim(), JOB_INFO_TTL);
             }
 
+        } catch (NumberFormatException e) {
+            log.warn("Invalid job posting ID. Job ID: {}", jobPostingId);
+            throw new IllegalArgumentException("Invalid job posting ID");
         } catch (Exception e) {
-            log.warn("Failed to increment view count for job {} by user {}: {}",
-                    jobPostingId, userId, e.getMessage());
+            log.warn("Failed to increment view count for job {} by user {}: {}", jobPostingId, userId, e.getMessage());
         }
     }
+
 
     // 특정 채용공고의 조회수 조회
     public long getViewCount(Long jobPostingId) {
@@ -132,14 +123,12 @@ public class ViewCountService {
         }
     }
 
-    // 인기 채용공고 목록 조회 (ID와 제목, 회사명을 객체로 반환)
     public List<HotJobPostingResponse> getHotJobPostings(int limit) {
         try {
             if (limit <= 0) {
                 throw new IllegalArgumentException("Limit must be positive");
             }
 
-            // Sorted Set에서 점수가 높은 순으로 jobPostingId 조회
             Set<String> hotJobIds = stringRedisTemplate.opsForZSet().reverseRange(HOT_JOBS_KEY, 0, limit - 1);
 
             if (hotJobIds == null || hotJobIds.isEmpty()) {
@@ -214,7 +203,7 @@ public class ViewCountService {
         try {
             String jobIdStr = String.valueOf(jobPostingId);
             String userViewKey = String.format(USER_VIEW_KEY, userId, jobIdStr);
-            return Boolean.TRUE.equals(stringRedisTemplate.hasKey(userViewKey));
+            return stringRedisTemplate.hasKey(userViewKey);
 
         } catch (Exception e) {
             log.error("Failed to check user view status for job {} by user {}", jobPostingId, userId, e);
@@ -230,7 +219,6 @@ public class ViewCountService {
             String titleKey = String.format(JOB_TITLES_KEY, jobIdStr);
             String companyKey = String.format(JOB_COMPANIES_KEY, jobIdStr);
 
-            // 조회수, Hot jobs, 제목, 회사명 삭제
             stringRedisTemplate.delete(viewCountKey);
             stringRedisTemplate.delete(titleKey);
             stringRedisTemplate.delete(companyKey);

@@ -25,18 +25,24 @@ public class SummaryResponse {
     private String otherNotes;
 
     private Map<ChapterType, List<String>> chapterHashtags;
+    private final static String SUMMARY_EMPTY = "Summary file not found";
 
     public static SummaryResponse of(CompanyAnalysisSummary summary, Map<ChapterType, List<String>> chapterHashtags) {
         return SummaryResponse.builder()
                 .summaryId(summary.getId())
                 .companyId(summary.getCompany().getId())
                 .companyName(summary.getCompany().getName())
-                .businessOverview(summary.getBusinessOverview())
-                .productsService(summary.getProductsService())
-                .salesContracts(summary.getSalesContracts())
-                .rndActivities(summary.getRndActivities())
-                .otherNotes(summary.getOtherNotes())
+                .businessOverview(nullIfEmpty (summary.getBusinessOverview()))
+                .productsService(nullIfEmpty (summary.getProductsService()))
+                .salesContracts(nullIfEmpty (summary.getSalesContracts()))
+                .rndActivities(nullIfEmpty (summary.getRndActivities()))
+                .otherNotes(nullIfEmpty (summary.getOtherNotes()))
                 .chapterHashtags(chapterHashtags)
                 .build();
     }
+
+    private static String nullIfEmpty (String value) {
+        return SUMMARY_EMPTY.equals(value) ? null : value;
+    }
+
 }
