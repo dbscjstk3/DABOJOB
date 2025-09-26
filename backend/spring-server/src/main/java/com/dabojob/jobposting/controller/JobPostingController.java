@@ -34,7 +34,7 @@ public class JobPostingController {
     @GetMapping("/{jobPostingId}")
     public ResponseEntity<JobPostingResponse> getJobPosting(@PathVariable String jobPostingId,
                                                             Authentication authentication) {
-        if (jobPostingId == null) {
+        if (jobPostingId != null) {
             String userId = authentication.getName();
             viewCountService.incrementViewCount(jobPostingId,userId);
         }

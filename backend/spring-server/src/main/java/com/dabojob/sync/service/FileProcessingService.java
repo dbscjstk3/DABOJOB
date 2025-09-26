@@ -231,7 +231,6 @@ public class FileProcessingService {
 
             if (summaryHashtag != null) {
                 News news = News.builder()
-                        .id(newsItem.getNewsId())
                         .summaryHashtag(summaryHashtag)
                         .title(newsItem.getTitle())
                         .content(newsItem.getSummary())
@@ -273,9 +272,13 @@ public class FileProcessingService {
             return null;
         }
 
-        // 기존 것이 있는지 확인 (간단한 방법)
+        // 기존 것이 있는지 확인 (간단한 방법)+-
+        SummaryHashtag summaryHashtag = summaryHashtagRepository.findBySummaryAndChapterTypeAndHashtag(summary,chapterType,hashtag);
+        if (summaryHashtag != null) {
+            return summaryHashtag;
+        }
         // 정확한 조회 메서드가 없다면 새로 생성
-        SummaryHashtag summaryHashtag = SummaryHashtag.builder()
+        summaryHashtag = SummaryHashtag.builder()
                 .summary(summary)
                 .hashtag(hashtag)
                 .chapterType(chapterType)

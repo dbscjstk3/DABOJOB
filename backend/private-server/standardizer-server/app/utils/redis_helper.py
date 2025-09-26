@@ -247,6 +247,50 @@ class RedisHelper:
             logger.error(f"Failed to get job status: {e}")
             return None
 
+    async def set_status(self, key: str, data: Dict[str, Any]) -> None:
+        """
+        일반 상태 정보 설정 (크롤링 상태 등)
+
+        Args:
+            key: Redis 키
+            data: 상태 데이터
+        """
+        if not self.redis_client:
+            await self.connect()
+
+        try:
+            # JSON으로 저장
+            await asyncio.to_thread(
+                self.redis_client.set,
+                key,
+                json.dumps(data, ensure_ascii=False),
+                ex=86400  # 24시간 TTL
+            )
+        except Exception as e:
+            raise RedisError(f"Failed to set status: {e}")
+
+    async def get_status(self, key: str) -> Optional[Dict[str, Any]]:
+        """
+        일반 상태 정보 조회
+
+        Args:
+            key: Redis 키
+
+        Returns:
+            상태 데이터
+        """
+        if not self.redis_client:
+            await self.connect()
+
+        try:
+            data = await asyncio.to_thread(self.redis_client.get, key)
+            if data:
+                return json.loads(data)
+            return None
+        except Exception as e:
+            logger.error(f"Failed to get status: {e}")
+            return None
+
     async def close(self) -> None:
         """연결 종료"""
         if self.redis_client:

@@ -20,7 +20,7 @@ public class NewsService {
             Long parsedSummaryId = Long.parseLong(summaryId);
             List<News> newsList;
             if (hashtagName == null) {
-                newsList = newsRepository.findBySummaryHashtagId(parsedSummaryId);
+                newsList = newsRepository.findBySummaryId(parsedSummaryId);
             } else{
                 newsList = newsRepository.findBySummaryHashtagIdAndHashtagName(parsedSummaryId, hashtagName);
             }
