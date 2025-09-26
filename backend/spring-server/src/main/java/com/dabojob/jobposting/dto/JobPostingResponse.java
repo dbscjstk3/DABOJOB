@@ -36,7 +36,7 @@ public class JobPostingResponse {
                 .jobSectorId(jobPosting.getJobSector().getId())
                 .jobSectorName(jobPosting.getJobSector().getName())
                 .jobSectorCategory(jobPosting.getJobSector().getCategory())
-                .careerInfo(jobPosting.getCareerInfo().name())
+                .careerInfo(jobPosting.getCareerInfo().getName())
                 .postingDate(jobPosting.getPostingDate())
                 .deadlineDate(jobPosting.getDeadlineDate())
                 .build();
