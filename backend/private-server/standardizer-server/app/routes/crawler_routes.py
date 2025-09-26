@@ -16,45 +16,101 @@ executor = ThreadPoolExecutor(max_workers=2)
 
 @router.post("/saramin/start")
 async def start_saramin_crawl(
-    background_tasks: BackgroundTasks,
     max_pages: int = Query(default=5, ge=1, le=500),
     db: Session = Depends(get_db)
 ):
     """
-    사람인 크롤링 시작
+    사람인 크롤링 시작 (백그라운드 실행)
 
     Parameters:
     - max_pages: 크롤링할 최대 페이지 수 (1-500)
     """
     try:
-        async def run_crawler_and_trigger_mapping():
+        # 크롤링 작업 ID 생성
+        crawl_id = f"saramin_crawl_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
 
-            # 크롤링 실행
-            crawler = SaraminCrawler(db_session=db)
-            result = crawler.crawl(max_pages=max_pages)
+        # Redis에 크롤링 상태 저장
+        await redis_helper.set_status(f"crawl:{crawl_id}", {
+            "status": "running",
+            "max_pages": max_pages,
+            "started_at": datetime.now().isoformat(),
+            "progress": {"current_page": 0, "items_found": 0, "items_saved": 0}
+        })
 
-            # 크롤링 성공 시 자동 매핑 트리거
-            if result and result.get("status") == "completed":
-                job_id = f"saramin_crawl_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
+        # 백그라운드에서 크롤링 실행
+        def run_crawler():
+            import asyncio
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
 
-                # 매핑 작업을 Redis 스트림에 추가
-                mapping_job_data = {
-                    "job_id": f"auto_mapping_{job_id}",
-                    "trigger": "post_saramin_crawling",
-                    "limit": 1000,  # 크롤링된 모든 회사를 매핑
-                    "submitted_at": datetime.now().isoformat()
-                }
+            try:
+                # 새로운 DB 세션 생성 (백그라운드 스레드용)
+                from ..database import SessionLocal
+                db_session = SessionLocal()
 
-                await redis_helper.add_job("mapping_stream", mapping_job_data)
-                print(f"✅ Auto-mapping job queued after Saramin crawling: auto_mapping_{job_id}")
+                # 크롤링 실행
+                crawler = SaraminCrawler(db_session=db_session)
+                result = crawler.crawl(max_pages=max_pages)
 
-        background_tasks.add_task(run_crawler_and_trigger_mapping)
+                # Redis 상태 업데이트
+                loop.run_until_complete(redis_helper.set_status(f"crawl:{crawl_id}", {
+                    "status": result.get("status", "failed"),
+                    "max_pages": max_pages,
+                    "started_at": datetime.now().isoformat(),
+                    "completed_at": datetime.now().isoformat(),
+                    "result": result
+                }))
+
+                # 크롤링 성공 시 자동 매핑 트리거
+                if result and result.get("status") == "completed":
+                    mapping_job_data = {
+                        "job_id": f"auto_mapping_{crawl_id}",
+                        "trigger": "post_saramin_crawling",
+                        "limit": 1000,
+                        "submitted_at": datetime.now().isoformat()
+                    }
+                    loop.run_until_complete(redis_helper.add_job("mapping_stream", mapping_job_data))
+                    print(f"✅ Auto-mapping job queued after Saramin crawling: auto_mapping_{crawl_id}")
+
+                db_session.close()
+
+            except Exception as e:
+                loop.run_until_complete(redis_helper.set_status(f"crawl:{crawl_id}", {
+                    "status": "failed",
+                    "error": str(e),
+                    "completed_at": datetime.now().isoformat()
+                }))
+            finally:
+                loop.close()
+
+        # ThreadPoolExecutor로 백그라운드 실행
+        executor.submit(run_crawler)
 
         return {
             "status": "started",
-            "message": f"사람인 크롤링이 시작되었습니다. (최대 {max_pages}페이지) - 완료 후 자동 매핑 실행",
+            "crawl_id": crawl_id,
+            "message": f"사람인 크롤링이 백그라운드에서 시작되었습니다. (최대 {max_pages}페이지)",
+            "check_status_url": f"/api/crawler/saramin/status/{crawl_id}",
             "timestamp": datetime.now().isoformat()
         }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/saramin/status/{crawl_id}")
+async def get_specific_crawl_status(crawl_id: str):
+    """
+    특정 크롤링 작업의 상태 조회
+    """
+    try:
+        status = await redis_helper.get_status(f"crawl:{crawl_id}")
+
+        if not status:
+            raise HTTPException(status_code=404, detail="크롤링 작업을 찾을 수 없습니다.")
+
+        return status
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
