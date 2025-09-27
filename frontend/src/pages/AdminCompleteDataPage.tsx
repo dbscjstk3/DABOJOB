@@ -67,7 +67,11 @@ export default function AdminCompleteDataPage() {
           items: [{ summary: data.summary_reports.contracts_rnd }],
           tags: [],
         },
-        { title: '기타 사항', items: [{ summary: data.summary_reports.others }], tags: [] },
+        {
+          title: '기타 사항',
+          items: [{ summary: data.summary_reports.other_references }],
+          tags: [],
+        },
       ],
     };
   }, [data]);
@@ -82,7 +86,7 @@ export default function AdminCompleteDataPage() {
           items.push({
             newsId: n.news_id,
             title: n.title,
-            content: n.summary,
+            content: n.summary || '요약 데이터 없음',
             postingDate: n.published_date,
             url: n.url,
             summaryHashtagId: info.hashtag_id,
