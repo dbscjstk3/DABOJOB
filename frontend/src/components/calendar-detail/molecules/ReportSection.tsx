@@ -17,6 +17,7 @@ interface ReportSectionProps {
 }
 
 function escapeHTML(s: string) {
+  if (!s) return '';
   return s
     .replaceAll(/&/g, '&amp;')
     .replaceAll(/</g, '&lt;')
@@ -26,6 +27,7 @@ function escapeHTML(s: string) {
 }
 
 function buildHighlightHTML(summary: string, highlight: string | null) {
+  if (!summary) return '';
   if (!highlight) return escapeHTML(summary);
 
   // 1. 원본 텍스트에서 먼저 하이라이트 처리
