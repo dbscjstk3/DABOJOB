@@ -83,7 +83,7 @@ export default function SearchDetailPage() {
           </div>
         </div>
       ) : data && data.content.length > 0 ? (
-        <div className="bg-white flex flex-col gap-4 min-h-[340px] mb-3">
+        <div className="bg-white flex flex-col gap-4 min-h-[340px] ">
           {data.content.map((job) => (
             <SearchResultCard
               key={job.jobPostingId}
@@ -109,6 +109,7 @@ export default function SearchDetailPage() {
           totalPages={data.totalPages}
           onPageChange={handlePageChange}
           onPageHover={handlePagePrefetch}
+          className="mb-6"
         />
       )}
     </div>
