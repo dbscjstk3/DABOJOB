@@ -116,7 +116,7 @@ const adminMappingRoute = createRoute({
 const adminJobCompletedRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/admin/jobs/$jobId/complete',
-  // beforeLoad: checkAdminAuth,
+  beforeLoad: checkAdminAuth,
   component: AdminCompletedPage,
 });
 
