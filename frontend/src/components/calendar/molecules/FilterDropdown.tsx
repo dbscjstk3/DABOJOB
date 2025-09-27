@@ -118,14 +118,14 @@ export const FilterDropdown: React.FC<FilterDropdownProps> = ({
           {/* 선택된 항목들 표시 */}
           {selectedValues.length > 0 && multiple && (
             <div className="p-2 border-b border-gray-700">
-              <div className="flex items-center justify-between mb-2">
-                <Typography variant="default" color="gray" className="text-xs">
+              <div className="flex items-center truncate flex-nowrap justify-between mb-2">
+                <Typography variant="default" color="gray" className="text-[10px]">
                   선택된 항목
                 </Typography>
                 <button
                   type="button"
                   onClick={handleClearAll}
-                  className="text-xs text-red-400 hover:text-red-300"
+                  className="text-[10px] text-red-400 hover:text-red-300"
                 >
                   모두 지우기
                 </button>

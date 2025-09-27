@@ -138,11 +138,11 @@ const PopularDropdown: React.FC = () => {
                         {index + 1}위
                       </span>
                       <div className="flex-1 min-w-0 overflow-hidden">
-                        <div className="text-gray-700 text-[11px] sm:text-xs md:text-sm lg:text-base font-medium truncate">
+                        <div className="text-gray-700 text-[11px] text-center sm:text-xs md:text-sm lg:text-base font-medium truncate">
                           {jobPosting.companyName || jobPosting.title}
                         </div>
                         {jobPosting.companyName && (
-                          <div className="text-gray-500 text-[10px] sm:text-[11px] md:text-xs truncate">
+                          <div className="text-gray-500 text-[10px] text-center sm:text-[11px] md:text-xs truncate">
                             {jobPosting.title}
                           </div>
                         )}
