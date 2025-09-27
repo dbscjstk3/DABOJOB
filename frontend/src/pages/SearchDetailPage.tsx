@@ -48,16 +48,6 @@ export default function SearchDetailPage() {
     return deadlineDate >= today ? 'started' : 'ended';
   };
 
-  // 경력 정보 변환 함수 - 현재 사용하지 않음
-  // const formatCareerInfo = (careerInfo: string): string => {
-  //   const careerMap: { [key: string]: string } = {
-  //     junior: '신입',
-  //     experienced: '경력',
-  //     senior: '시니어',
-  //   };
-  //   return careerMap[careerInfo] || careerInfo;
-  // };
-
   // 페이지 변경 핸들러
   const handlePageChange = (newPage: number) => {
     navigate({
@@ -68,11 +58,11 @@ export default function SearchDetailPage() {
     });
   };
   return (
-    <div className="w-full max-w-5xl mx-auto px-4 md:px-6 lg:px-8 space-y-4">
+    <div className="w-full max-w-5xl mx-auto px-4 md:px-6 lg:px-8">
       <Typography
         variant="title"
         weight="bold"
-        className="mt-3 md:mt-5 text-lg md:text-xl lg:text-2xl"
+        className="mt-4 mb-6 md:mt-5 text-lg md:text-xl lg:text-2xl"
       >
         {query ? `"${query}" 검색 결과` : '검색'}
       </Typography>
@@ -93,7 +83,7 @@ export default function SearchDetailPage() {
           </div>
         </div>
       ) : data && data.content.length > 0 ? (
-        <div className="bg-white flex flex-col gap-4">
+        <div className="bg-white flex flex-col gap-4 min-h-[340px] ">
           {data.content.map((job) => (
             <SearchResultCard
               key={job.jobPostingId}
@@ -119,6 +109,7 @@ export default function SearchDetailPage() {
           totalPages={data.totalPages}
           onPageChange={handlePageChange}
           onPageHover={handlePagePrefetch}
+          className="mb-6"
         />
       )}
     </div>
