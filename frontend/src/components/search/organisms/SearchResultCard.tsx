@@ -46,41 +46,28 @@ export default function SearchResultCard({
       )}
       onClick={handleCardClick}
     >
-      {/* 모바일: 세로 배치 / 데스크톱: 가로 배치 */}
-      <div className="flex flex-col md:flex-row md:items-center gap-2 md:gap-4">
-        {/* 상단 정보 (모바일: 가로 / 데스크톱: 그대로) */}
-        <div className="flex items-center gap-2 md:gap-4 flex-wrap md:flex-nowrap">
-          {/* 상태 표시 */}
-          <div
-            className={cn(
-              'py-0.5 md:px-3 md:py-1 rounded-md text-sm md:text-md font-medium flex-shrink-0',
-              status === 'started' ? 'text-daboja-default' : 'text-red-500',
-            )}
-          >
-            {status === 'started' ? '시작' : '마감'}
-          </div>
-
-          {/* 회사명 */}
-          <Typography
-            variant="default"
-            weight="medium"
-            className="text-gray-700 flex-shrink-0 text-sm md:text-base md:mr-3"
-          >
-            {companyName}
-          </Typography>
-
-          {/* 모바일: 경력, 기간 */}
-          <div className="flex items-center gap-2 md:hidden ml-auto">
-            <Typography variant="default" className="text-xs">
-              {experienceLevel}
-            </Typography>
-            <Typography variant="default" color="gray" className="text-xs">
-              {period}
-            </Typography>
-          </div>
+      {/* 모바일: 세로 배치 / 데스크톱: Grid 배치 */}
+      <div className="flex flex-col md:grid md:grid-cols-[60px_150px_1fr_auto_auto] md:items-center gap-2 md:gap-4">
+        {/* 상태 표시 */}
+        <div
+          className={cn(
+            'py-0.5 md:px-3 md:py-1 rounded-md text-sm md:text-md font-medium flex-shrink-0',
+            status === 'started' ? 'text-daboja-default' : 'text-red-500',
+          )}
+        >
+          {status === 'started' ? '시작' : '마감'}
         </div>
 
-        {/* 제목 - 모바일에서 전체 너비 사용 */}
+        {/* 회사명 - 고정 너비 */}
+        <Typography
+          variant="default"
+          weight="medium"
+          className="text-gray-700 text-sm md:text-base truncate"
+        >
+          {companyName}
+        </Typography>
+
+        {/* 제목 */}
         <div className="flex-1 w-full md:w-auto">
           <ResultTitleLink
             title={title}
@@ -88,22 +75,26 @@ export default function SearchResultCard({
           />
         </div>
 
-        {/* 데스크톱: 신입/경력, 기간 */}
-        <div className="hidden md:flex items-center gap-4">
-          <Typography variant="default" className="flex-shrink-0">
-            {experienceLevel}
-          </Typography>
-          <Typography variant="default" color="gray" className="flex-shrink-0">
-            {period}
-          </Typography>
-        </div>
+        {/* 경력 */}
+        <Typography variant="default" className="flex-shrink-0 text-xs md:text-base">
+          {experienceLevel}
+        </Typography>
+
+        {/* 기간 */}
+        <Typography variant="default" color="gray" className="flex-shrink-0 text-xs md:text-base">
+          {period}
+        </Typography>
       </div>
 
       {/* 하단: 직무 카테고리 */}
-      <div className="md:pl-[150px]">
+      <div className="md:grid md:grid-cols-[60px_150px_1fr_auto_auto] md:gap-4">
+        <div className="hidden md:block"></div>
+        <div className="hidden md:block"></div>
         <Typography variant="default" color="gray" className="text-xs md:text-sm">
           {jobCategory}
         </Typography>
+        <div className="hidden md:block"></div>
+        <div className="hidden md:block"></div>
       </div>
     </div>
   );
