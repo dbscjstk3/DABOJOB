@@ -1,5 +1,7 @@
 import { useSearch, useNavigate } from '@tanstack/react-router';
+import { useQueryClient } from '@tanstack/react-query';
 import { useSearchJobPostings } from '@/lib/hooks';
+import { fetchSearchJobPostings } from '@/lib/api';
 import SearchResultCard from '@/components/search/organisms/SearchResultCard';
 import PaginationControls from '@/components/search/molecules/PaginationControls';
 import EmptyState from '@/components/search/molecules/EmptyState';
@@ -13,12 +15,23 @@ interface SearchParams {
 
 export default function SearchDetailPage() {
   const navigate = useNavigate({ from: '/search' });
+  const queryClient = useQueryClient();
   const searchParams = useSearch({ from: '/search' }) as SearchParams;
   const query = searchParams.q || '';
   const currentPage = (searchParams.page || 1) - 1; // API는 0부터 시작
+  const pageSize = 3;
 
   // React Query를 사용한 데이터 fetching
-  const { data, isLoading, isError } = useSearchJobPostings(query, currentPage, 20);
+  const { data, isLoading, isError } = useSearchJobPostings(query, currentPage, pageSize);
+
+  // 페이지 prefetch 핸들러
+  const handlePagePrefetch = (page: number) => {
+    const prefetchPage = page - 1; // UI는 1부터, API는 0부터
+    queryClient.prefetchQuery({
+      queryKey: ['searchJobPostings', query, prefetchPage, pageSize],
+      queryFn: () => fetchSearchJobPostings(query, prefetchPage, pageSize),
+    });
+  };
 
   // 날짜 포맷 함수
   const formatPeriod = (deadline: string): string => {
@@ -105,6 +118,7 @@ export default function SearchDetailPage() {
           currentPage={currentPage + 1} // UI는 1부터 표시
           totalPages={data.totalPages}
           onPageChange={handlePageChange}
+          onPageHover={handlePagePrefetch}
         />
       )}
     </div>
