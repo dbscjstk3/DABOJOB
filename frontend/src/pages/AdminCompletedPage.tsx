@@ -75,10 +75,10 @@ export default function AdminCompletedPage() {
             title: '기타 사항',
             items: [
               {
-                summary: data.summary_reports.others,
+                summary: data.summary_reports.other_references,
               },
             ],
-            tags: extractHashtagsFromSection(data, 'others'),
+            tags: extractHashtagsFromSection(data, 'other_references'),
           },
         ],
       }
