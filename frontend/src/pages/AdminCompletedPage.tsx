@@ -189,7 +189,7 @@ function convertNewsData(data: AdminJobCompleteResponse, filterTag?: string | nu
         newsItems.push({
           newsId: item.news_id,
           title: item.title,
-          content: item.summary,
+          content: item.summary || '요약 데이터 없음',
           postingDate: item.published_date,
           url: item.url,
           summaryHashtagId: hashtagGroup.hashtag_id,

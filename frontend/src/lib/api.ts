@@ -151,14 +151,14 @@ export interface AdminJobCompleteResponse {
     products_services: string;
     revenue_orders: string;
     contracts_rnd: string;
-    others: string;
+    other_references: string;
   };
   news_data: {
     business_overview?: Record<string, NewsHashtagGroup>;
     products_services?: Record<string, NewsHashtagGroup>;
     revenue_orders?: Record<string, NewsHashtagGroup>;
     contracts_rnd?: Record<string, NewsHashtagGroup>;
-    others?: Record<string, NewsHashtagGroup>;
+    other_references?: Record<string, NewsHashtagGroup>;
   };
   generated_at: string;
 }
@@ -173,7 +173,7 @@ export interface AdminNewsItem {
   title: string;
   url: string;
   published_date: string;
-  summary: string;
+  summary: string | null;
   company_name: string;
   status: string;
 }

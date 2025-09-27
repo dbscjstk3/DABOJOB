@@ -22,7 +22,7 @@ export const mockAdminJobCompleteData: Record<string, AdminJobCompleteResponse> 
         '2023년 매출 8조 9천억원을 기록했으며, 광고매출과 커머스 수수료가 주요 수익원입니다.',
       contracts_rnd:
         'AI, 클라우드, 로보틱스 등 미래기술 개발에 매출의 약 15%를 연구개발비로 투자하고 있습니다.',
-      others:
+      other_references:
         '글로벌 진출을 위해 동남아, 일본 등에서 다양한 서비스를 운영하며, 개발자 생태계 지원에도 힘쓰고 있습니다.',
     },
     news_data: {
@@ -79,7 +79,7 @@ export const mockAdminJobCompleteData: Record<string, AdminJobCompleteResponse> 
         '2023년 매출은 전년 대비 14.7% 감소한 258조 9천억원을 기록했습니다. 이는 글로벌 경제 둔화와 반도체 업황 부진의 영향입니다. 주요 고객사로는 Apple, Google, Microsoft 등이 있으며, B2B 매출이 전체의 약 70%를 차지합니다.',
       contracts_rnd:
         '연구개발 투자는 매출의 약 8-9% 수준을 유지하고 있으며, 2023년 기준 약 20조원을 투자했습니다. 주요 R&D 분야는 차세대 메모리 기술, AI 반도체, 6G 통신기술, 퀀텀닷 디스플레이 등입니다.',
-      others:
+      other_references:
         '지속가능경영을 위해 2030년까지 탄소중립 달성을 목표로 하고 있으며, 다양한 사회공헌 활동을 펼치고 있습니다. 또한 글로벌 인재 양성을 위한 교육 프로그램도 운영 중입니다.',
     },
     news_data: {
@@ -102,10 +102,9 @@ export const mockAdminJobCompleteData: Record<string, AdminJobCompleteResponse> 
               title: '삼성 3나노 공정 기술력 인정받아 대형 파운드리 수주',
               url: 'https://news.example.com/1002',
               published_date: '2024-01-12T10:30:00',
-              summary:
-                '삼성전자가 3나노 GAA(Gate-All-Around) 공정 기술로 글로벌 팹리스 고객사로부터 대형 파운드리 물량을 수주했습니다.',
+              summary: null,
               company_name: '삼성전자',
-              status: 'completed',
+              status: 'raw',
             },
           ],
         },
@@ -117,10 +116,9 @@ export const mockAdminJobCompleteData: Record<string, AdminJobCompleteResponse> 
               title: '삼성전자, AI 반도체 개발에 3년간 100조원 투자 계획',
               url: 'https://news.example.com/1003',
               published_date: '2024-01-10T14:20:00',
-              summary:
-                '삼성전자가 인공지능 반도체 기술 개발과 생산 능력 확대를 위해 향후 3년간 100조원 규모의 대규모 투자를 단행한다고 발표했습니다.',
+              summary: null,
               company_name: '삼성전자',
-              status: 'completed',
+              status: 'raw',
             },
           ],
         },
@@ -183,15 +181,14 @@ export const mockAdminJobCompleteData: Record<string, AdminJobCompleteResponse> 
               title: '삼성전자, 6G 핵심기술 개발 위해 글로벌 연구기관과 협력',
               url: 'https://news.example.com/4001',
               published_date: '2024-01-20T13:10:00',
-              summary:
-                '삼성전자가 6G 이동통신 기술의 핵심 요소 기술 개발을 위해 MIT, 스탠포드 등 글로벌 연구기관과 공동 연구 협약을 체결했습니다.',
+              summary: null,
               company_name: '삼성전자',
               status: 'completed',
             },
           ],
         },
       },
-      others: {
+      other_references: {
         지속가능경영: {
           hashtag_id: 501,
           news_items: [
@@ -226,7 +223,8 @@ export const mockAdminJobCompleteData: Record<string, AdminJobCompleteResponse> 
       revenue_orders: '2023년 매출 약 84조원을 기록했으며, 해외 매출 비중이 70%를 넘습니다.',
       contracts_rnd:
         '차세대 가전 기술과 전기차 부품 기술 개발에 매출의 5% 수준을 투자하고 있습니다.',
-      others: '친환경 기술 개발과 사회적 가치 창출을 위한 다양한 CSR 활동을 전개하고 있습니다.',
+      other_references:
+        '친환경 기술 개발과 사회적 가치 창출을 위한 다양한 CSR 활동을 전개하고 있습니다.',
     },
     news_data: {
       business_overview: {
