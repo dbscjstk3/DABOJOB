@@ -78,6 +78,16 @@ const loginRoute = createRoute({
 const searchDetailRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/search',
+  beforeLoad: ({ location }) => {
+    const authed = useAuthStore.getState().isAuthed;
+    if (!authed) {
+      // 모달 열고 홈으로 리다이렉트
+      useModalStore
+        .getState()
+        .openLoginModal(location.href, '검색 결과를 확인하려면 로그인 해주세요!');
+      throw redirect({ to: '/' });
+    }
+  },
   component: SearchDetailPage,
   validateSearch: (search: Record<string, unknown>) => {
     return {
