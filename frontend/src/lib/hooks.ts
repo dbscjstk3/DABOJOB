@@ -1,4 +1,4 @@
-import { useQuery, useMutation } from '@tanstack/react-query';
+import { useQuery, useMutation, keepPreviousData } from '@tanstack/react-query';
 import { useState, useEffect } from 'react';
 import { queryClient } from './queryClient';
 import {
@@ -144,7 +144,7 @@ export const useSearchJobPostings = (search: string, page?: number, size?: numbe
     staleTime: 5 * 60 * 1000, // 5분
     gcTime: 10 * 60 * 1000, // 10분
     retry: 1, // 실패 시 1번만 재시도
-    // keepPreviousData: true, // 페이지 전환 시 이전 데이터 유지
+    placeholderData: keepPreviousData, // 페이지 전환 시 이전 데이터 유지
   });
 };
 

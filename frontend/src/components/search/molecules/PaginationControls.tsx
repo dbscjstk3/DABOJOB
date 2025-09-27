@@ -6,6 +6,7 @@ interface PaginationControlsProps {
   currentPage: number;
   totalPages: number;
   onPageChange: (page: number) => void;
+  onPageHover?: (page: number) => void;
   className?: string;
 }
 
@@ -13,6 +14,7 @@ export default function PaginationControls({
   currentPage,
   totalPages,
   onPageChange,
+  onPageHover,
   className = '',
 }: PaginationControlsProps) {
   if (totalPages <= 1) return null;
@@ -42,6 +44,7 @@ export default function PaginationControls({
       {/* 이전 버튼 */}
       <button
         onClick={() => onPageChange(currentPage - 1)}
+        onMouseEnter={() => currentPage > 1 && onPageHover?.(currentPage - 1)}
         disabled={currentPage === 1}
         className={cn(
           'flex items-center gap-0.5 sm:gap-1 px-2 sm:px-3 py-1.5 sm:py-2 rounded-md text-xs sm:text-sm transition-colors',
@@ -60,6 +63,7 @@ export default function PaginationControls({
           <button
             key={index}
             onClick={() => onPageChange(page)}
+            onMouseEnter={() => onPageHover?.(page)}
             className={cn(
               'w-8 h-8 sm:w-10 sm:h-10 flex items-center justify-center rounded-md text-xs sm:text-sm transition-colors',
               page === currentPage ? 'bg-blue-600 text-white' : 'text-gray-700 hover:bg-gray-100',
@@ -75,6 +79,7 @@ export default function PaginationControls({
       {/* 다음 버튼 */}
       <button
         onClick={() => onPageChange(currentPage + 1)}
+        onMouseEnter={() => currentPage < totalPages && onPageHover?.(currentPage + 1)}
         disabled={currentPage === totalPages}
         className={cn(
           'flex items-center gap-0.5 sm:gap-1 px-2 sm:px-3 py-1.5 sm:py-2 rounded-md text-xs sm:text-sm transition-colors',
