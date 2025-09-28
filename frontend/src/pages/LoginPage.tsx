@@ -18,11 +18,6 @@ export default function LoginPage() {
       <div className="mx-auto grid max-w-5xl grid-cols-1 overflow-hidden rounded-3xl bg-white shadow-2xl md:grid-cols-2 h-auto md:h-[600px] w-full animate-in fade-in slide-in-from-bottom-3 duration-300 relative z-10">
         {/* 모바일용 상단 비주얼 영역 */}
         <div className="relative block md:hidden h-56">
-          {/* <img
-            alt="login visual"
-            src="https://images.unsplash.com/photo-1521737604893-d14cc237f11d?q=80&w=1470&auto=format&fit=crop"
-            className="h-full w-full object-cover"
-          /> */}
           <img src={mascot} alt="daboja mascot" className="h-full w-full object-cover" />
           <div className="absolute inset-0 bg-slate-900/20" />
           <div className="absolute bottom-4 left-4 right-4 text-white text-center">
@@ -37,11 +32,6 @@ export default function LoginPage() {
 
         {/* 좌측 비주얼 영역 (데스크톱) */}
         <div className="relative hidden md:block overflow-hidden">
-          {/* <img
-            alt="login visual"
-            src="https://images.unsplash.com/photo-1521737604893-d14cc237f11d?q=80&w=1470&auto=format&fit=crop"
-            className="h-full w-full object-cover"
-          /> */}
           <img src={mascot} alt="daboja mascot" className="h-full w-full object-cover" />
 
           <div className="absolute inset-0 bg-slate-900/20" />
@@ -57,20 +47,10 @@ export default function LoginPage() {
 
         {/* 우측 액션 영역 */}
         <div className="p-8 md:p-12 flex flex-col justify-center">
-          {/* <div className="flex items-center gap-3">
-            <img
-              src={DABOJOB_logo}
-              alt="DABOJOB : ) 다보자"
-              className="h-12 md:h-10 lg:h-12 w-auto"
-            />
-          </div> */}
           <div className="flex items-center gap-2">
             <Link to="/" className="hover:opacity-80 transition-opacity">
               <img src={DABOJOB_LOGO_FINAL} alt="DABOJOB" className="h-10 w-auto" />
             </Link>
-            {/* <Typography as="h2" variant="title" weight="bold" className="text-slate-900">
-              로그인
-            </Typography> */}
           </div>
           <Typography variant="default" color="gray" className="mt-2 mb-8">
             소셜 계정으로 간편하게 로그인하세요.
