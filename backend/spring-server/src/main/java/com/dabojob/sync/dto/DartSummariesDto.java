@@ -23,6 +23,6 @@ public class DartSummariesDto {
     private String contractsRnd;
 
     @JsonProperty("others")
-    @JsonAlias("others_references")
+    @JsonAlias("other_references")
     private String others;
 }
