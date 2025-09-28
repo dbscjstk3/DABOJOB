@@ -2,7 +2,7 @@ import { Link } from '@tanstack/react-router';
 import { Button } from '../components/common/atoms/Button';
 import { Typography } from '../components/common/atoms/Typography';
 import { API_ENDPOINTS } from '../lib/api';
-import DABOJOB_logo from '../assets/logo/DABOJOB_logo.svg';
+import DABOJOB_LOGO_FINAL from '../assets/logo/DABOJOB_LOGO_FINAL.png?format=webp&quality=80';
 import SSAFY_logo from '../assets/logo/ssafyLogo.png';
 import GOOGLE_logo from '../assets/logo/googleLogo.svg';
 import mascot from '../assets/img/daboja_mascot.png?format=webp&quality=80';
@@ -66,7 +66,7 @@ export default function LoginPage() {
           </div> */}
           <div className="flex items-center gap-2">
             <Link to="/" className="hover:opacity-80 transition-opacity">
-              <img src={DABOJOB_logo} alt="DABOJOB" className="h-7 w-auto" />
+              <img src={DABOJOB_LOGO_FINAL} alt="DABOJOB" className="h-10 w-auto" />
             </Link>
             {/* <Typography as="h2" variant="title" weight="bold" className="text-slate-900">
               로그인
