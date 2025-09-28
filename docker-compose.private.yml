@@ -31,6 +31,8 @@ services:
     restart: unless-stopped
     networks:
       - app-net
+    ports:
+      - "3306:3306"
 
   standardizer:
     build:
