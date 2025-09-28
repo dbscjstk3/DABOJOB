@@ -25,6 +25,8 @@ services:
     restart: unless-stopped
     networks:
       - app-net
+    ports:
+      - "3306:3306"
 
   ollama:
     image: ollama/ollama:latest
