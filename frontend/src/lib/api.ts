@@ -341,7 +341,7 @@ export const API_ENDPOINTS = {
     APPROVE: (jobId: string | number) =>
       `${ADMIN_JOB_API_BASE_URL}/api/admin/jobs/${jobId}/approve`,
     RESUMMARY_TRIGGER: (mappingId: string | number) =>
-      `${ADMIN_JOB_API_BASE_URL}/admin/resummary/trigger/${mappingId}`,
+      `${ADMIN_SUMMARY_API_BASE_URL}/admin/resummary/trigger/${mappingId}`,
   },
 } as const;
 
