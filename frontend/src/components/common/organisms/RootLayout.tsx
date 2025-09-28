@@ -4,6 +4,7 @@ import { Header } from './Header';
 import type { SearchItem } from '../molecules/SearchResult';
 import { Footer } from './Footer';
 import { LoginRequiredModal } from './LoginRequiredModal';
+import { DuplicateEmailModal } from './DuplicateEmailModal';
 import { useAuthStore } from '../../../stores/useAuthStore';
 import { API_ENDPOINTS } from '../../../lib/api';
 
@@ -164,6 +165,9 @@ export function RootLayout() {
 
       {/* 로그인 필요 모달 */}
       <LoginRequiredModal />
+      
+      {/* 이메일 중복 모달 */}
+      <DuplicateEmailModal />
     </div>
   );
 }
