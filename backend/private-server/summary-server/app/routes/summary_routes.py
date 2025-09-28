@@ -184,6 +184,8 @@ async def extract_hashtags_only(request: HashtagExtractionRequest):
         logger.info(f"✅ Found {len(summaries)} categories with summaries:")
         for category, content in summaries.items():
             logger.info(f"   - {category}: {len(content) if content else 0} chars")
+            if not content or not content.strip():
+                logger.warning(f"   ⚠️ {category} has empty content!")
 
         # 2. job_id 생성 (기존과 동일한 형식 사용)
         job_id = f"summary_{mapping_id}_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
