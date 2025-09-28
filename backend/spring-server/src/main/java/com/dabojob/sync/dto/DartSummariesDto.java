@@ -1,5 +1,6 @@
 package com.dabojob.sync.dto;
 
+import com.fasterxml.jackson.annotation.JsonAlias;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -22,5 +23,6 @@ public class DartSummariesDto {
     private String contractsRnd;
 
     @JsonProperty("others")
+    @JsonAlias("others_references")
     private String others;
 }
