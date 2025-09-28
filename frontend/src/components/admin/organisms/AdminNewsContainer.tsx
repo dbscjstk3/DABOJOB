@@ -102,8 +102,8 @@ export function AdminNewsContainer({
   const handleApprove = async () => {
     try {
       await approveMutation.mutateAsync();
-      // 성공 시 사용자에게 알림 (선택사항)
-      alert('승인이 완료되었습니다.');
+      alert('승인이 완료되었습니다!');
+      navigate({ to: '/admin' });
     } catch (error) {
       console.error('Approval failed:', error);
       alert('승인 중 오류가 발생했습니다.');
