@@ -1,12 +1,13 @@
 import { useState, useMemo, useEffect } from 'react';
 import { useSwipeable } from 'react-swipeable';
+import { useNavigate } from '@tanstack/react-router';
 import Typography from '@/components/common/atoms/Typography';
 import { Button } from '@/components/common/atoms/Button';
 import { IconButton } from '@/components/common/atoms/IconButton';
 import NewsCard from '@/components/calendar-detail/molecules/NewsCard';
 import PaginationDots from '@/components/calendar-detail/molecules/PaginationDots';
 import { cn } from '@/lib/utils';
-import { useJobReprocessingMutation, useJobApproveMutation } from '@/lib/hooks';
+import { useResummaryTriggerMutation, useJobApproveMutation } from '@/lib/hooks';
 
 export interface NewsItem {
   newsId: number;
@@ -23,6 +24,8 @@ interface AdminNewsContainerProps {
   itemsPerPage?: number;
   className?: string;
   jobId: string | number;
+  companyId?: string | number;
+  mappingId?: string | number;
 }
 
 export function AdminNewsContainer({
@@ -31,11 +34,14 @@ export function AdminNewsContainer({
   itemsPerPage = 3,
   className = '',
   jobId,
+  companyId: _companyId,
+  mappingId,
 }: AdminNewsContainerProps) {
+  const navigate = useNavigate();
   const [currentPage, setCurrentPage] = useState(0);
 
   // API Mutations
-  const reprocessingMutation = useJobReprocessingMutation(jobId);
+  const resummaryMutation = useResummaryTriggerMutation(mappingId);
   const approveMutation = useJobApproveMutation(jobId);
 
   // 페이지네이션 계산 (이미 필터링된 데이터를 받아옴)
@@ -83,11 +89,11 @@ export function AdminNewsContainer({
   // 재요약 요청 핸들러
   const handleReprocessing = async () => {
     try {
-      await reprocessingMutation.mutateAsync();
-      // 성공 시 사용자에게 알림 (선택사항)
-      alert('재요약 요청이 완료되었습니다.');
+      await resummaryMutation.mutateAsync();
+      alert('요청 완료! 재요약 완료까지 시간이 소요될 수 있습니다.');
+      navigate({ to: '/admin' });
     } catch (error) {
-      console.error('Reprocessing failed:', error);
+      console.error('Resummary trigger failed:', error);
       alert('재요약 요청 중 오류가 발생했습니다.');
     }
   };
@@ -171,9 +177,9 @@ export function AdminNewsContainer({
           size="md"
           className="w-full"
           onClick={handleReprocessing}
-          disabled={reprocessingMutation.isPending}
+          disabled={resummaryMutation.isPending}
         >
-          {reprocessingMutation.isPending ? '처리 중...' : '🔄 재요약 요청'}
+          {resummaryMutation.isPending ? '처리 중...' : '🔄 재요약 요청'}
         </Button>
 
         <Button
