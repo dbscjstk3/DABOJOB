@@ -2,7 +2,7 @@ import { Link, useNavigate } from '@tanstack/react-router';
 import SearchBoxWithAutocomplete from '../molecules/SearchBoxWithAutocomplete';
 import { Button } from '../atoms/Button';
 
-import DABOJOB_logo from '@/assets/logo/DABOJOB_logo_loop3.gif';
+import DABOJOB_logo from '@/assets/logo/DABOJOB_LOGO_FINAL.gif';
 
 type User = { name: string; role?: string };
 
@@ -38,7 +38,7 @@ export function Header({ user, onLogin, onLogout, onSubmitSearch }: HeaderProps)
       }}
     >
       <div className="w-full px-4 py-3 md:px-8 md:py-4 lg:px-16 lg:py-6">
-        <div className="flex flex-col gap-3 md:flex-row md:gap-0 md:h-8 md:items-center">
+        <div className="flex flex-col gap-3 md:flex-row md:gap-0 md:items-center">
           {/* 모바일: 첫 번째 줄 / 태블릿+: 전체 레이아웃 */}
           <div className="flex items-center justify-between md:justify-start md:gap-6 lg:gap-8 md:w-full">
             <Logo />
@@ -81,7 +81,7 @@ function Logo() {
       <img
         src={DABOJOB_logo}
         alt="DABOJOB : ) 다보자"
-        className="h-6 md:h-7 lg:h-7 w-auto"
+        className="h-9 md:h-10 lg:h-12 w-auto"
         draggable={false}
       />
     </Link>
