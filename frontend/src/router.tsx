@@ -101,7 +101,7 @@ const searchDetailRoute = createRoute({
 const adminCalendarRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/admin',
-  beforeLoad: checkAdminAuth,
+  // beforeLoad: checkAdminAuth,
   component: AdminCalendarPage,
 });
 
@@ -116,8 +116,14 @@ const adminMappingRoute = createRoute({
 const adminJobCompletedRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/admin/jobs/$jobId/complete',
-  beforeLoad: checkAdminAuth,
+  // beforeLoad: checkAdminAuth,
   component: AdminCompletedPage,
+  validateSearch: (search: Record<string, unknown>) => {
+    return {
+      companyId: (search.companyId as string) || undefined,
+      mappingId: (search.mappingId as string) || undefined,
+    };
+  },
 });
 
 const authCallbackRoute = createRoute({

@@ -14,6 +14,7 @@ import {
   fetchAdminJobCompleteData,
   requestJobReprocessing,
   approveJob,
+  triggerResummary,
   type SummaryResponse,
   type NewsResponse,
   type JobPostingResponse,
@@ -218,6 +219,24 @@ export const useJobApproveMutation = (jobId: string | number) => {
     },
     onError: (error) => {
       console.error('Job approval failed:', error);
+    },
+  });
+};
+
+// Resummary Trigger Mutation
+export const useResummaryTriggerMutation = (mappingId?: string | number) => {
+  return useMutation<void, Error>({
+    mutationFn: () => {
+      if (!mappingId) {
+        throw new Error('Mapping ID is required for resummary trigger');
+      }
+      return triggerResummary(mappingId);
+    },
+    onSuccess: () => {
+      console.log('Resummary triggered successfully');
+    },
+    onError: (error) => {
+      console.error('Resummary trigger failed:', error);
     },
   });
 };

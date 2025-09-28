@@ -10,6 +10,7 @@ export const mockAdminJobCompleteData: Record<string, AdminJobCompleteResponse> 
     job_id: 1,
     status: 'completed',
     company_info: {
+      company_id: 1,
       company_name: '네이버',
       company_scale: '대기업',
     },
@@ -67,6 +68,7 @@ export const mockAdminJobCompleteData: Record<string, AdminJobCompleteResponse> 
     job_id: 123,
     status: 'completed',
     company_info: {
+      company_id: 2,
       company_name: '삼성전자',
       company_scale: '대기업',
     },
@@ -212,6 +214,7 @@ export const mockAdminJobCompleteData: Record<string, AdminJobCompleteResponse> 
     job_id: 456,
     status: 'completed',
     company_info: {
+      company_id: 3,
       company_name: 'LG전자',
       company_scale: '대기업',
     },

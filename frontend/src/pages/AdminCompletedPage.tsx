@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import ReportContainer from '@/components/calendar-detail/organisms/ReportContainer';
-import { Link, useParams } from '@tanstack/react-router';
+import { Link, useParams, useSearch } from '@tanstack/react-router';
 import { ChevronsLeft } from 'lucide-react';
 import { useAdminJobCompleteData } from '@/lib/hooks';
 import { AdminNewsContainer } from '@/components/admin/organisms/AdminNewsContainer';
@@ -9,6 +9,7 @@ import type { AdminJobCompleteResponse, AdminNewsItem } from '@/lib/api';
 
 export default function AdminCompletedPage() {
   const { jobId } = useParams({ from: '/admin/jobs/$jobId/complete' });
+  const { companyId, mappingId } = useSearch({ from: '/admin/jobs/$jobId/complete' });
   const [newsFilter, setNewsFilter] = useState<string | null>(null);
   const [newsItemsPerPage, setNewsItemsPerPage] = useState(3);
 
@@ -152,6 +153,8 @@ export default function AdminCompletedPage() {
               filterTag={newsFilter}
               itemsPerPage={newsItemsPerPage}
               jobId={jobId}
+              companyId={companyId}
+              mappingId={mappingId}
             />
           </div>
         </div>

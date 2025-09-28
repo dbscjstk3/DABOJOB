@@ -53,7 +53,8 @@ export const RecruitModal: React.FC<RecruitModalProps> = ({
 
       for (const company of verifiedCompanies) {
         for (const job of company.job_postings) {
-          if (!jobStatuses[job.job_id] &&
+          if (
+            !jobStatuses[job.job_id] &&
             !loadingStatuses.has(job.job_id) &&
             !attemptedJobIdsRef.current.has(job.job_id)
           ) {
@@ -481,6 +482,10 @@ export const RecruitModal: React.FC<RecruitModalProps> = ({
                                           navigate({
                                             to: '/admin/jobs/$jobId/complete',
                                             params: { jobId: job.job_id.toString() },
+                                            search: {
+                                              companyId: company.company_id.toString(),
+                                              mappingId: company.mapping_id.toString(),
+                                            },
                                           });
                                         }
                                       }}

@@ -143,6 +143,7 @@ export interface AdminJobCompleteResponse {
   job_id: number;
   status: 'completed' | 'processing' | 'finished';
   company_info: {
+    company_id: number;
     company_name: string;
     company_scale: string;
   };
@@ -339,6 +340,8 @@ export const API_ENDPOINTS = {
       `${ADMIN_SUMMARY_API_BASE_URL}/api/admin/jobs/${jobId}/reprocessing`,
     APPROVE: (jobId: string | number) =>
       `${ADMIN_JOB_API_BASE_URL}/api/admin/jobs/${jobId}/approve`,
+    RESUMMARY_TRIGGER: (mappingId: string | number) =>
+      `${ADMIN_JOB_API_BASE_URL}/admin/resummary/trigger/${mappingId}`,
   },
 } as const;
 
@@ -657,6 +660,21 @@ export const approveJob = async (jobId: string | number): Promise<AdminJobApprov
   }
 
   return response.json();
+};
+
+// Resummary Trigger API 호출 함수
+export const triggerResummary = async (mappingId: string | number): Promise<void> => {
+  const response = await fetch(API_ENDPOINTS.ADMIN_JOB.RESUMMARY_TRIGGER(mappingId), {
+    method: 'POST',
+    credentials: 'include',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+  });
+
+  if (!response.ok) {
+    throw new Error(`Failed to trigger resummary: ${response.status}`);
+  }
 };
 
 // 관리자: 개별 채용공고 작업 상태 조회
