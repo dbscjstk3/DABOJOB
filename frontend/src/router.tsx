@@ -118,6 +118,12 @@ const adminJobCompletedRoute = createRoute({
   path: '/admin/jobs/$jobId/complete',
   beforeLoad: checkAdminAuth,
   component: AdminCompletedPage,
+  validateSearch: (search: Record<string, unknown>) => {
+    return {
+      companyId: (search.companyId as string) || undefined,
+      mappingId: (search.mappingId as string) || undefined,
+    };
+  },
 });
 
 const authCallbackRoute = createRoute({

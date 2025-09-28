@@ -647,6 +647,32 @@ export const handlers = [
     });
   }),
 
+  // Admin Resummary Trigger API 목 핸들러
+  http.post('/admin/resummary/trigger/:mappingId', async ({ params }) => {
+    const mappingId = params.mappingId as string;
+
+    if (import.meta.env.DEV) {
+      console.log(`🎭 MSW: Resummary Trigger API 호출됨 - Mapping ID: ${mappingId}`);
+    }
+
+    // 실제 처리 시뮬레이션을 위한 지연
+    await new Promise((resolve) => setTimeout(resolve, 1000));
+
+    if (import.meta.env.DEV) {
+      console.log(`✅ MSW: Mapping ${mappingId} 재요약 트리거 성공`);
+    }
+
+    return HttpResponse.json(
+      { success: true, message: `Resummary triggered for mapping ${mappingId}` },
+      {
+        status: 200,
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      },
+    );
+  }),
+
   // Admin Job 승인 API 목 핸들러
   http.post('/api/admin/jobs/:jobId/approve', async ({ params }) => {
     const jobId = params.jobId as string;
