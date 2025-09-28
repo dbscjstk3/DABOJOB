@@ -126,6 +126,7 @@ const authCallbackRoute = createRoute({
   component: function AuthCallback() {
     const navigate = useNavigate();
     const { fetchUser } = useAuthStore.getState();
+    const { openDuplicateEmailModal } = useModalStore.getState();
 
     React.useEffect(() => {
       const handleAuthCallback = async () => {
@@ -136,6 +137,15 @@ const authCallbackRoute = createRoute({
 
           if (error) {
             console.error('❌ OAuth 인증 오류:', error);
+            
+            // 이메일 중복 에러 처리
+            if (error === 'duplicate_email' || error.includes('duplicate') || error.includes('exists')) {
+              openDuplicateEmailModal('이미 존재하는 이메일입니다. 다른 계정으로 로그인해 주세요.');
+              navigate({ to: '/' });
+              return;
+            }
+            
+            // 기타 에러는 로그인 페이지로
             navigate({ to: '/login' });
             return;
           }
@@ -159,7 +169,7 @@ const authCallbackRoute = createRoute({
       };
 
       handleAuthCallback();
-    }, [navigate, fetchUser]);
+    }, [navigate, fetchUser, openDuplicateEmailModal]);
 
     return (
       <div className="min-h-screen flex items-center justify-center">
