@@ -1,9 +1,8 @@
 import { Link, useNavigate } from '@tanstack/react-router';
-import { SearchBox } from '../molecules/SearchBox';
 import SearchBoxWithAutocomplete from '../molecules/SearchBoxWithAutocomplete';
 import { Button } from '../atoms/Button';
 
-import DABOJOB_logo from '@/assets/logo/DABOJOB_logo_loop3.gif';
+import DABOJOB_logo from '@/assets/logo/DABOJOB_LOGO_FINAL.gif';
 
 type User = { name: string; role?: string };
 
@@ -21,15 +20,7 @@ type HeaderProps = {
   useNewAutocomplete?: boolean; // 새 자동완성 사용 여부
 };
 
-export function Header({
-  user,
-  onLogin,
-  onLogout,
-  fetchSuggestions,
-  onSelectSuggestion,
-  onSubmitSearch,
-  useNewAutocomplete = false,
-}: HeaderProps) {
+export function Header({ user, onLogin, onLogout, onSubmitSearch }: HeaderProps) {
   const navigate = useNavigate();
 
   return (
@@ -47,25 +38,14 @@ export function Header({
       }}
     >
       <div className="w-full px-4 py-3 md:px-8 md:py-4 lg:px-16 lg:py-6">
-        <div className="flex flex-col gap-3 md:flex-row md:gap-0 md:h-8 md:items-center">
+        <div className="flex flex-col gap-3 md:flex-row md:gap-0 md:items-center">
           {/* 모바일: 첫 번째 줄 / 태블릿+: 전체 레이아웃 */}
           <div className="flex items-center justify-between md:justify-start md:gap-6 lg:gap-8 md:w-full">
             <Logo />
 
             {/* 태블릿+ 검색창 */}
             <div className="hidden md:block md:w-[300px] lg:w-[500px] xl:w-[700px]">
-              {useNewAutocomplete ? (
-                <SearchBoxWithAutocomplete onSubmit={onSubmitSearch} className="w-full" />
-              ) : (
-                fetchSuggestions && (
-                  <SearchBox
-                    fetchSuggestions={fetchSuggestions}
-                    onSelect={onSelectSuggestion}
-                    onSubmit={onSubmitSearch}
-                    className="w-full"
-                  />
-                )
-              )}
+              <SearchBoxWithAutocomplete onSubmit={onSubmitSearch} className="w-full" />
             </div>
 
             {/* 로그인/로그아웃 버튼 */}
@@ -83,18 +63,7 @@ export function Header({
 
           {/* 모바일: 두 번째 줄 (검색창) */}
           <div className="block md:hidden w-full">
-            {useNewAutocomplete ? (
-              <SearchBoxWithAutocomplete onSubmit={onSubmitSearch} className="w-full" />
-            ) : (
-              fetchSuggestions && (
-                <SearchBox
-                  fetchSuggestions={fetchSuggestions}
-                  onSelect={onSelectSuggestion}
-                  onSubmit={onSubmitSearch}
-                  className="w-full"
-                />
-              )
-            )}
+            <SearchBoxWithAutocomplete onSubmit={onSubmitSearch} className="w-full" />
           </div>
         </div>
       </div>
@@ -112,7 +81,7 @@ function Logo() {
       <img
         src={DABOJOB_logo}
         alt="DABOJOB : ) 다보자"
-        className="h-6 md:h-7 lg:h-7 w-auto"
+        className="h-9 md:h-10 lg:h-12 w-auto"
         draggable={false}
       />
     </Link>

@@ -12,6 +12,8 @@ interface SearchBoxWithAutocompleteProps {
   onSubmit?: (query: string) => void;
 }
 
+const MAX_SEARCH_LENGTH = 100;
+
 export default function SearchBoxWithAutocomplete({
   placeholder = '기업명 / 채용공고 검색',
   className,
@@ -55,6 +57,12 @@ export default function SearchBoxWithAutocomplete({
   // 입력 변경 처리
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value;
+
+    // 길이 제한 체크
+    if (value.length > MAX_SEARCH_LENGTH) {
+      return;
+    }
+
     setQuery(value);
     setIsOpen(value.trim().length > 0);
   };
@@ -133,6 +141,7 @@ export default function SearchBoxWithAutocomplete({
             onChange={handleInputChange}
             onFocus={handleFocus}
             placeholder={placeholder}
+            maxLength={MAX_SEARCH_LENGTH}
             className={cn(
               'w-full h-10 pl-4 pr-10 text-sm border border-slate-300 focus:outline-none focus:ring-1 focus:ring-daboja-default focus:border-transparent transition-all',
               isOpen && (items.length > 0 || recentSearches.length > 0)

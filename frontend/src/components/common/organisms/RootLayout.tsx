@@ -1,7 +1,6 @@
 import { Outlet, useLocation, useNavigate } from '@tanstack/react-router';
 import { useEffect } from 'react';
 import { Header } from './Header';
-import type { SearchItem } from '../molecules/SearchResult';
 import { Footer } from './Footer';
 import { LoginRequiredModal } from './LoginRequiredModal';
 import { DuplicateEmailModal } from './DuplicateEmailModal';
@@ -54,46 +53,6 @@ export function RootLayout() {
       }
     }
   }, [isAuthed, navigate, user]);
-
-  // 임시 mock fetchSuggestions 함수(추후 실제 api호출로 변경할 예정)
-  const fetchSuggestions = async (query: string, signal?: AbortSignal): Promise<SearchItem[]> => {
-    // 300ms 지연으로 실제 API 호출 시뮬레이션
-    await new Promise((resolve) => setTimeout(resolve, 300));
-
-    // signal이 abort되었는지 확인
-    if (signal?.aborted) {
-      throw new DOMException('Aborted', 'AbortError');
-    }
-
-    // mock 데이터 반환
-    const mockData: SearchItem[] = [
-      { id: 1, label: `${query} - 삼성전자` },
-      { id: 2, label: `${query} - LG전자` },
-      { id: 3, label: `${query} - SK하이닉스` },
-      { id: 4, label: `${query} - 네이버` },
-      { id: 5, label: `${query} - 카카오` },
-    ];
-
-    // query를 포함하는 항목만 필터링
-    return mockData.filter((item) => item.label.toLowerCase().includes(query.toLowerCase()));
-  };
-
-  const handleSelectSuggestion = (item: SearchItem) => {
-    if (import.meta.env.DEV) {
-      console.log('선택된 항목:', item);
-    }
-    // 선택된 항목의 라벨에서 회사명 추출 (예: "개발자 - 삼성전자" → "삼성전자")
-    const companyName = item.label.split(' - ').pop();
-    if (companyName) {
-      navigate({
-        to: '/search',
-        search: {
-          q: companyName,
-          page: 1,
-        },
-      });
-    }
-  };
 
   const handleSubmitSearch = (query: string) => {
     if (import.meta.env.DEV) {
@@ -152,10 +111,7 @@ export function RootLayout() {
           user={user ? { name: user.name, role: user.role } : null}
           onLogin={handleLogin}
           onLogout={handleLogout}
-          fetchSuggestions={fetchSuggestions}
-          onSelectSuggestion={handleSelectSuggestion}
           onSubmitSearch={handleSubmitSearch}
-          useNewAutocomplete={true} // 새 자동완성 사용
         />
       )}
       <main className="w-full flex-1 flex flex-col items-center">
@@ -165,7 +121,7 @@ export function RootLayout() {
 
       {/* 로그인 필요 모달 */}
       <LoginRequiredModal />
-      
+
       {/* 이메일 중복 모달 */}
       <DuplicateEmailModal />
     </div>
