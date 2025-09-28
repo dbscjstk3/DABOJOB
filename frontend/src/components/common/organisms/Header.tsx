@@ -1,5 +1,4 @@
 import { Link, useNavigate } from '@tanstack/react-router';
-import { SearchBox } from '../molecules/SearchBox';
 import SearchBoxWithAutocomplete from '../molecules/SearchBoxWithAutocomplete';
 import { Button } from '../atoms/Button';
 
@@ -21,15 +20,7 @@ type HeaderProps = {
   useNewAutocomplete?: boolean; // 새 자동완성 사용 여부
 };
 
-export function Header({
-  user,
-  onLogin,
-  onLogout,
-  fetchSuggestions,
-  onSelectSuggestion,
-  onSubmitSearch,
-  useNewAutocomplete = false,
-}: HeaderProps) {
+export function Header({ user, onLogin, onLogout, onSubmitSearch }: HeaderProps) {
   const navigate = useNavigate();
 
   return (
@@ -54,18 +45,7 @@ export function Header({
 
             {/* 태블릿+ 검색창 */}
             <div className="hidden md:block md:w-[300px] lg:w-[500px] xl:w-[700px]">
-              {useNewAutocomplete ? (
-                <SearchBoxWithAutocomplete onSubmit={onSubmitSearch} className="w-full" />
-              ) : (
-                fetchSuggestions && (
-                  <SearchBox
-                    fetchSuggestions={fetchSuggestions}
-                    onSelect={onSelectSuggestion}
-                    onSubmit={onSubmitSearch}
-                    className="w-full"
-                  />
-                )
-              )}
+              <SearchBoxWithAutocomplete onSubmit={onSubmitSearch} className="w-full" />
             </div>
 
             {/* 로그인/로그아웃 버튼 */}
@@ -83,18 +63,7 @@ export function Header({
 
           {/* 모바일: 두 번째 줄 (검색창) */}
           <div className="block md:hidden w-full">
-            {useNewAutocomplete ? (
-              <SearchBoxWithAutocomplete onSubmit={onSubmitSearch} className="w-full" />
-            ) : (
-              fetchSuggestions && (
-                <SearchBox
-                  fetchSuggestions={fetchSuggestions}
-                  onSelect={onSelectSuggestion}
-                  onSubmit={onSubmitSearch}
-                  className="w-full"
-                />
-              )
-            )}
+            <SearchBoxWithAutocomplete onSubmit={onSubmitSearch} className="w-full" />
           </div>
         </div>
       </div>
