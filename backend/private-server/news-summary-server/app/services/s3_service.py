@@ -13,6 +13,7 @@ import os
 from typing import Dict, Any, Optional, List, Tuple
 from datetime import datetime
 from ..config import config
+from ..database import database
 
 logger = logging.getLogger(__name__)
 
@@ -24,7 +25,7 @@ class S3Service:
         "products_services": ("2", "주요 제품 및 서비스"),
         "revenue_orders": ("3", "매출 및 수주 상황"),
         "contracts_rnd": ("4", "주요 계약 및 연구 개발 활동"),
-        "others": ("5", "기타 참고사항"),
+        "other_references": ("5", "기타 참고사항"),
     }
     
     def __init__(self):
@@ -138,6 +139,7 @@ class S3Service:
                 row = await cursor.fetchone()
 
                 if row:
+                    logger.info(f"✅ Found company data for job {job_id}: {row[1]} (ID: {row[0]})")
                     return {
                         "job_id": job_id,
                         "company_id": row[0],
@@ -145,6 +147,8 @@ class S3Service:
                         "company_scale": row[2]
                     }
 
+                logger.warning(f"❌ No company data found for job_id {job_id}")
+                logger.info(f"🔍 Query used: {query}")
                 return {
                     "job_id": job_id,
                     "company_id": None,
@@ -226,7 +230,7 @@ class S3Service:
             from ..database import database
 
             query = """
-            SELECT DISTINCT js.sector_id, js.sector_name, js.sector_category
+            SELECT DISTINCT js.sector_id, js.sector_name
             FROM job_sectors js
             JOIN job_posting_sectors jps ON js.sector_id = jps.sector_id
             WHERE jps.job_id = %s
@@ -242,7 +246,7 @@ class S3Service:
                     "job_id": job_id,
                     "sector_id": row[0],
                     "sector_name": row[1],
-                    "sector_category": row[2]
+                    "sector_category": ""
                 }
 
             # 결과 없을 때 기본 값
@@ -305,21 +309,43 @@ class S3Service:
             "products_services_summary.txt",
             "revenue_orders_summary.txt",
             "contracts_rnd_summary.txt",
-            "others_summary.txt",
+            "other_references_summary.txt",  # others -> other_references로 변경
         ]
 
         for filename in summary_files:
             try:
-                file_path = f"/app/data/jobs/{job_id}/summaries/{filename}"
+                mapping_id = await database.get_mapping_id_by_job_id(job_id)
+                if not mapping_id:
+                    logger.error(f"❌ No mapping_id found for job_id {job_id}")
+                    continue
+
+                file_path = f"/app/data/mapping/{mapping_id}/summaries/{filename}"
                 chapter_name = filename.replace("_summary.txt", "")
+
+                logger.info(f"🔍 Looking for summary file: {file_path}")
+
                 if os.path.exists(file_path):
                     with open(file_path, "r", encoding="utf-8") as f:
-                        summaries[chapter_name] = f.read()
+                        content = f.read()
+                        summaries[chapter_name] = content
+                        logger.info(f"✅ Read summary file {filename}: {len(content)} characters")
                 else:
-                    logger.warning(f"Summary file not found: {file_path}")
+                    # 디렉토리 존재 여부 확인
+                    directory = f"/app/data/mapping/{mapping_id}/summaries"
+                    if os.path.exists(directory):
+                        try:
+                            files_in_dir = os.listdir(directory)
+                            logger.warning(f"❌ File {filename} not found in {directory}")
+                            logger.info(f"📂 Available files: {files_in_dir}")
+                        except Exception as list_error:
+                            logger.error(f"Error listing directory {directory}: {list_error}")
+                    else:
+                        logger.error(f"❌ Summary directory does not exist: {directory}")
+
                     summaries[chapter_name] = "Summary file not found"
+
             except Exception as e:
-                logger.error(f"Error reading summary file {filename}: {e}")
+                logger.error(f"❌ Error reading summary file {filename}: {e}")
                 summaries[chapter_name] = f"Error reading file: {e}"
 
         return summaries
@@ -366,8 +392,10 @@ class S3Service:
         FROM news_summaries n
         JOIN summary_hashtags sh
         ON sh.hashtag_id = n.hashtag_id
-        AND sh.job_id     = n.job_id    -- ✅ 같은 job 범위 보장
-        WHERE n.job_id = %s
+        AND sh.mapping_id = n.mapping_id    -- ✅ 같은 mapping 범위 보장
+        WHERE n.mapping_id = (
+            SELECT mapping_id FROM job_processing WHERE job_id = %s
+        )
         ORDER BY FIELD(sh.chapter,'business_overview','products_services','revenue_orders','contracts_rnd','others'),
                 sh.hashtag_id,
                 n.news_created_at DESC, n.news_id DESC
@@ -435,7 +463,7 @@ class S3Service:
             query = """
             SELECT hashtag_id, chapter, hashtag
             FROM summary_hashtags
-            WHERE job_id = %s
+            WHERE mapping_id = (SELECT mapping_id FROM job_processing WHERE job_id = %s)
             ORDER BY FIELD(chapter,'business_overview','products_services','revenue_orders','contracts_rnd','others'),
          hashtag_id
             """
@@ -487,46 +515,6 @@ class S3Service:
             logger.error(f"Failed to upload {s3_key} to S3: {e}")
             return None
 
-    async def upload_daily_summary(self, summary_data: Dict[str, Any]) -> Optional[str]:
-        """
-        일일 뉴스 요약을 S3에 업로드
-        
-        Args:
-            summary_data: 일일 요약 데이터
-            
-        Returns:
-            S3 키 (업로드 성공 시) 또는 None (실패 시)
-        """
-        try:
-            if not self.s3_client:
-                logger.warning("S3 client not available, skipping upload")
-                return None
-
-            # S3 키 생성: reports/{YYYY-MM-DD}/daily-news-summary.json
-            today = datetime.now().strftime('%Y-%m-%d')
-            s3_key = f"reports/{today}/daily-news-summary.json"
-
-            # JSON 문자열로 변환
-            json_content = json.dumps(summary_data, ensure_ascii=False, indent=2)
-
-            # S3에 업로드
-            self.s3_client.put_object(
-                Bucket=self.bucket_name,
-                Key=s3_key,
-                Body=json_content.encode('utf-8'),
-                ContentType='application/json',
-                Metadata={
-                    'created-at': datetime.now().isoformat(),
-                    'content-type': 'daily-summary'
-                }
-            )
-            
-            logger.info(f"Successfully uploaded daily summary to s3://{self.bucket_name}/{s3_key}")
-            return s3_key
-            
-        except Exception as e:
-            logger.error(f"Error uploading daily summary: {e}")
-            return None
     
     def list_reports(self, date_str: Optional[str] = None) -> List[str]:
         """

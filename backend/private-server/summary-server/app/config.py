@@ -35,7 +35,7 @@ AWS_REGION = os.getenv('AWS_REGION', 'ap-northeast-2')
 S3_BUCKET = os.getenv('S3_BUCKET', 'dart-analysis-bucket')
 
 # 파일 시스템 설정
-DATA_ROOT = "/app/data/mappings"
+DATA_ROOT = "/app/data/mapping"
 
 # 고정 값
 TOTAL_CHAPTERS = 5

@@ -274,17 +274,18 @@ async def _integrate_summaries(ollama_client, model_name: str, summaries: List[s
         
         final_summary = remove_meta_expressions(summary)
         
-        # 길이 제한 확인
-        if len(final_summary) > max_length:
-            # 마지막 완전한 문장에서 자르기
-            sentences = re.split(r'[.!?]\s+', final_summary)
-            result = ""
-            for sentence in sentences:
-                if len(result + sentence + ".") <= max_length:
-                    result += sentence + ". "
-                else:
-                    break
-            final_summary = result.strip()
+        # 길이 제한 확인 (임시 비활성화 - 너무 짧게 요약되는 문제로 인해)
+        # TODO: 요약 품질 개선 후 다시 활성화
+        # if len(final_summary) > max_length:
+        #     # 마지막 완전한 문장에서 자르기
+        #     sentences = re.split(r'[.!?]\s+', final_summary)
+        #     result = ""
+        #     for sentence in sentences:
+        #         if len(result + sentence + ".") <= max_length:
+        #             result += sentence + ". "
+        #         else:
+        #             break
+        #     final_summary = result.strip()
         
         return final_summary
         
@@ -303,45 +304,52 @@ async def qwen_summarize_long(ollama_client, model_name: str, text: str, max_len
         # 텍스트 전처리
         cleaned_text = clean_text(text)
         
-        # 짧은 텍스트는 바로 요약 (1단계만)
-        if len(cleaned_text) <= 1500:
-            logger.info(f"짧은 텍스트: {len(cleaned_text)}자 → 1단계 직접 요약")
-            return await _summarize_chunk(ollama_client, model_name, cleaned_text, max_length, executor)
-    
-        # 긴 텍스트는 청크 분할 확인
-        chunks = split_text_with_sliding_window(cleaned_text, chunk_size=4000, overlap=400)
-        logger.info(f"텍스트 분할: {len(cleaned_text)}자 → {len(chunks)}개 청크")
-        
-        # 청크가 1개면 1단계만 수행
-        if len(chunks) == 1:
-            logger.info("청크 1개 → 1단계 직접 요약")
-            return await _summarize_chunk(ollama_client, model_name, chunks[0], max_length, executor)
-        
-        # 청크가 여러 개일 때만 2단계 처리
-        logger.info(f"청크 {len(chunks)}개 → 2단계 요약 시작")
-        
-        # 동시성 제한을 위한 세마포어
-        semaphore = asyncio.Semaphore(max_workers)
-        
-        async def process_chunk_with_limit(chunk, target_length):
-            async with semaphore:
-                result = await _summarize_chunk(ollama_client, model_name, chunk, target_length, executor)
-                await asyncio.sleep(0.05)  # CPU 부하 분산
-                return result
-        
-        # 1단계: 병렬로 청크 처리
-        chunk_summaries = []
-        for i, chunk in enumerate(chunks):
-            target_length = max_length // len(chunks) + 100  # 여유분 추가
-            chunk_summary = await process_chunk_with_limit(chunk, target_length)
-            chunk_summaries.append(chunk_summary)
-            logger.info(f"청크 {i+1}/{len(chunks)} 요약 완료: {len(chunk_summary)}자")
-        
-        # 2단계: 청크 요약들을 통합하여 최종 요약
-        final_summary = await _integrate_summaries(ollama_client, model_name, chunk_summaries, max_length, category, executor)
-        
-        logger.info(f"최종 요약 완료: {len(final_summary)}자")
-        return final_summary
+        # 청크 분할 로직 임시 비활성화 - 너무 짧게 요약되는 문제로 인해
+        # TODO: 요약 품질 개선 후 필요시 다시 활성화
+        logger.info(f"텍스트 길이: {len(cleaned_text)}자 → 청크 분할 없이 직접 요약")
+        return await _summarize_chunk(ollama_client, model_name, cleaned_text, max_length, executor)
+
+        # # 기존 청크 분할 로직 (임시 비활성화)
+        # # 짧은 텍스트는 바로 요약 (1단계만)
+        # if len(cleaned_text) <= 1500:
+        #     logger.info(f"짧은 텍스트: {len(cleaned_text)}자 → 1단계 직접 요약")
+        #     return await _summarize_chunk(ollama_client, model_name, cleaned_text, max_length, executor)
+
+        # # 긴 텍스트는 청크 분할 확인
+        # chunks = split_text_with_sliding_window(cleaned_text, chunk_size=4000, overlap=400)
+        # logger.info(f"텍스트 분할: {len(cleaned_text)}자 → {len(chunks)}개 청크")
+
+        # # 청크가 1개면 1단계만 수행
+        # if len(chunks) == 1:
+        #     logger.info("청크 1개 → 1단계 직접 요약")
+        #     return await _summarize_chunk(ollama_client, model_name, chunks[0], max_length, executor)
+
+        # # 청크가 여러 개일 때만 2단계 처리
+        # logger.info(f"청크 {len(chunks)}개 → 2단계 요약 시작")
+
+        # # 기존 청크 처리 로직 (임시 비활성화)
+        # # 동시성 제한을 위한 세마포어
+        # semaphore = asyncio.Semaphore(max_workers)
+
+        # async def process_chunk_with_limit(chunk, target_length):
+        #     async with semaphore:
+        #         result = await _summarize_chunk(ollama_client, model_name, chunk, target_length, executor)
+        #         await asyncio.sleep(0.05)  # CPU 부하 분산
+        #         return result
+
+        # # 1단계: 병렬로 청크 처리
+        # chunk_summaries = []
+        # for i, chunk in enumerate(chunks):
+        #     target_length = max_length // len(chunks) + 100  # 여유분 추가
+        #     chunk_summary = await process_chunk_with_limit(chunk, target_length)
+        #     chunk_summaries.append(chunk_summary)
+        #     logger.info(f"청크 {i+1}/{len(chunks)} 요약 완료: {len(chunk_summary)}자")
+
+        # # 2단계: 청크 요약들을 통합하여 최종 요약
+        # final_summary = await _integrate_summaries(ollama_client, model_name, chunk_summaries, max_length, category, executor)
+
+        # logger.info(f"최종 요약 완료: {len(final_summary)}자")
+        # return final_summary
         
     finally:
         executor.shutdown(wait=False)

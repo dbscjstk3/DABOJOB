@@ -20,6 +20,8 @@ from ..models.crawler_models import (
 from ..services.company_mapper import CompanyMappingService
 from sqlalchemy.orm import Session
 from sqlalchemy.exc import IntegrityError
+import redis
+import json as json_lib
 
 
 def parse_job_item(job_item_element):
@@ -292,23 +294,57 @@ class SaraminCrawler(BaseCrawler):
         # 매핑 캐시 (한 번 확인한 회사는 재확인 방지)
         self.mapping_cache = {}  # {company_name: is_mappable}
 
-    def crawl(self, max_pages: int = 5) -> Dict[str, Any]:
+        # Redis 클라이언트 초기화
+        try:
+            self.redis_client = redis.from_url(
+                "redis://redis:6379",
+                decode_responses=True
+            )
+            self.redis_client.ping()
+            self.logger.info("Redis 연결 성공: 크롤링 재시작 기능 활성화")
+        except Exception as e:
+            self.redis_client = None
+            self.logger.warning(f"Redis 연결 실패: 크롤링 재시작 기능 비활성화 - {e}")
+
+    def crawl(self, max_pages: int = 5, crawl_id: str = None, resume: bool = False) -> Dict[str, Any]:
         """
         특정 조건으로 사람인 크롤링 (봇 탐지 방지를 위한 Selenium 사용)
         - 대기업 + 코스닥 기업
         - 정규직
         - 국내 기업
         - 페이지당 100개 항목
+
+        Args:
+            max_pages: 크롤링할 최대 페이지 수
+            crawl_id: 크롤링 작업 ID (재시작용)
+            resume: 이전 크롤링을 이어서 할지 여부
         """
         try:
             self.initialize()
 
-            self.crawl_log_id = self._log_crawl_start('job_list', self.base_url)
+            # Redis에서 상태 복원 또는 새로 시작
+            if resume and crawl_id and self.redis_client:
+                state = self._load_crawl_state(crawl_id)
+                if state:
+                    start_page = state.get('last_page', 0) + 1
+                    all_jobs = state.get('collected_jobs', [])
+                    all_recommendations = state.get('recommendations', {})
+                    self.crawl_log_id = state.get('log_id')
+                    self.logger.info(f"크롤링 재개: {crawl_id}, 페이지 {start_page}부터 시작")
+                else:
+                    start_page = 1
+                    all_jobs = []
+                    all_recommendations = {}
+                    self.crawl_log_id = self._log_crawl_start('job_list', self.base_url)
+            else:
+                start_page = 1
+                all_jobs = []
+                all_recommendations = {}
+                self.crawl_log_id = self._log_crawl_start('job_list', self.base_url)
+                if not crawl_id:
+                    crawl_id = f"saramin_crawl_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
 
-            all_jobs = []
-            all_recommendations = {}
-
-            for page in range(1, max_pages + 1):
+            for page in range(start_page, max_pages + 1):
                 try:
                     self.logger.info(f"페이지 {page} 크롤링 시작")
 
@@ -343,6 +379,17 @@ class SaraminCrawler(BaseCrawler):
 
                     self.logger.info(f"페이지 {page}: {len(page_jobs)}개 공고 수집")
 
+                    # 진행 상태를 Redis에 저장 (매 페이지마다)
+                    if crawl_id and self.redis_client:
+                        self._save_crawl_state(crawl_id, {
+                            'last_page': page,
+                            'max_pages': max_pages,
+                            'collected_jobs': all_jobs,
+                            'recommendations': all_recommendations,
+                            'log_id': self.crawl_log_id,
+                            'updated_at': datetime.now().isoformat()
+                        })
+
                     if len(page_jobs) == 0:
                         self.logger.info(f"페이지 {page}에서 더 이상 데이터가 없습니다.")
                         break
@@ -358,6 +405,10 @@ class SaraminCrawler(BaseCrawler):
             saved_count = self._save_jobs_to_database(all_jobs) if self.db_session else 0
 
             self._log_crawl_complete(self.crawl_log_id, 'success', len(all_jobs), saved_count)
+
+            # 크롤링 완료 시 Redis에서 상태 삭제
+            if crawl_id and self.redis_client:
+                self._delete_crawl_state(crawl_id)
 
             return {
                 'status': 'success',
@@ -908,6 +959,56 @@ class SaraminCrawler(BaseCrawler):
                 self.db_session.commit()
         except Exception as e:
             self.logger.error(f"크롤링 로그 완료 기록 실패: {e}")
+
+    def _save_crawl_state(self, crawl_id: str, state: Dict[str, Any]) -> None:
+        """크롤링 상태를 Redis에 저장"""
+        if not self.redis_client:
+            return
+        try:
+            # 큰 데이터는 제외하고 중요 정보만 저장
+            saved_state = {
+                'last_page': state.get('last_page'),
+                'max_pages': state.get('max_pages'),
+                'log_id': state.get('log_id'),
+                'updated_at': state.get('updated_at'),
+                'job_count': len(state.get('collected_jobs', [])),
+                'collected_job_ids': [job.get('saramin_job_id') for job in state.get('collected_jobs', [])[:1000]]  # 최대 1000개만
+            }
+            self.redis_client.setex(
+                f"crawl_state:{crawl_id}",
+                86400,  # 24시간 TTL
+                json_lib.dumps(saved_state, ensure_ascii=False)
+            )
+            self.logger.debug(f"크롤링 상태 저장: {crawl_id}, 페이지 {state.get('last_page')}")
+        except Exception as e:
+            self.logger.warning(f"크롤링 상태 저장 실패: {e}")
+
+    def _load_crawl_state(self, crawl_id: str) -> Optional[Dict[str, Any]]:
+        """Redis에서 크롤링 상태 로드"""
+        if not self.redis_client:
+            return None
+        try:
+            state_data = self.redis_client.get(f"crawl_state:{crawl_id}")
+            if state_data:
+                state = json_lib.loads(state_data)
+                self.logger.info(f"크롤링 상태 복원: {crawl_id}, 마지막 페이지: {state.get('last_page')}")
+                # 이미 수집된 job_id들로 기존 작업 필터링
+                state['collected_jobs'] = []  # 실제 jobs는 DB에서 복원
+                return state
+            return None
+        except Exception as e:
+            self.logger.warning(f"크롤링 상태 로드 실패: {e}")
+            return None
+
+    def _delete_crawl_state(self, crawl_id: str) -> None:
+        """Redis에서 크롤링 상태 삭제"""
+        if not self.redis_client:
+            return
+        try:
+            self.redis_client.delete(f"crawl_state:{crawl_id}")
+            self.logger.debug(f"크롤링 상태 삭제: {crawl_id}")
+        except Exception as e:
+            self.logger.warning(f"크롤링 상태 삭제 실패: {e}")
 
 
 # 호환성을 위한 래퍼 함수들

@@ -339,12 +339,61 @@ class BackgroundWorker:
             else:
                 logger.warning(f"❌ DART extraction failed for {job_data.get('company_name')} - no content extracted")
 
+                # DART 파싱 실패 시 매핑 상태를 failed로 변경
+                if mapping_id:
+                    from ..database import SessionLocal
+                    from ..models.crawler_models import CompanyDartMapping, MappingStatus
+
+                    db = SessionLocal()
+                    try:
+                        mapping = db.query(CompanyDartMapping).filter(
+                            CompanyDartMapping.mapping_id == mapping_id
+                        ).first()
+
+                        if mapping:
+                            mapping.mapping_status = MappingStatus.failed
+                            mapping.manual_notes = f"DART parsing failed - no content extracted ({datetime.now().strftime('%Y-%m-%d %H:%M:%S')})"
+                            db.commit()
+                            logger.info(f"🔄 Updated mapping status to 'failed' for {company_name} due to DART parsing failure")
+                        else:
+                            logger.warning(f"⚠️ Mapping not found for mapping_id {mapping_id}")
+                    except Exception as db_error:
+                        logger.error(f"Failed to update mapping status: {db_error}")
+                        db.rollback()
+                    finally:
+                        db.close()
+
             # 작업 완료 확인
             await redis_helper.ack_job(stream_id)
 
         except Exception as e:
             logger.error(f"Failed to process DART extract job {job_id}: {e}")
             await redis_helper.update_job_status(job_id, "failed", {"error": str(e)})
+
+            # Exception 발생 시에도 매핑 상태를 failed로 변경
+            mapping_id = job_data.get("mapping_id")
+            if mapping_id:
+                from ..database import SessionLocal
+                from ..models.crawler_models import CompanyDartMapping, MappingStatus
+
+                db = SessionLocal()
+                try:
+                    mapping = db.query(CompanyDartMapping).filter(
+                        CompanyDartMapping.mapping_id == mapping_id
+                    ).first()
+
+                    if mapping:
+                        mapping.mapping_status = MappingStatus.failed
+                        mapping.manual_notes = f"DART extraction error: {str(e)} ({datetime.now().strftime('%Y-%m-%d %H:%M:%S')})"
+                        db.commit()
+                        logger.info(f"🔄 Updated mapping status to 'failed' for mapping_id {mapping_id} due to extraction error")
+                    else:
+                        logger.warning(f"⚠️ Mapping not found for mapping_id {mapping_id}")
+                except Exception as db_error:
+                    logger.error(f"Failed to update mapping status after error: {db_error}")
+                    db.rollback()
+                finally:
+                    db.close()
 
     async def _handle_standardize_job(self, job_item: Dict[str, Any]) -> None:
         """표준화 작업 처리"""
@@ -441,14 +490,14 @@ class BackgroundWorker:
         """
         # FileManager에서 카테고리별 파일로 저장
         self.file_manager.append_to_category_file(
-            job_id=f"mapping_{mapping_id}",  # mapping_id 기반 디렉토리 사용
+            job_id=str(mapping_id),  # mapping_id 기반 디렉토리 사용
             category=category,
             title=company_name,
             content=content
         )
 
         # 파일 경로 반환
-        job_path = self.file_manager.get_job_path(f"mapping_{mapping_id}")
+        job_path = self.file_manager.get_job_path(str(mapping_id))
         standardized_path = job_path / "standardized"
 
         category_files = {

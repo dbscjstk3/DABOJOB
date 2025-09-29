@@ -1,15 +1,19 @@
 package com.dabojob.jobposting.controller;
 
 
+import com.dabojob.jobposting.dto.HotJobPostingResponse;
 import com.dabojob.jobposting.dto.JobPostingResponse;
 import com.dabojob.jobposting.service.JobPostingSearchService;
 import com.dabojob.jobposting.service.JobPostingService;
+import com.dabojob.jobposting.service.SearchHistoryService;
+import com.dabojob.jobposting.service.ViewCountService;
 import java.time.LocalDate;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -24,9 +28,17 @@ public class JobPostingController {
 
     private final JobPostingService jobPostingService;
     private final JobPostingSearchService  jobPostingSearchService;
+    private final ViewCountService  viewCountService;
+    private final SearchHistoryService searchHistoryService;
 
     @GetMapping("/{jobPostingId}")
-    public ResponseEntity<JobPostingResponse> getJobPosting(@PathVariable String jobPostingId){
+    public ResponseEntity<JobPostingResponse> getJobPosting(@PathVariable String jobPostingId,
+                                                            Authentication authentication) {
+        if (jobPostingId != null) {
+            String userId = authentication.getName();
+            viewCountService.incrementViewCount(jobPostingId,userId);
+        }
+
         JobPostingResponse jobPostingResponse =  jobPostingService.getJobPosting(jobPostingId);
         return ResponseEntity.ok(jobPostingResponse);
     }
@@ -42,10 +54,17 @@ public class JobPostingController {
             @RequestParam(required = false) String companyId,
             @RequestParam(required = false) String search,
             @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "20") int size
+            @RequestParam(defaultValue = "20") int size,
+            Authentication authentication
     ) {
         if (search != null) {
-            // 검색어가 있으면 ES 사용
+            // 검색어가 있으면 저장 후 ES 사용
+            if (authentication != null) {
+                String userId = authentication.getName();
+                searchHistoryService.addSearchHistory(userId, search);
+            }
+
+
             return ResponseEntity.ok(
                     jobPostingSearchService.search(search, page, size)
             );
@@ -66,6 +85,11 @@ public class JobPostingController {
                                                                        @RequestParam(defaultValue = "10") int size) {
         Page<JobPostingResponse> suggestions = jobPostingSearchService.autocompleteTitles(prefix, size);
         return ResponseEntity.ok(suggestions);
+    }
+
+    @GetMapping("/hot")
+    public ResponseEntity<List<HotJobPostingResponse>> getHotJobPostings(@RequestParam(defaultValue = "10") int limit) {
+        return ResponseEntity.ok(List.copyOf(viewCountService.getHotJobPostings(limit)));
     }
 
 

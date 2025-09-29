@@ -35,13 +35,13 @@ class NewsService:
             '신사업': ['신사업', '새로운', '신규', '확장', '진출', '사업', '출시', '론칭']
         }
     
-    async def search_and_process_news(self, job_id: int, hashtag_id: int, summary_id: int,
+    async def search_and_process_news(self, mapping_id: int, hashtag_id: int, summary_id: int,
                                     hashtag: str, company_name: str = "") -> int:
         """
         해시태그로 뉴스 검색하고 처리
 
         Args:
-            job_id: 작업 ID
+            mapping_id: 매핑 ID
             hashtag_id: 해시태그 ID
             summary_id: 요약 ID
             hashtag: 검색할 해시태그
@@ -54,23 +54,24 @@ class NewsService:
             logger.info(f"Searching news for hashtag: {hashtag}, company: {company_name}")
 
             # 중복 처리 방지 체크
-            existing_count = await self._check_existing_news(job_id, hashtag_id, hashtag)
+            existing_count = await self._check_existing_news(mapping_id, hashtag_id, hashtag)
             if existing_count > 0:
                 logger.info(f"News already processed for hashtag: {hashtag} (count: {existing_count})")
                 return existing_count
 
-            # 1. Naver API로 뉴스 검색 (3개로 제한)
-            raw_news_list = await self._search_naver_news(hashtag, company_name, target_articles=3)
+            # 1. Naver API로 뉴스 검색 (테스트용: 1개로 제한)
+            raw_news_list = await self._search_naver_news(hashtag, company_name, target_articles=1)
+            # 기존: target_articles=3 (운영용)
 
             if not raw_news_list:
                 logger.warning(f"No news found for hashtag: {hashtag}")
                 return 0
 
             # 2. Raw 뉴스를 DB에 저장 (status='raw')
-            saved_count = await self._save_raw_news(job_id, hashtag_id, summary_id, raw_news_list)
+            saved_count = await self._save_raw_news(mapping_id, hashtag_id, summary_id, raw_news_list)
 
             # 3. 즉시 크롤링 + 요약 처리 (백그라운드 아님)
-            await self._process_news_content(job_id, hashtag_id, hashtag)
+            await self._process_news_content(mapping_id, hashtag_id, hashtag)
 
             return saved_count
 
@@ -78,17 +79,17 @@ class NewsService:
             logger.error(f"Error searching news for hashtag {hashtag}: {e}")
             return 0
 
-    async def _check_existing_news(self, job_id: int, hashtag_id: int, hashtag: str) -> int:
+    async def _check_existing_news(self, mapping_id: int, hashtag_id: int, hashtag: str) -> int:
         """해당 해시태그로 이미 처리된 뉴스가 있는지 확인"""
         try:
             query = """
             SELECT COUNT(*) as count
             FROM news_summaries
-            WHERE job_id = %s AND hashtag_id = %s
+            WHERE mapping_id = %s AND hashtag_id = %s
             """
 
             async with database.get_connection() as cursor:
-                await cursor.execute(query, (job_id, hashtag_id))
+                await cursor.execute(query, (mapping_id, hashtag_id))
                 result = await cursor.fetchone()
                 return result[0] if result else 0
 
@@ -97,7 +98,7 @@ class NewsService:
             return 0
 
     async def _search_naver_news(self, hashtag: str, company_name: str = "",
-                               target_articles: int = 3) -> List[Dict[str, Any]]:
+                               target_articles: int = 1) -> List[Dict[str, Any]]:  # 테스트용: 기본값 1개
         """Naver 뉴스 API 검색 (참고 코드 기반)"""
         try:
             hashtag_clean = hashtag.replace('#', '').lower()
@@ -134,14 +135,25 @@ class NewsService:
                     relevance_score = self._calculate_relevance_score(
                         article['title'], article['description'], hashtag, company_name
                     )
-                    
-                    if relevance_score >= 35:  # 임계값 (기업 관련성 강화에 따라 상향)
+
+                    # 모든 뉴스의 점수 로그 출력 (임계값 통과 여부 관계없이)
+                    logger.info(f"🔍 뉴스 점수: {relevance_score}점")
+                    logger.info(f"📰 제목: {article['title']}")
+                    logger.info(f"📝 내용: {article['description'][:100]}...")
+                    logger.info(f"🔗 URL: {article['url']}")
+
+                    if relevance_score >= 15:  # 임계값 (기업 관련성 강화에 따라 상향)
                         article['relevance_score'] = relevance_score
-                        
+
                         # 중복 체크
                         if not self._is_duplicate_content(article, collected_articles):
                             collected_articles.append(article)
-                            logger.info(f"Added news: {article['title'][:50]}... (score: {relevance_score})")
+                            logger.info(f"✅ 뉴스 선택됨: {relevance_score}점")
+                        else:
+                            logger.info(f"❌ 중복 뉴스로 제외")
+                    else:
+                        logger.info(f"❌ 점수 부족으로 제외 (최소 15점 필요)")
+                    logger.info("─" * 80)
             
             # 점수 순으로 정렬하고 상위 articles 반환
             collected_articles.sort(key=lambda x: x['relevance_score'], reverse=True)
@@ -303,12 +315,12 @@ class NewsService:
             return 0.0
         return intersection / union
     
-    async def _save_raw_news(self, job_id: int, hashtag_id: int, summary_id: int, 
+    async def _save_raw_news(self, mapping_id: int, hashtag_id: int, summary_id: int, 
                            news_list: List[Dict]) -> int:
         """Raw 뉴스를 DB에 저장"""
         insert_query = """
         INSERT INTO news_summaries (
-            job_id, hashtag_id, summary_id,
+            mapping_id, hashtag_id, summary_id,
             news_title, news_url, news_created_at, status
         ) VALUES (%s, %s, %s, %s, %s, %s, 'raw')
         ON DUPLICATE KEY UPDATE
@@ -321,7 +333,7 @@ class NewsService:
             for news in news_list:
                 try:
                     await cursor.execute(insert_query, (
-                        job_id,
+                        mapping_id,
                         hashtag_id,
                         summary_id,
                         news['title'][:500],
@@ -335,20 +347,23 @@ class NewsService:
         logger.info(f"Saved {saved_count} raw news items")
         return saved_count
     
-    async def _process_news_content(self, job_id: int, hashtag_id: int, hashtag: str):
-        """뉴스 크롤링 + 요약 처리"""
+    async def _process_news_content(self, mapping_id: int, hashtag_id: int, hashtag: str):
+        """뉴스 크롤링 + 요약 처리 (순차 처리)"""
         try:
             # status='raw'인 뉴스들 조회
-            raw_news = await self._get_raw_news(job_id, hashtag_id)
+            raw_news = await self._get_raw_news(mapping_id, hashtag_id)
 
-            for news in raw_news:
+            # 순차적으로 하나씩 처리 (동시 처리하지 않음)
+            for i, news in enumerate(raw_news):
                 try:
                     # 이미 처리된 뉴스인지 확인
                     if news.get('status') == 'completed':
                         logger.info(f"News {news['news_id']} already processed, skipping")
                         continue
 
-                    # 크롤링 + 요약
+                    logger.info(f"Processing news {i+1}/{len(raw_news)}: {news['news_id']}")
+
+                    # 크롤링 + 요약 (순차적으로)
                     content = await self._crawl_news_content(news['news_url'])
                     if content:
                         summary = await self._summarize_content(content, hashtag)
@@ -356,23 +371,30 @@ class NewsService:
 
                         # DB 업데이트 (status='completed')
                         await self._update_news_summary(news['news_id'], summary, company_name)
+                        logger.info(f"Completed processing news {news['news_id']}")
+
+                        # 각 뉴스 처리 후 잠깐 대기 (서버 부하 분산)
+                        await asyncio.sleep(0.5)
+                    else:
+                        logger.warning(f"Failed to crawl content for news {news['news_id']}")
 
                 except Exception as e:
                     logger.error(f"Error processing news {news['news_id']}: {e}")
+                    continue  # 에러가 나도 다음 뉴스 처리 계속
 
         except Exception as e:
             logger.error(f"Error in news processing: {e}")
     
-    async def _get_raw_news(self, job_id: int, hashtag_id: int) -> List[Dict]:
+    async def _get_raw_news(self, mapping_id: int, hashtag_id: int) -> List[Dict]:
         """Raw 상태의 뉴스 조회"""
         query = """
         SELECT news_id, news_url, news_title, status
         FROM news_summaries
-        WHERE job_id = %s AND hashtag_id = %s AND status = 'raw'
+        WHERE mapping_id = %s AND hashtag_id = %s AND status = 'raw'
         """
 
         async with database.get_connection() as cursor:
-            await cursor.execute(query, (job_id, hashtag_id))
+            await cursor.execute(query, (mapping_id, hashtag_id))
             rows = await cursor.fetchall()
 
             columns = [desc[0] for desc in cursor.description]

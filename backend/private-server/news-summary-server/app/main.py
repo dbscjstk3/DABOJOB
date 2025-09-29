@@ -4,6 +4,7 @@ import asyncio
 import time
 from typing import Optional
 from fastapi import FastAPI, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 import ollama
 from concurrent.futures import ThreadPoolExecutor
@@ -11,10 +12,10 @@ import threading
 
 from .utils import qwen_summarize
 from .services.redis_consumer import RedisConsumer
-from .services.resummary_consumer import ResummaryConsumer
+from .routes.admin_routes import router as admin_router
 
 # 로깅 설정
-logging.basicConfig(level=logging.DEBUG)
+logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 # health 체크 로그 필터 (너무 많은 로그 방지)
@@ -28,6 +29,18 @@ uvicorn_logger.addFilter(HealthCheckFilter())
 
 app = FastAPI(title="news-summary-server")
 
+# CORS 설정 추가
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["https://j13a402.p.ssafy.io"],  # 프론트엔드 도메인
+    allow_credentials=True,
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    allow_headers=["*"],
+)
+
+# 라우터 등록
+app.include_router(admin_router)
+
 # 환경변수에서 올바른 이름으로 가져오기
 OLLAMA_HOST = os.getenv('OLLAMA_HOST', 'ollama:11434')
 MODEL_NAME = os.getenv('NEWS_MODEL', 'qwen2.5:0.5b-instruct-fp16')
@@ -39,8 +52,6 @@ request_semaphore = None
 shutdown_event = threading.Event()
 redis_consumer = None
 consumer_thread = None
-resummary_consumer = None
-resummary_thread = None
 
 class NewsSummarizeRequest(BaseModel):
     mapping_id: int
@@ -55,23 +66,16 @@ class NewsSummarizeResponse(BaseModel):
     news_summary: str
     status: str = "completed"
 
-async def news_search_callback(job_id: str, category: str, hashtags: list):
-    """해시태그 기반 뉴스 검색 콜백"""
-    logger.info(f"News search for job {job_id}, category {category}: {hashtags}")
-    # TODO: 실제 뉴스 API 호출 로직 구현
-    # 예: news_api.search(hashtags)
-    # 결과를 파일이나 DB에 저장
-    
-    # 임시 처리
-    for hashtag in hashtags:
-        logger.info(f"Searching news with hashtag: {hashtag}")
-
 @app.on_event("startup")
 async def startup_event():
     """서버 시작 시 초기화"""
-    global ollama_client, executor, request_semaphore, redis_consumer, consumer_thread, resummary_consumer, resummary_thread
-    
+    global ollama_client, executor, request_semaphore, redis_consumer, consumer_thread
+
     try:
+        # 데이터베이스 연결 초기화
+        from .database import database
+        await database.connect()
+        logger.info("Database connection initialized")
         # 상태 관리자 초기화 (실패해도 메인 서비스에 영향 없음)
         try:
             from .shared.status_integration import news_status
@@ -92,22 +96,12 @@ async def startup_event():
         if os.getenv('ENABLE_REDIS_CONSUMER', 'true').lower() == 'true':
             try:
                 redis_consumer = RedisConsumer()
-                redis_consumer.set_news_search_callback(news_search_callback)
                 consumer_thread = redis_consumer.start_background_consumer()
                 logger.info("Redis consumer started successfully")
             except Exception as e:
                 logger.error(f"Failed to start Redis consumer: {e}")
                 # Redis 실패해도 서버는 계속 동작
 
-        # 재요약 Consumer 시작 (분리된 처리)
-        if os.getenv('ENABLE_RESUMMARY_CONSUMER', 'true').lower() == 'true':
-            try:
-                resummary_consumer = ResummaryConsumer()
-                resummary_thread = resummary_consumer.start_background_consumer()
-                logger.info("Resummary consumer started successfully")
-            except Exception as e:
-                logger.error(f"Failed to start resummary consumer: {e}")
-                # 재요약 실패해도 서버는 계속 동작
         
         # 연결 테스트
         models = ollama_client.list()
@@ -137,14 +131,6 @@ def health_check() -> dict:
         except:
             redis_status = "error"
 
-    resummary_status = "not_enabled"
-    resummary_pending = 0
-    if resummary_consumer:
-        try:
-            # 재요약 큐 상태 확인 (간단히)
-            resummary_status = "connected"
-        except:
-            resummary_status = "error"
     
     return {
         "status": "ok" if not shutdown_event.is_set() else "shutting_down",
@@ -154,9 +140,7 @@ def health_check() -> dict:
         "active_tasks": active_tasks,
         "max_workers": int(os.getenv('MAX_WORKERS', '2')),
         "redis_consumer": redis_status,
-        "pending_messages": pending_messages,
-        "resummary_consumer": resummary_status,
-        "resummary_pending": resummary_pending
+        "pending_messages": pending_messages
     }
 
 max_workers = int(os.getenv('MAX_WORKERS', '2'))
@@ -230,9 +214,17 @@ async def get_hashtag_results(job_id: str):
 @app.on_event("shutdown")
 async def shutdown_event_handler():
     """서버 종료 시 정리"""
-    global executor, redis_consumer, resummary_consumer
+    global executor, redis_consumer
     shutdown_event.set()
-    
+
+    # 데이터베이스 연결 해제
+    try:
+        from .database import database
+        await database.disconnect()
+        logger.info("Database connection closed")
+    except:
+        pass
+
     # 상태 관리자 정리 (실패해도 무시)
     try:
         from .shared.status_integration import news_status
@@ -246,13 +238,8 @@ async def shutdown_event_handler():
         redis_consumer.cleanup()
         logger.info("Redis consumer shutdown completed")
 
-    # 재요약 Consumer 정리
-    if resummary_consumer:
-        resummary_consumer.cleanup()
-        logger.info("Resummary consumer shutdown completed")
-
     if executor:
-        executor.shutdown(wait=True, timeout=5)
+        executor.shutdown(wait=True)
         logger.info("Executor shutdown completed")
 
 if __name__ == "__main__":

@@ -6,7 +6,11 @@ import jakarta.validation.ConstraintViolationException;
 import java.time.LocalDateTime;
 import java.util.HashMap;
 import java.util.Map;
+import lombok.extern.slf4j.Slf4j;
 import org.hibernate.TypeMismatchException;
+import org.springframework.data.redis.RedisConnectionFailureException;
+import org.springframework.data.redis.RedisSystemException;
+import org.springframework.data.redis.serializer.SerializationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.oauth2.core.OAuth2AuthenticationException;
@@ -16,8 +20,11 @@ import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
+@Slf4j
 @RestControllerAdvice
 public class GlobalExceptionHandler {
+
+
 
     // 인증 인가 관련
     @ExceptionHandler(OAuth2AuthenticationException.class)
@@ -173,6 +180,41 @@ public class GlobalExceptionHandler {
         return ResponseEntity.badRequest().body(errorResponse);
     }
 
+    // Redis 관련
+    @ExceptionHandler(RedisServiceException.class)
+    public ResponseEntity<ErrorResponse> handleRedisServiceException(RedisServiceException e) {
+        ErrorResponse errorResponse = ErrorResponse.builder()
+                .message("Data service temporarily unavailable")
+                .code("REDIS_SERVICE_ERROR")
+                .timestamp(LocalDateTime.now())
+                .build();
+
+        return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE).body(errorResponse);
+    }
+
+    @ExceptionHandler(RedisConnectionFailureException.class)
+    public ResponseEntity<ErrorResponse> handleRedisConnectionException(Exception e) {
+        ErrorResponse errorResponse = ErrorResponse.builder()
+                .message("Data service connection failed")
+                .code("DATA_CONNECTION_ERROR")
+                .timestamp(LocalDateTime.now())
+                .build();
+
+        return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE).body(errorResponse);
+    }
+
+    @ExceptionHandler({RedisSystemException.class, SerializationException.class})
+    public ResponseEntity<ErrorResponse> handleRedisOperationException(Exception e) {
+        ErrorResponse errorResponse = ErrorResponse.builder()
+                .message("Data processing error")
+                .code("DATA_PROCESSING_ERROR")
+                .timestamp(LocalDateTime.now())
+                .build();
+
+        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(errorResponse);
+    }
+
+
     // 외부 서비스 관련
     @ExceptionHandler(AmazonS3Exception.class)
     public ResponseEntity<ErrorResponse> handleS3Exception(AmazonS3Exception e) {
@@ -187,12 +229,38 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ErrorResponse> handleGenericException(Exception e) {
+        // 상세한 에러 로그 출력
+        log.error("=== UNEXPECTED ERROR OCCURRED ===");
+        log.error("Exception Type: {}", e.getClass().getName());
+        log.error("Exception Message: {}", e.getMessage());
+        log.error("Stack Trace: ", e);
+
+        // 원인이 되는 근본 예외도 출력
+        Throwable rootCause = e;
+        while (rootCause.getCause() != null) {
+            rootCause = rootCause.getCause();
+        }
+        log.error("Root Cause Type: {}", rootCause.getClass().getName());
+        log.error("Root Cause Message: {}", rootCause.getMessage());
+        log.error("=== END OF ERROR INFO ===");
+
         ErrorResponse errorResponse = ErrorResponse.builder()
                 .message("Internal server error")
                 .code("INTERNAL_SERVER_ERROR")
                 .timestamp(LocalDateTime.now())
                 .build();
 
-        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(errorResponse);  // 500
+        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(errorResponse);
     }
+
+//    @ExceptionHandler(Exception.class)
+//    public ResponseEntity<ErrorResponse> handleGenericException(Exception e) {
+//        ErrorResponse errorResponse = ErrorResponse.builder()
+//                .message("Internal server error")
+//                .code("INTERNAL_SERVER_ERROR")
+//                .timestamp(LocalDateTime.now())
+//                .build();
+//
+//        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(errorResponse);  // 500
+//    }
 }

@@ -89,11 +89,11 @@ public interface JobPostingSearchRepository extends ElasticsearchRepository<JobP
 
     @Query("""
     {
-        "match_phrase_prefix": {
-            "title": {
+        "multi_match": {
             "query": "?0",
+            "fields": ["title^1", "company_name^2"],
+            "type": "phrase_prefix",
             "max_expansions": 10
-            }
         }
     }
     """)

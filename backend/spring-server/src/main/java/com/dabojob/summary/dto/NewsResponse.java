@@ -14,6 +14,7 @@ import lombok.NoArgsConstructor;
 public class NewsResponse {
 
     private Long summaryHashtagId;
+    private Long newsId;
     private String url;
     private String title;
     private String content;
@@ -21,6 +22,7 @@ public class NewsResponse {
 
     public static NewsResponse of(News news){
         return NewsResponse.builder()
+                .newsId(news.getId())
                 .summaryHashtagId(news.getSummaryHashtag().getId())
                 .url(news.getUrl())
                 .title(news.getTitle())
