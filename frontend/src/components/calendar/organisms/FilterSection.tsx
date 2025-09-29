@@ -17,22 +17,15 @@ const employmentTypeOptions: FilterOption[] = [
   { value: '시니어', label: '시니어' },
 ];
 
-// 직무 카테고리 옵션
+// 직무 카테고리 옵션 (실제 달력 데이터에 맞춤)
 const jobCategoryOptions: FilterOption[] = [
-  { value: 'IT/서비스', label: 'IT/서비스' },
-  { value: 'IT/플랫폼', label: 'IT/플랫폼' },
-  { value: 'IT/보안', label: 'IT/보안' },
-  { value: '제조/모빌리티', label: '제조/모빌리티' },
-  { value: 'IT/커머스', label: 'IT/커머스' },
-  { value: '게임/엔터', label: '게임/엔터' },
-  { value: '바이오/헬스', label: '바이오/헬스' },
-  { value: '금융/핀테크', label: '금융/핀테크' },
-  { value: '물류/유통', label: '물류/유통' },
-  { value: '미디어/콘텐츠', label: '미디어/콘텐츠' },
-  { value: 'R&D/연구', label: 'R&D/연구' },
-  { value: 'IT/인프라', label: 'IT/인프라' },
-  { value: 'AI/ML', label: 'AI/ML' },
-  { value: '에너지/산업', label: '에너지/산업' },
+  { value: '구조설계', label: '구조설계' },
+  { value: '금융 플랫폼', label: '금융 플랫폼' },
+  { value: '콘텐츠기획/제작', label: '콘텐츠기획/제작' },
+  { value: '문서작성', label: '문서작성' },
+  { value: '정보보안', label: '정보보안' },
+  { value: '소재/무역/물류', label: '소재/무역/물류' },
+  { value: '기계설비', label: '기계설비' },
 ];
 
 export const FilterSection: React.FC<FilterSectionProps> = ({
@@ -62,7 +55,7 @@ export const FilterSection: React.FC<FilterSectionProps> = ({
               options={jobCategoryOptions}
               selectedValues={jobCategoryFilter}
               onSelectionChange={onJobCategoryChange}
-              placeholder="IT/서비스"
+              placeholder="구조설계"
               className="w-32 min-w-32 sm:w-36 sm:min-w-36 lg:w-40 lg:min-w-40"
             />
           </div>
