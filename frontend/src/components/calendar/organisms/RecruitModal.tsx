@@ -8,6 +8,16 @@ import type { JobPostingResponse, AdminCalendarCompany } from '@/lib/api';
 import { groupCompaniesByGroup } from '@/lib/companyUtils';
 import { fetchAdminJobStatus } from '@/lib/api';
 
+// 경력 정보 변환 함수
+const formatCareerInfo = (careerInfo: string): string => {
+  const careerMap: { [key: string]: string } = {
+    junior: '신입',
+    experienced: '경력',
+    senior: '시니어',
+  };
+  return careerMap[careerInfo] || careerInfo;
+};
+
 export interface RecruitModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -231,13 +241,7 @@ export const RecruitModal: React.FC<RecruitModalProps> = ({
                     </div>
                     <div className="flex flex-wrap gap-2 mb-2">
                       <span className="px-2 py-1 text-xs bg-blue-100 text-blue-800 rounded">
-                        {recruit.careerInfo === 'junior'
-                          ? '신입'
-                          : recruit.careerInfo === 'experienced'
-                            ? '경력'
-                            : recruit.careerInfo === 'senior'
-                              ? '시니어'
-                              : recruit.careerInfo}
+                        {formatCareerInfo(recruit.careerInfo)}
                       </span>
                       <span className="px-2 py-1 text-xs bg-green-100 text-green-800 rounded">
                         {recruit.jobSectorName}
@@ -292,13 +296,7 @@ export const RecruitModal: React.FC<RecruitModalProps> = ({
                     </div>
                     <div className="flex flex-wrap gap-2 mb-2">
                       <span className="px-2 py-1 text-xs bg-red-100 text-red-800 rounded">
-                        {recruit.careerInfo === 'junior'
-                          ? '신입'
-                          : recruit.careerInfo === 'experienced'
-                            ? '경력'
-                            : recruit.careerInfo === 'senior'
-                              ? '시니어'
-                              : recruit.careerInfo}
+                        {formatCareerInfo(recruit.careerInfo)}
                       </span>
                       <span className="px-2 py-1 text-xs bg-green-100 text-green-800 rounded">
                         {recruit.jobSectorName}
@@ -355,13 +353,7 @@ export const RecruitModal: React.FC<RecruitModalProps> = ({
                       </div>
                       <div className="flex flex-wrap gap-2 mb-2">
                         <span className="px-2 py-1 text-xs bg-blue-100 text-blue-800 rounded">
-                          {recruit.careerInfo === 'junior'
-                            ? '신입'
-                            : recruit.careerInfo === 'experienced'
-                              ? '경력'
-                              : recruit.careerInfo === 'senior'
-                                ? '시니어'
-                                : recruit.careerInfo}
+                          {formatCareerInfo(recruit.careerInfo)}
                         </span>
                         <span className="px-2 py-1 text-xs bg-green-100 text-green-800 rounded">
                           {recruit.jobSectorName}

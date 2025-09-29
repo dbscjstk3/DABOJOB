@@ -48,6 +48,16 @@ export default function SearchDetailPage() {
     return deadlineDate >= today ? 'started' : 'ended';
   };
 
+  //경력 정보 변환 함수 - 현재 사용하지 않음
+  const formatCareerInfo = (careerInfo: string): string => {
+    const careerMap: { [key: string]: string } = {
+      junior: '신입',
+      experienced: '경력',
+      senior: '시니어',
+    };
+    return careerMap[careerInfo] || careerInfo;
+  };
+
   // 페이지 변경 핸들러
   const handlePageChange = (newPage: number) => {
     navigate({
@@ -90,7 +100,7 @@ export default function SearchDetailPage() {
               status={getStatus(job.deadlineDate)}
               companyName={job.companyName}
               title={job.title}
-              experienceLevel={job.careerInfo}
+              experienceLevel={formatCareerInfo(job.careerInfo)}
               period={formatPeriod(job.deadlineDate)}
               jobCategory={`${job.jobSectorCategory} · ${job.jobSectorName}`}
               url={job.url}
