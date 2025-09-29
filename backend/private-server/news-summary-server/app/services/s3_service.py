@@ -191,7 +191,7 @@ class S3Service:
                     return {
                         "job_id": row[0],
                         "company_id": row[1],
-                        "sector_id": row[2],
+                        "sector_id": 1,
                         "saramin_job_title": row[3],
                         "saramin_job_url": row[4],
                         "career_info": row[5],
@@ -244,9 +244,9 @@ class S3Service:
             if row:
                 return {
                     "job_id": job_id,
-                    "sector_id": row[0],
-                    "sector_name": row[1],
-                    "sector_category": ""
+                    "sector_id": 1,
+                    "sector_name": "empty",
+                    "sector_category": "empty"
                 }
 
             # 결과 없을 때 기본 값
