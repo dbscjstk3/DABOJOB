@@ -28,7 +28,11 @@ class Database:
                 use_unicode=True,
                 autocommit=True,
                 minsize=1,
-                maxsize=5
+                maxsize=10,
+                pool_recycle=3600,  # 1시간마다 연결 재생성
+                echo=False,
+                connect_timeout=30,
+                sql_mode="TRADITIONAL"
             )
             await self.create_tables()
             logger.info("Database connected")
@@ -53,8 +57,13 @@ class Database:
         """DB 커넥션 컨텍스트 매니저"""
         if not self.pool:
             await self.connect()
-        
-        async with self.pool.acquire() as conn:
+
+        conn = None
+        try:
+            conn = await self.pool.acquire()
+            # 연결 상태 확인
+            await conn.ping(reconnect=True)
+
             async with conn.cursor() as cursor:
                 try:
                     yield cursor
@@ -62,6 +71,12 @@ class Database:
                     await conn.rollback()
                     logger.error(f"Database error: {e}")
                     raise
+        except Exception as e:
+            logger.error(f"Connection acquire error: {e}")
+            raise
+        finally:
+            if conn:
+                self.pool.release(conn)
     
     async def create_tables(self):
         """테이블 생성 + 인덱스 정리"""

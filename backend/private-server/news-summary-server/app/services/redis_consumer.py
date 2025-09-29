@@ -28,7 +28,7 @@ class RedisConsumer:
     def __init__(self, redis_host: str = None, redis_port: int = None, consumer_group: str = "summary-group"):
         """
         Redis Consumer 초기화
-        
+
         Args:
             redis_host: Redis 호스트
             redis_port: Redis 포트
@@ -41,6 +41,7 @@ class RedisConsumer:
         self.consumer_name = f"{consumer_group}-{os.getpid()}"
         self.client = None
         self.running = False
+        self.consumer_thread = None
         self._connect()
         self._create_consumer_group()
     
@@ -579,17 +580,36 @@ class RedisConsumer:
             asyncio.set_event_loop(loop)
 
             try:
-                # 백그라운드에서 지속적으로 실행
-                loop.run_until_complete(self.consume_async())
+                async def init_and_consume():
+                    # 백그라운드 스레드용 별도 데이터베이스 연결 초기화
+                    from ..database import Database
+                    local_database = Database()
+                    await local_database.connect()
+                    logger.info("Redis Consumer: Database connection initialized")
+
+                    # 전역 database 인스턴스를 로컬 인스턴스로 교체
+                    import sys
+                    current_module = sys.modules[__name__]
+                    current_module.database = local_database
+
+                    try:
+                        # 백그라운드에서 지속적으로 실행
+                        await self.consume_async()
+                    finally:
+                        # 정리
+                        await local_database.disconnect()
+                        logger.info("Redis Consumer: Database connection closed")
+
+                loop.run_until_complete(init_and_consume())
             except Exception as e:
                 logger.error(f"Background consumer error: {e}")
             finally:
                 loop.close()
 
-        thread = threading.Thread(target=run_consumer, daemon=True)
-        thread.start()
-        logger.info(f"Started background consumer thread: {thread.name}")
-        return thread
+        self.consumer_thread = threading.Thread(target=run_consumer, daemon=True)
+        self.consumer_thread.start()
+        logger.info(f"Started background consumer thread: {self.consumer_thread.name}")
+        return self.consumer_thread
     
     def stop(self):
         """컨슈머 중지"""
@@ -916,6 +936,16 @@ class RedisConsumer:
     def cleanup(self):
         """리소스 정리"""
         self.stop()
+
+        # 백그라운드 스레드가 종료될 때까지 대기 (최대 5초)
+        if self.consumer_thread and self.consumer_thread.is_alive():
+            logger.info("Waiting for consumer thread to stop...")
+            self.consumer_thread.join(timeout=5.0)
+            if self.consumer_thread.is_alive():
+                logger.warning("Consumer thread did not stop within timeout")
+            else:
+                logger.info("Consumer thread stopped successfully")
+
         if self.client:
             self.client.close()
             logger.info("Redis connection closed")
