@@ -13,7 +13,7 @@ public class S3DataSyncScheduler {
 
     private final S3DataSyncService s3DataSyncService;
 
-    @Scheduled(fixedRate = 600000) // 10분마다
+    @Scheduled(fixedRate = 180000) // 3분마다
     public void syncDataFromS3() {
         log.info("Starting S3 data sync...");
 
