@@ -66,6 +66,15 @@ public class FileProcessingService {
         try {
             JobSectorDto dto = objectMapper.treeToValue(jsonData, JobSectorDto.class);
 
+            // sectorId 또는 sectorName이 null이거나 빈 문자열이면 처리 중단
+            if (dto.getSectorId() == null ||
+                    dto.getSectorName() == null ||
+                    dto.getSectorName().trim().isEmpty()) {
+                log.warn("Invalid JobSector data in file {}: sectorId={}, sectorName={}, skipping",
+                        fileName, dto.getSectorId(), dto.getSectorName());
+                return;
+            }
+
             // 중복 체크 - 이미 있으면 넘어감
             if (jobSectorRepository.existsById(dto.getSectorId())) {
                 log.info("JobSector already exists with id: {}, skipping", dto.getSectorId());
@@ -343,22 +352,30 @@ public class FileProcessingService {
     }
 
     private JobSector findOrCreateJobSector(Long sectorId) {
+        // 1. sectorId가 null이면 기본 JobSector(id=1) 사용
+        if (sectorId == null) {
+            log.warn("sectorId is null, using default JobSector with id=1");
+            return getDefaultJobSector();
+        }
+
+        // 2. sectorId로 조회
         Optional<JobSector> existing = jobSectorRepository.findById(sectorId);
+
         if (existing.isPresent()) {
             return existing.get();
         }
 
-        // JobSector가 없으면 기본값으로 생성
-        JobSector newJobSector = JobSector.builder()
-                .id(sectorId)
-                .name("Unknown Sector " + sectorId)
-                .category("기타")
-                .build();
-
-        JobSector saved = jobSectorRepository.save(newJobSector);
-        log.info("Created new JobSector with id: {}", sectorId);
-        return saved;
+        // 3. JobSector가 없으면 기본 JobSector(id=1)로 생성하지 않고 기본값 사용
+        log.warn("JobSector not found with id={}, using default JobSector with id=1", sectorId);
+        return getDefaultJobSector();
     }
+
+    // 기본 JobSector(id=1)를 조회하는 헬퍼 메서드
+    private JobSector getDefaultJobSector() {
+        return jobSectorRepository.findById(1L)
+                .orElseThrow(() -> new RuntimeException("Default JobSector with id=1 not found in database"));
+    }
+
     private CareerInfo parseCareerInfo(String careerInfo) {
         // 임시 처리 - 나중에 쉽게 변경 가능
         if (careerInfo == null || careerInfo.isEmpty()) {
