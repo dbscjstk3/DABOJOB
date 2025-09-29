@@ -49,14 +49,21 @@ const calendarListRoute = createRoute({
 const calendarDetailRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/calendar/$id',
-  beforeLoad: ({ location }) => {
-    const authed = useAuthStore.getState().isAuthed;
-    if (!authed) {
-      // 모달 열고 홈으로 리다이렉트
-      useModalStore
-        .getState()
-        .openLoginModal(location.href, '캘린더 상세 정보를 확인하려면 로그인 해주세요');
-      throw redirect({ to: '/' });
+  beforeLoad: async ({ location }) => {
+    const { isAuthed, fetchUser } = useAuthStore.getState();
+
+    // 인증 상태가 없으면 먼저 사용자 정보를 가져와서 확인
+    if (!isAuthed) {
+      await fetchUser();
+      const currentAuthState = useAuthStore.getState().isAuthed;
+
+      if (!currentAuthState) {
+        // 모달 열고 홈으로 리다이렉트
+        useModalStore
+          .getState()
+          .openLoginModal(location.href, '캘린더 상세 정보를 확인하려면 로그인 해주세요');
+        throw redirect({ to: '/' });
+      }
     }
   },
   component: CalendarDetailPage,
@@ -78,14 +85,21 @@ const loginRoute = createRoute({
 const searchDetailRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/search',
-  beforeLoad: ({ location }) => {
-    const authed = useAuthStore.getState().isAuthed;
-    if (!authed) {
-      // 모달 열고 홈으로 리다이렉트
-      useModalStore
-        .getState()
-        .openLoginModal(location.href, '검색 결과를 확인하려면 로그인 해주세요!');
-      throw redirect({ to: '/' });
+  beforeLoad: async ({ location }) => {
+    const { isAuthed, fetchUser } = useAuthStore.getState();
+
+    // 인증 상태가 없으면 먼저 사용자 정보를 가져와서 확인
+    if (!isAuthed) {
+      await fetchUser();
+      const currentAuthState = useAuthStore.getState().isAuthed;
+
+      if (!currentAuthState) {
+        // 모달 열고 홈으로 리다이렉트
+        useModalStore
+          .getState()
+          .openLoginModal(location.href, '검색 결과를 확인하려면 로그인 해주세요!');
+        throw redirect({ to: '/' });
+      }
     }
   },
   component: SearchDetailPage,
@@ -143,14 +157,18 @@ const authCallbackRoute = createRoute({
 
           if (error) {
             console.error('❌ OAuth 인증 오류:', error);
-            
+
             // 이메일 중복 에러 처리
-            if (error === 'duplicate_email' || error.includes('duplicate') || error.includes('exists')) {
+            if (
+              error === 'duplicate_email' ||
+              error.includes('duplicate') ||
+              error.includes('exists')
+            ) {
               openDuplicateEmailModal('이미 존재하는 이메일입니다. 다른 계정으로 로그인해 주세요.');
               navigate({ to: '/' });
               return;
             }
-            
+
             // 기타 에러는 로그인 페이지로
             navigate({ to: '/login' });
             return;
