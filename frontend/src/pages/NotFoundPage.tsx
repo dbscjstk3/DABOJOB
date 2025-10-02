@@ -5,7 +5,7 @@ const NotFoundPage = () => {
   return (
     <div className="w-full flex-1 flex items-center justify-center bg-gray-50">
       <div className="text-center px-4">
-        <img src={errorImage} alt="404 에러" className="w-auto h-64 mx-auto" />
+        <img src={errorImage} alt="404 에러" className="w-auto h-64 mx-auto" loading="lazy" />
 
         <Typography className="text-6xl mb-4" weight="bold" align="center">
           404

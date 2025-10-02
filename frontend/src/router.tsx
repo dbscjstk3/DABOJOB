@@ -49,23 +49,23 @@ const calendarListRoute = createRoute({
 const calendarDetailRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/calendar/$id',
-  beforeLoad: async ({ location }) => {
-    const { isAuthed, fetchUser } = useAuthStore.getState();
+  // beforeLoad: async ({ location }) => {
+  //   const { isAuthed, fetchUser } = useAuthStore.getState();
 
-    // 인증 상태가 없으면 먼저 사용자 정보를 가져와서 확인
-    if (!isAuthed) {
-      await fetchUser();
-      const currentAuthState = useAuthStore.getState().isAuthed;
+  //   // 인증 상태가 없으면 먼저 사용자 정보를 가져와서 확인
+  //   if (!isAuthed) {
+  //     await fetchUser();
+  //     const currentAuthState = useAuthStore.getState().isAuthed;
 
-      if (!currentAuthState) {
-        // 모달 열고 홈으로 리다이렉트
-        useModalStore
-          .getState()
-          .openLoginModal(location.href, '캘린더 상세 정보를 확인하려면 로그인 해주세요');
-        throw redirect({ to: '/' });
-      }
-    }
-  },
+  //     if (!currentAuthState) {
+  //       // 모달 열고 홈으로 리다이렉트
+  //       useModalStore
+  //         .getState()
+  //         .openLoginModal(location.href, '캘린더 상세 정보를 확인하려면 로그인 해주세요');
+  //       throw redirect({ to: '/' });
+  //     }
+  //   }
+  // },
   component: CalendarDetailPage,
   validateSearch: (search: Record<string, unknown>) => {
     return {

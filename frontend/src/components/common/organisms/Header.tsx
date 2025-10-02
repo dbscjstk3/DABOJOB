@@ -1,8 +1,7 @@
 import { Link, useNavigate } from '@tanstack/react-router';
 import SearchBoxWithAutocomplete from '../molecules/SearchBoxWithAutocomplete';
 import { Button } from '../atoms/Button';
-
-import DABOJOB_logo from '@/assets/logo/DABOJOB_LOGO_FINAL.gif';
+import DABOJOB_logo from '../../../assets/logo/DABOJOB_LOGO_FINAL_optimized.gif';
 
 type User = { name: string; role?: string };
 

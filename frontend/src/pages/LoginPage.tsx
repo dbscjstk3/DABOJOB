@@ -3,7 +3,7 @@ import { Button } from '../components/common/atoms/Button';
 import { Typography } from '../components/common/atoms/Typography';
 import { API_ENDPOINTS } from '../lib/api';
 import DABOJOB_LOGO_FINAL from '../assets/logo/DABOJOB_LOGO_FINAL.png?format=webp&quality=80';
-import SSAFY_logo from '../assets/logo/ssafyLogo.png';
+import SSAFY_logo from '../assets/logo/ssafyLogo.png?format=webp&quality=80';
 import GOOGLE_logo from '../assets/logo/googleLogo.svg';
 import mascot from '../assets/img/daboja_mascot.png?format=webp&quality=80';
 
@@ -18,7 +18,12 @@ export default function LoginPage() {
       <div className="mx-auto grid max-w-5xl grid-cols-1 overflow-hidden rounded-3xl bg-white shadow-2xl md:grid-cols-2 h-auto md:h-[600px] w-full animate-in fade-in slide-in-from-bottom-3 duration-300 relative z-10">
         {/* 모바일용 상단 비주얼 영역 */}
         <div className="relative block md:hidden h-56">
-          <img src={mascot} alt="daboja mascot" className="h-full w-full object-cover" />
+          <img
+            src={mascot}
+            alt="daboja mascot"
+            className="h-full w-full object-cover"
+            loading="lazy"
+          />
           <div className="absolute inset-0 bg-slate-900/20" />
           <div className="absolute bottom-4 left-4 right-4 text-white text-center">
             <Typography as="div" variant="subtitle" weight="semibold" color="white">
