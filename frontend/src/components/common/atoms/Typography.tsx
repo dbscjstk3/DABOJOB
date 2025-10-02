@@ -19,14 +19,10 @@ const typographyVariants = cva('font-pretendard', {
       title: 'text-[24px] leading-tight tracking-normal',
     },
     weight: {
-      thin: 'font-thin',
-      extralight: 'font-extralight',
-      light: 'font-light',
       regular: 'font-normal',
       medium: 'font-medium',
       semibold: 'font-semibold',
       bold: 'font-bold',
-      extrabold: 'font-extrabold',
     },
     color: {
       black: 'text-black',
